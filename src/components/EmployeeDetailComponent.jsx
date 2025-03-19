@@ -1,118 +1,122 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const EmployeeDetailComponent = () => {
-  // 従業員データ
-  const employees = [
-    { 
-      id: '1001', 
-      name: '山田 太郎', 
-      disabilityType: '身体障害', 
-      grade: '1級', 
-      hireDate: '2020/04/01', 
-      count: 2, 
-      status: '在籍', 
-      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // 4月から3月まで
-      comments: '-' 
+  const [loading, setLoading] = useState(true);
+  
+  // モックデータ
+  const mockEmployeeData = [
+    {
+      no: 1,
+      employeeId: "1001",
+      name: "山田 太郎",
+      disabilityType: "身体障害",
+      grade: "1級",
+      hireDate: "2020/04/01",
+      status: "在籍",
+      monthlyData: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
     },
-    { 
-      id: '2222', 
-      name: '鈴木 花子', 
-      disabilityType: '身体障害', 
-      grade: '4級', 
-      hireDate: '2020/04/01', 
-      count: 1, 
-      status: '在籍', 
-      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      comments: '-' 
+    {
+      no: 2,
+      employeeId: "2222",
+      name: "鈴木 花子",
+      disabilityType: "身体障害",
+      grade: "4級",
+      hireDate: "2020/04/01",
+      status: "在籍",
+      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     },
-    { 
-      id: '3333', 
-      name: '佐藤 一郎', 
-      disabilityType: '知的障害', 
-      grade: 'B', 
-      hireDate: '2020/04/01', 
-      count: 1, 
-      status: '在籍', 
-      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      comments: '-' 
+    {
+      no: 3,
+      employeeId: "3333",
+      name: "佐藤 一郎",
+      disabilityType: "知的障害",
+      grade: "B",
+      hireDate: "2020/04/01",
+      status: "在籍",
+      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     },
-    { 
-      id: '4444', 
-      name: '高橋 勇太', 
-      disabilityType: '精神障害', 
-      grade: '3級', 
-      hireDate: '2020/04/01', 
-      count: 1, 
-      status: '在籍', 
-      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      comments: '-' 
+    {
+      no: 4,
+      employeeId: "4444",
+      name: "高橋 勇太",
+      disabilityType: "精神障害",
+      grade: "3級",
+      hireDate: "2020/04/01",
+      status: "在籍",
+      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     },
-    { 
-      id: '5555', 
-      name: '田中 美咲', 
-      disabilityType: '精神障害', 
-      grade: '2級', 
-      hireDate: '2021/04/01', 
-      count: 1, 
-      status: '在籍', 
-      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      comments: '-' 
-    },
+    {
+      no: 5,
+      employeeId: "5555",
+      name: "田中 美咲",
+      disabilityType: "精神障害",
+      grade: "2級",
+      hireDate: "2021/04/01",
+      status: "在籍",
+      monthlyData: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    }
   ];
 
-  // 月のラベル
-  const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
+  // データロード時の動作をシミュレート
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) return <div>読み込み中...</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-6">
-        <h2 className="text-lg font-semibold mb-4">障害者雇用者詳細</h2>
-      </div>
-
-      {/* 従業員テーブル */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
+    <div className="card">
+      <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>従業員詳細情報</h3>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="table" style={{ minWidth: '1500px' }}>
+          <thead>
             <tr>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No.</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">社員ID</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">氏名</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">障害区分</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">等級</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">採用日</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">カウント</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状態</th>
-              {/* 4月から3月までの列 */}
-              {months.map((month) => (
-                <th key={month} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {month}
-                </th>
-              ))}
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コメント</th>
+              <th>No.</th>
+              <th>社員ID</th>
+              <th>氏名</th>
+              <th>障害区分</th>
+              <th>等級</th>
+              <th>採用日</th>
+              <th>在籍状況</th>
+              <th>4月</th>
+              <th>5月</th>
+              <th>6月</th>
+              <th>7月</th>
+              <th>8月</th>
+              <th>9月</th>
+              <th>10月</th>
+              <th>11月</th>
+              <th>12月</th>
+              <th>1月</th>
+              <th>2月</th>
+              <th>3月</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {employees.map((employee, index) => (
-              <tr key={employee.id}>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.id}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.name}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.disabilityType}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.grade}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.hireDate}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.count}</td>
-                <td className="px-3 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+          <tbody>
+            {mockEmployeeData.map((employee, index) => (
+              <tr key={index}>
+                <td>{employee.no}</td>
+                <td>{employee.employeeId}</td>
+                <td>{employee.name}</td>
+                <td>{employee.disabilityType}</td>
+                <td>{employee.grade}</td>
+                <td>{employee.hireDate}</td>
+                <td>
+                  <span className="status-indicator status-active">
                     {employee.status}
                   </span>
                 </td>
+                
                 {/* 各月のデータ */}
                 {employee.monthlyData.map((value, idx) => (
-                  <td key={idx} className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                  <td key={idx} className="text-center">
                     {value}
                   </td>
                 ))}
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{employee.comments}</td>
               </tr>
             ))}
           </tbody>

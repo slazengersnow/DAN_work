@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 
-// モックデータ
-const mockCompanyData = {
-  name: '株式会社サンプル',
-  code: '1234567890',
-  address: '東京都千代田区〇〇町1-2-3',
-  legalRate: 2.3,
-  fiscalYear: '2024年4月～2025年3月',
-};
+// プロパティの型定義
+interface SettingsProps {
+  theme: string;
+  onChangeTheme: (newTheme: string) => void;
+}
 
-const Settings: React.FC = () => {
+const Settings: React.FC<SettingsProps> = ({ theme, onChangeTheme }) => {
+  // モックデータ
+  const mockCompanyData = {
+    name: '株式会社サンプル',
+    code: '1234567890',
+    address: '東京都千代田区〇〇町1-2-3',
+    legalRate: 2.3,
+    fiscalYear: '2024年4月～2025年3月',
+  };
+
   const [activeTab, setActiveTab] = useState<string>('basic');
   const [companyName, setCompanyName] = useState<string>(mockCompanyData.name);
   const [companyCode, setCompanyCode] = useState<string>(mockCompanyData.code);
@@ -76,6 +82,17 @@ const Settings: React.FC = () => {
             onClick={() => setActiveTab('data')}
           >
             データ管理
+          </div>
+          <div 
+            style={{ 
+              padding: '10px 20px', 
+              cursor: 'pointer', 
+              backgroundColor: activeTab === 'theme' ? '#f0f7ff' : 'transparent',
+              borderBottom: activeTab === 'theme' ? '2px solid #4169e1' : 'none',
+            }}
+            onClick={() => setActiveTab('theme')}
+          >
+            テーマ設定
           </div>
         </div>
         
@@ -206,6 +223,39 @@ const Settings: React.FC = () => {
           <div style={{ padding: '20px', textAlign: 'center' }}>
             <h3>データ管理</h3>
             <p>この機能は開発中です。</p>
+          </div>
+        )}
+
+        {activeTab === 'theme' && (
+          <div className="card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>テーマ設定</h3>
+            <div className="form-group">
+              <div style={{ display: 'flex', gap: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'center' }}>
+                  <input 
+                    type="radio" 
+                    name="theme" 
+                    value="light" 
+                    checked={theme === 'light'} 
+                    onChange={() => onChangeTheme('light')} 
+                    style={{ marginRight: '10px' }}
+                  />
+                  ライトモード
+                </label>
+                
+                <label style={{ display: 'flex', alignItems: 'center' }}>
+                  <input 
+                    type="radio" 
+                    name="theme" 
+                    value="dark" 
+                    checked={theme === 'dark'} 
+                    onChange={() => onChangeTheme('dark')} 
+                    style={{ marginRight: '10px' }}
+                  />
+                  ダークモード
+                </label>
+              </div>
+            </div>
           </div>
         )}
         

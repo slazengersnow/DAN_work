@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import EmployeeDetailComponent from '../components/EmployeeDetailComponent';
 
 // モックデータ
 const mockSummary = {
@@ -11,7 +12,7 @@ const mockSummary = {
   legalRate: 2.3,
 };
 
-// 新しいモックデータ（画像2に基づく）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockDetailData = {
   employees: [
     { number: 1, id: 1001, name: '山田 太郎', type: '身体障害', grade: '1級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 2.0,
@@ -27,7 +28,6 @@ const mockDetailData = {
   ]
 };
 
-// 画像1に基づくもっと詳細なデータ
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockMonthlyDetailData = [
   { month: 1, total: 645, mon: 600, tue: 604, wed: 633, thu: 640, fri: 650, sat: 0, sun: 0, 
@@ -53,287 +53,12 @@ const mockHistory = [
   { yearMonth: '2024/09', totalEmployees: 520, disabledCount: 5, physical: 2, intellectual: 1, mental: 2, employmentCount: 12.0, actualRate: 2.31, status: '確定済' },
 ];
 
-interface EmployeeDetailProps {
-  number: number;
-  id: number;
-  name: string;
-  type: string;
-  grade: string;
-  hireDate: string;
-  status: string;
-  count: number;
-  monthly: number[];
-}
-
 const MonthlyReport: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(2024);
   const [selectedMonth, setSelectedMonth] = useState<number>(11);
   const [activeTab, setActiveTab] = useState<string>('summary');
 
-  // 従業員の月次詳細データを表示する関数
-  const renderEmployeeDetailTable = () => {
-    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-    
-    return (
-      <div className="card" style={{ marginBottom: '20px', overflowX: 'auto' }}>
-        <table className="table" style={{ minWidth: '1200px' }}>
-          <thead>
-            <tr>
-              <th>Unnamed:0</th>
-              <th>Unnamed:1</th>
-              <th>Unnamed:2</th>
-              <th>Unnamed:3</th>
-              <th>Unnamed:4</th>
-              <th>Unnamed:5</th>
-              <th>Unnamed:6</th>
-              <th>在籍状況</th>
-              {months.map((month, idx) => (
-                <th key={idx}>{month}</th>
-              ))}
-              <th>コメント</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockDetailData.employees.map((employee: EmployeeDetailProps, idx: number) => (
-              <tr key={idx}>
-                <td>{employee.number}</td>
-                <td>{employee.id}</td>
-                <td>{employee.name}</td>
-                <td>{employee.type}</td>
-                <td>{employee.grade}</td>
-                <td>{employee.hireDate}</td>
-                <td></td>
-                <td>{employee.status}</td>
-                {employee.monthly.map((value: number, monthIdx: number) => (
-                  <td key={monthIdx}>{value}</td>
-                ))}
-                <td>-</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  // 月次詳細データを表示する関数（画像1に基づく）
-  const renderMonthlyDetailTable = () => {
-    return (
-      <div className="card" style={{ marginBottom: '20px', overflowX: 'auto' }}>
-        <table className="table" style={{ minWidth: '1500px' }}>
-          <thead>
-            <tr>
-              <th>Unnamed:0</th>
-              <th>Unnamed:1</th>
-              <th>Unnamed:2</th>
-              <th>Unnamed:3</th>
-              <th>Unnamed:4</th>
-              <th>Unnamed:5</th>
-              <th>Unnamed:6</th>
-              <th>Unnamed:7</th>
-              <th>Unnamed:8</th>
-              <th>Unnamed:9</th>
-              <th>Unnamed:10</th>
-              <th>Unnamed:11</th>
-              <th>Unnamed:12</th>
-              <th>Unnamed:13</th>
-              <th>Unnamed:14</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>nan</td>
-              <td>day</td>
-              <td>week</td>
-              <td>2023</td>
-              <td>2023</td>
-              <td>2023</td>
-              <td>2023</td>
-              <td>2023</td>
-              <td>2023</td>
-              <td>2023</td>
-              <td>2024</td>
-              <td>2024</td>
-              <td>2024</td>
-              <td>2024</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>month</td>
-              <td>day</td>
-              <td>4月</td>
-              <td>5月</td>
-              <td>6月</td>
-              <td>7月</td>
-              <td>8月</td>
-              <td>9月</td>
-              <td>10月</td>
-              <td>11月</td>
-              <td>12月</td>
-              <td>1月</td>
-              <td>2月</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>計算式</td>
-              <td>600</td>
-              <td>604</td>
-              <td>633</td>
-              <td>640</td>
-              <td>650</td>
-              <td>650</td>
-              <td>660</td>
-              <td>670</td>
-              <td>665</td>
-              <td>670</td>
-              <td>690</td>
-              <td>702</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>平均値</td>
-              <td>650</td>
-              <td>604</td>
-              <td>633</td>
-              <td>640</td>
-              <td>650</td>
-              <td>650</td>
-              <td>660</td>
-              <td>670</td>
-              <td>665</td>
-              <td>670</td>
-              <td>690</td>
-              <td>702</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>合計</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>0</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>法定雇用義務数</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>2</td>
-              <td>24</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>その他</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>3</td>
-              <td>33</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>障害者雇用率</td>
-              <td>4</td>
-              <td>4</td>
-              <td>4</td>
-              <td>5</td>
-              <td>5</td>
-              <td>5</td>
-              <td>5</td>
-              <td>5</td>
-              <td>5</td>
-              <td>5</td>
-              <td>5</td>
-              <td>57</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>障害者雇用義務数</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>0.025</td>
-              <td>nan</td>
-              <td>nan</td>
-            </tr>
-            <tr>
-              <td>nan</td>
-              <td>月別合計</td>
-              <td>11</td>
-              <td>21.2</td>
-              <td>21.2</td>
-              <td>11</td>
-              <td>11.25</td>
-              <td>11.25</td>
-              <td>11.5</td>
-              <td>11.75</td>
-              <td>11.825</td>
-              <td>11.75</td>
-              <td>12</td>
-              <td>12.5</td>
-              <td>nan</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
+  // サマリー情報と各タブ用のコンポーネントを表示
   return (
     <div>
       <h2 className="card-header">月次報告</h2>
@@ -371,7 +96,7 @@ const MonthlyReport: React.FC = () => {
       </div>
       
       <div className="card" style={{ backgroundColor: '#f0f8ff', marginBottom: '20px' }}>
-        <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>2024年11月 集計サマリー</h3>
+        <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>2024年集計サマリー</h3>
         <div style={{ fontSize: '14px' }}>
           常用労働者数: {mockSummary.totalEmployees}名 | 障害者数: {mockSummary.disabledEmployees}名 | 雇用カウント: {mockSummary.employmentCount} | 実雇用率: {mockSummary.actualRate}% | 法定雇用率: {mockSummary.legalRate}%
         </div>
@@ -497,9 +222,232 @@ const MonthlyReport: React.FC = () => {
         </>
       )}
       
-      {activeTab === 'employees' && renderEmployeeDetailTable()}
+      {activeTab === 'employees' && <EmployeeDetailComponent />}
       
-      {activeTab === 'monthly' && renderMonthlyDetailTable()}
+      {activeTab === 'monthly' && (
+        <div className="card" style={{ marginBottom: '20px', overflowX: 'auto' }}>
+          <table className="table" style={{ minWidth: '1500px' }}>
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>4月</th>
+                <th>5月</th>
+                <th>6月</th>
+                <th>7月</th>
+                <th>8月</th>
+                <th>9月</th>
+                <th>10月</th>
+                <th>11月</th>
+                <th>12月</th>
+                <th>1月</th>
+                <th>2月</th>
+                <th>3月</th>
+                <th>合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>従業員数</td>
+                <td>600</td>
+                <td>604</td>
+                <td>633</td>
+                <td>640</td>
+                <td>650</td>
+                <td>650</td>
+                <td>660</td>
+                <td>670</td>
+                <td>665</td>
+                <td>670</td>
+                <td>690</td>
+                <td>702</td>
+                <td>7822</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>フルタイム従業員数</td>
+                <td>600</td>
+                <td>604</td>
+                <td>633</td>
+                <td>640</td>
+                <td>650</td>
+                <td>650</td>
+                <td>660</td>
+                <td>670</td>
+                <td>665</td>
+                <td>670</td>
+                <td>690</td>
+                <td>702</td>
+                <td>7822</td>
+              </tr>
+              <tr>
+                <td>パートタイム従業員数</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>トータル従業員数</td>
+                <td>600</td>
+                <td>604</td>
+                <td>633</td>
+                <td>640</td>
+                <td>650</td>
+                <td>650</td>
+                <td>660</td>
+                <td>670</td>
+                <td>665</td>
+                <td>670</td>
+                <td>690</td>
+                <td>702</td>
+                <td>7822</td>
+              </tr>
+              <tr>
+                <td colSpan={14} style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>障がい者</td>
+              </tr>
+              <tr>
+                <td>Level1 and Level2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>24</td>
+              </tr>
+              <tr>
+                <td>Other than above</td>
+                <td>2</td>
+                <td>2</td>
+                <td>2</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>3</td>
+                <td>33</td>
+              </tr>
+              <tr>
+                <td>トータル障がい者数</td>
+                <td>4</td>
+                <td>4</td>
+                <td>4</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>5</td>
+                <td>57</td>
+              </tr>
+              <tr>
+                <td colSpan={14}></td>
+              </tr>
+              <tr>
+                <td>実雇用率</td>
+                <td>0.7%</td>
+                <td>0.7%</td>
+                <td>0.6%</td>
+                <td>0.8%</td>
+                <td>0.8%</td>
+                <td>0.8%</td>
+                <td>0.8%</td>
+                <td>0.7%</td>
+                <td>0.8%</td>
+                <td>0.7%</td>
+                <td>0.7%</td>
+                <td>0.7%</td>
+                <td>0.7%</td>
+              </tr>
+              <tr>
+                <td>法定雇用率</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+                <td>2.5%</td>
+              </tr>
+              <tr>
+                <td>法定雇用者数</td>
+                <td>15</td>
+                <td>15</td>
+                <td>16</td>
+                <td>16</td>
+                <td>16</td>
+                <td>16</td>
+                <td>17</td>
+                <td>17</td>
+                <td>17</td>
+                <td>17</td>
+                <td>17</td>
+                <td>18</td>
+                <td>196</td>
+              </tr>
+              <tr>
+                <td>Overs and Shorts</td>
+                <td className="text-danger">-11</td>
+                <td className="text-danger">-11</td>
+                <td className="text-danger">-12</td>
+                <td className="text-danger">-11</td>
+                <td className="text-danger">-11</td>
+                <td className="text-danger">-11</td>
+                <td className="text-danger">-12</td>
+                <td className="text-danger">-12</td>
+                <td className="text-danger">-12</td>
+                <td className="text-danger">-12</td>
+                <td className="text-danger">-12</td>
+                <td className="text-danger">-13</td>
+                <td className="text-danger">-139</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
       
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
         <button className="btn btn-secondary">印刷</button>
