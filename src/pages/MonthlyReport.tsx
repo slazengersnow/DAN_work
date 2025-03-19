@@ -15,15 +15,15 @@ const mockSummary = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockDetailData = {
   employees: [
-    { number: 1, id: 1001, name: '山田 太郎', type: '身体障害', grade: '1級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 2.0,
+    { number: 1, id: 1001, name: '山田 太郎', type: '身体障害', disability: '視覚', grade: '1級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 2.0,
       monthly: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }, // 1-12月の在籍状況
-    { number: 2, id: 2222, name: '鈴木 花子', type: '身体障害', grade: '4級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 1.0,
+    { number: 2, id: 2222, name: '鈴木 花子', type: '身体障害', disability: '聴覚', grade: '4級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 1.0,
       monthly: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
-    { number: 3, id: 3333, name: '佐藤 一郎', type: '知的障害', grade: 'B', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 1.0,
+    { number: 3, id: 3333, name: '佐藤 一郎', type: '知的障害', disability: '-', grade: 'B', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 1.0,
       monthly: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] },
-    { number: 4, id: 4444, name: '高橋 勇太', type: '精神障害', grade: '3級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 1.0,
+    { number: 4, id: 4444, name: '高橋 勇太', type: '精神障害', disability: 'ADHD', grade: '3級', hireDate: '2020/04/01 00:00:00', status: '在籍', count: 1.0,
       monthly: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2] },
-    { number: 5, id: 5555, name: '田中 美咲', type: '精神障害', grade: '2級', hireDate: '2021/04/01 00:00:00', status: '在籍', count: 1.0,
+    { number: 5, id: 5555, name: '田中 美咲', type: '精神障害', disability: 'うつ病', grade: '2級', hireDate: '2021/04/01 00:00:00', status: '在籍', count: 1.0,
       monthly: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2] },
   ]
 };
@@ -40,11 +40,11 @@ const mockMonthlyDetailData = [
 ];
 
 const mockEmployees = [
-  { no: 1, id: 1001, name: '山田 太郎', type: '身体障害', grade: '1級', hireDate: '2020/04/01', count: 2.0, status: '在籍', flag: 1, comment: '-' },
-  { no: 2, id: 2222, name: '鈴木 花子', type: '身体障害', grade: '4級', hireDate: '2020/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
-  { no: 3, id: 3333, name: '佐藤 一郎', type: '知的障害', grade: 'B', hireDate: '2020/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
-  { no: 4, id: 4444, name: '高橋 勇太', type: '精神障害', grade: '3級', hireDate: '2020/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
-  { no: 5, id: 5555, name: '田中 美咲', type: '精神障害', grade: '2級', hireDate: '2021/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
+  { no: 1, id: 1001, name: '山田 太郎', type: '身体障害', disability: '視覚', grade: '1級', hireDate: '2020/04/01', count: 2.0, status: '在籍', flag: 1, comment: '-' },
+  { no: 2, id: 2222, name: '鈴木 花子', type: '身体障害', disability: '聴覚', grade: '4級', hireDate: '2020/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
+  { no: 3, id: 3333, name: '佐藤 一郎', type: '知的障害', disability: '-', grade: 'B', hireDate: '2020/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
+  { no: 4, id: 4444, name: '高橋 勇太', type: '精神障害', disability: 'ADHD', grade: '3級', hireDate: '2020/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
+  { no: 5, id: 5555, name: '田中 美咲', type: '精神障害', disability: 'うつ病', grade: '2級', hireDate: '2021/04/01', count: 1.0, status: '在籍', flag: 1, comment: '-' },
 ];
 
 const mockHistory = [
@@ -63,37 +63,40 @@ const MonthlyReport: React.FC = () => {
     <div>
       <h2 className="card-header">月次報告</h2>
       
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <label>対象期間</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <select 
-              className="form-control" 
-              style={{ width: '150px' }}
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-            >
-              <option value={2024}>2024年</option>
-              <option value={2023}>2023年</option>
-              <option value={2022}>2022年</option>
-            </select>
+      {/* 対象期間の選択部分をサマリータブの場合のみ表示 */}
+      {activeTab === 'summary' && (
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <label>対象期間</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <select 
+                className="form-control" 
+                style={{ width: '150px' }}
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+              >
+                <option value={2024}>2024年</option>
+                <option value={2023}>2023年</option>
+                <option value={2022}>2022年</option>
+              </select>
+              
+              <select 
+                className="form-control" 
+                style={{ width: '150px' }}
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                  <option key={month} value={month}>{month}月</option>
+                ))}
+              </select>
+            </div>
             
-            <select 
-              className="form-control" 
-              style={{ width: '150px' }}
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                <option key={month} value={month}>{month}月</option>
-              ))}
-            </select>
+            <button className="btn btn-primary">表示</button>
+            <button className="btn btn-secondary" style={{ marginLeft: 'auto' }}>月次確定</button>
           </div>
-          
-          <button className="btn btn-primary">表示</button>
-          <button className="btn btn-secondary" style={{ marginLeft: 'auto' }}>月次確定</button>
         </div>
-      </div>
+      )}
       
       <div className="card" style={{ backgroundColor: '#f0f8ff', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>2024年集計サマリー</h3>
@@ -150,6 +153,7 @@ const MonthlyReport: React.FC = () => {
                   <th>社員ID</th>
                   <th>氏名</th>
                   <th>障害区分</th>
+                  <th>障害</th>
                   <th>等級</th>
                   <th>採用日</th>
                   <th>カウント</th>
@@ -165,6 +169,7 @@ const MonthlyReport: React.FC = () => {
                     <td>{employee.id}</td>
                     <td>{employee.name}</td>
                     <td>{employee.type}</td>
+                    <td>{employee.disability}</td>
                     <td>{employee.grade}</td>
                     <td>{employee.hireDate}</td>
                     <td>{employee.count}</td>

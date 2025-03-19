@@ -10,6 +10,7 @@ const EmployeeDetailComponent = () => {
       employeeId: "1001",
       name: "山田 太郎",
       disabilityType: "身体障害",
+      disability: "視覚",
       grade: "1級",
       hireDate: "2020/04/01",
       status: "在籍",
@@ -20,6 +21,7 @@ const EmployeeDetailComponent = () => {
       employeeId: "2222",
       name: "鈴木 花子",
       disabilityType: "身体障害",
+      disability: "聴覚",
       grade: "4級",
       hireDate: "2020/04/01",
       status: "在籍",
@@ -30,6 +32,7 @@ const EmployeeDetailComponent = () => {
       employeeId: "3333",
       name: "佐藤 一郎",
       disabilityType: "知的障害",
+      disability: "-",
       grade: "B",
       hireDate: "2020/04/01",
       status: "在籍",
@@ -40,6 +43,7 @@ const EmployeeDetailComponent = () => {
       employeeId: "4444",
       name: "高橋 勇太",
       disabilityType: "精神障害",
+      disability: "ADHD",
       grade: "3級",
       hireDate: "2020/04/01",
       status: "在籍",
@@ -50,6 +54,7 @@ const EmployeeDetailComponent = () => {
       employeeId: "5555",
       name: "田中 美咲",
       disabilityType: "精神障害",
+      disability: "うつ病",
       grade: "2級",
       hireDate: "2021/04/01",
       status: "在籍",
@@ -79,6 +84,7 @@ const EmployeeDetailComponent = () => {
               <th>社員ID</th>
               <th>氏名</th>
               <th>障害区分</th>
+              <th>障害</th>
               <th>等級</th>
               <th>採用日</th>
               <th>在籍状況</th>
@@ -103,6 +109,7 @@ const EmployeeDetailComponent = () => {
                 <td>{employee.employeeId}</td>
                 <td>{employee.name}</td>
                 <td>{employee.disabilityType}</td>
+                <td>{employee.disability}</td>
                 <td>{employee.grade}</td>
                 <td>{employee.hireDate}</td>
                 <td>
