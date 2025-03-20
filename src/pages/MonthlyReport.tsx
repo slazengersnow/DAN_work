@@ -64,46 +64,365 @@ const MonthlyReport: React.FC = () => {
     { id: 'monthly', label: '月次詳細' }
   ];
 
+  // 各タブのコンテンツをレンダリングする関数
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'summary':
+        return (
+          <>
+            <div className="card" style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>障害者雇用者詳細</h3>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>No.</th>
+                    <th>社員ID</th>
+                    <th>氏名</th>
+                    <th>障害区分</th>
+                    <th>障害</th>
+                    <th>等級</th>
+                    <th>採用日</th>
+                    <th>カウント</th>
+                    <th>状態</th>
+                    <th>11月フラグ</th>
+                    <th>コメント</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mockEmployees.map((employee) => (
+                    <tr key={employee.id}>
+                      <td>{employee.no}</td>
+                      <td>{employee.id}</td>
+                      <td>{employee.name}</td>
+                      <td>{employee.type}</td>
+                      <td>{employee.disability}</td>
+                      <td>{employee.grade}</td>
+                      <td>{employee.hireDate}</td>
+                      <td>{employee.count}</td>
+                      <td>
+                        <span className="status-indicator status-active">{employee.status}</span>
+                      </td>
+                      <td>{employee.flag}</td>
+                      <td>{employee.comment}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="card">
+              <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>月別実績履歴</h3>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>年月</th>
+                    <th>常用労働者数</th>
+                    <th>障害者数</th>
+                    <th>身体障害</th>
+                    <th>知的障害</th>
+                    <th>精神障害</th>
+                    <th>雇用カウント</th>
+                    <th>実雇用率</th>
+                    <th>状態</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mockHistory.map((record, index) => (
+                    <tr key={index}>
+                      <td>{record.yearMonth}</td>
+                      <td>{record.totalEmployees}</td>
+                      <td>{record.disabledCount}</td>
+                      <td>{record.physical}</td>
+                      <td>{record.intellectual}</td>
+                      <td>{record.mental}</td>
+                      <td>{record.employmentCount}</td>
+                      <td>{record.actualRate}%</td>
+                      <td>
+                        <span 
+                          className="status-indicator status-active" 
+                          style={{ backgroundColor: '#e6f7e6', color: '#28a745' }}
+                        >
+                          {record.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      case 'employees':
+        return <EmployeeDetailComponent />;
+      case 'monthly':
+        return (
+          <div className="card" style={{ marginBottom: '20px', overflowX: 'auto' }}>
+            <table className="table" style={{ minWidth: '1500px' }}>
+              <thead>
+                <tr>
+                  <th>項目</th>
+                  <th>4月</th>
+                  <th>5月</th>
+                  <th>6月</th>
+                  <th>7月</th>
+                  <th>8月</th>
+                  <th>9月</th>
+                  <th>10月</th>
+                  <th>11月</th>
+                  <th>12月</th>
+                  <th>1月</th>
+                  <th>2月</th>
+                  <th>3月</th>
+                  <th>合計</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>従業員数</td>
+                  <td>600</td>
+                  <td>604</td>
+                  <td>633</td>
+                  <td>640</td>
+                  <td>650</td>
+                  <td>650</td>
+                  <td>660</td>
+                  <td>670</td>
+                  <td>665</td>
+                  <td>670</td>
+                  <td>690</td>
+                  <td>702</td>
+                  <td>7822</td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>フルタイム従業員数</td>
+                  <td>600</td>
+                  <td>604</td>
+                  <td>633</td>
+                  <td>640</td>
+                  <td>650</td>
+                  <td>650</td>
+                  <td>660</td>
+                  <td>670</td>
+                  <td>665</td>
+                  <td>670</td>
+                  <td>690</td>
+                  <td>702</td>
+                  <td>7822</td>
+                </tr>
+                <tr>
+                  <td>パートタイム従業員数</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                </tr>
+                <tr>
+                  <td>トータル従業員数</td>
+                  <td>600</td>
+                  <td>604</td>
+                  <td>633</td>
+                  <td>640</td>
+                  <td>650</td>
+                  <td>650</td>
+                  <td>660</td>
+                  <td>670</td>
+                  <td>665</td>
+                  <td>670</td>
+                  <td>690</td>
+                  <td>702</td>
+                  <td>7822</td>
+                </tr>
+                <tr>
+                  <td colSpan={14} style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>障がい者</td>
+                </tr>
+                <tr>
+                  <td>Level1 and Level2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>24</td>
+                </tr>
+                <tr>
+                  <td>Other than above</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>33</td>
+                </tr>
+                <tr>
+                  <td>トータル障がい者数</td>
+                  <td>4</td>
+                  <td>4</td>
+                  <td>4</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>57</td>
+                </tr>
+                <tr>
+                  <td colSpan={14}></td>
+                </tr>
+                <tr>
+                  <td>実雇用率</td>
+                  <td>0.7%</td>
+                  <td>0.7%</td>
+                  <td>0.6%</td>
+                  <td>0.8%</td>
+                  <td>0.8%</td>
+                  <td>0.8%</td>
+                  <td>0.8%</td>
+                  <td>0.7%</td>
+                  <td>0.8%</td>
+                  <td>0.7%</td>
+                  <td>0.7%</td>
+                  <td>0.7%</td>
+                  <td>0.7%</td>
+                </tr>
+                <tr>
+                  <td>法定雇用率</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                  <td>2.5%</td>
+                </tr>
+                <tr>
+                  <td>法定雇用者数</td>
+                  <td>15</td>
+                  <td>15</td>
+                  <td>16</td>
+                  <td>16</td>
+                  <td>16</td>
+                  <td>16</td>
+                  <td>17</td>
+                  <td>17</td>
+                  <td>17</td>
+                  <td>17</td>
+                  <td>17</td>
+                  <td>18</td>
+                  <td>196</td>
+                </tr>
+                <tr>
+                  <td>Overs and Shorts</td>
+                  <td className="text-danger">-11</td>
+                  <td className="text-danger">-11</td>
+                  <td className="text-danger">-12</td>
+                  <td className="text-danger">-11</td>
+                  <td className="text-danger">-11</td>
+                  <td className="text-danger">-11</td>
+                  <td className="text-danger">-12</td>
+                  <td className="text-danger">-12</td>
+                  <td className="text-danger">-12</td>
+                  <td className="text-danger">-12</td>
+                  <td className="text-danger">-12</td>
+                  <td className="text-danger">-13</td>
+                  <td className="text-danger">-139</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   // サマリー情報と各タブ用のコンポーネントを表示
   return (
     <div>
       <h2 className="card-header">月次報告</h2>
       
-      {/* 対象期間の選択部分をサマリータブの場合のみ表示 */}
-      {activeTab === 'summary' && (
-        <div className="card" style={{ marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-            <label>対象期間</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <select 
-                className="form-control" 
-                style={{ width: '150px' }}
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-              >
-                <option value={2024}>2024年</option>
-                <option value={2023}>2023年</option>
-                <option value={2022}>2022年</option>
-              </select>
-              
-              <select 
-                className="form-control" 
-                style={{ width: '150px' }}
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                  <option key={month} value={month}>{month}月</option>
-                ))}
-              </select>
-            </div>
+      {/* 対象期間の選択部分 - すべてのタブで表示 */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <label>対象期間</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <select 
+              className="form-control" 
+              style={{ width: '150px' }}
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+            >
+              <option value={2024}>2024年</option>
+              <option value={2023}>2023年</option>
+              <option value={2022}>2022年</option>
+            </select>
             
-            <button className="btn btn-primary">表示</button>
-            <button className="btn btn-secondary" style={{ marginLeft: 'auto' }}>月次確定</button>
+            <select 
+              className="form-control" 
+              style={{ width: '150px' }}
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                <option key={month} value={month}>{month}月</option>
+              ))}
+            </select>
           </div>
+          
+          <button className="btn btn-primary">表示</button>
+          <button className="btn btn-secondary" style={{ marginLeft: 'auto' }}>月次確定</button>
         </div>
-      )}
+      </div>
       
+      {/* サマリー情報 - すべてのタブで表示 */}
       <div className="card" style={{ backgroundColor: '#f0f8ff', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>2024年集計サマリー</h3>
         <div style={{ fontSize: '14px' }}>
@@ -140,318 +459,10 @@ const MonthlyReport: React.FC = () => {
         ))}
       </div>
       
-      {activeTab === 'summary' && (
-        <>
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>障害者雇用者詳細</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>No.</th>
-                  <th>社員ID</th>
-                  <th>氏名</th>
-                  <th>障害区分</th>
-                  <th>障害</th>
-                  <th>等級</th>
-                  <th>採用日</th>
-                  <th>カウント</th>
-                  <th>状態</th>
-                  <th>11月フラグ</th>
-                  <th>コメント</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockEmployees.map((employee) => (
-                  <tr key={employee.id}>
-                    <td>{employee.no}</td>
-                    <td>{employee.id}</td>
-                    <td>{employee.name}</td>
-                    <td>{employee.type}</td>
-                    <td>{employee.disability}</td>
-                    <td>{employee.grade}</td>
-                    <td>{employee.hireDate}</td>
-                    <td>{employee.count}</td>
-                    <td>
-                      <span className="status-indicator status-active">{employee.status}</span>
-                    </td>
-                    <td>{employee.flag}</td>
-                    <td>{employee.comment}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="card">
-            <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>月別実績履歴</h3>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>年月</th>
-                  <th>常用労働者数</th>
-                  <th>障害者数</th>
-                  <th>身体障害</th>
-                  <th>知的障害</th>
-                  <th>精神障害</th>
-                  <th>雇用カウント</th>
-                  <th>実雇用率</th>
-                  <th>状態</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockHistory.map((record, index) => (
-                  <tr key={index}>
-                    <td>{record.yearMonth}</td>
-                    <td>{record.totalEmployees}</td>
-                    <td>{record.disabledCount}</td>
-                    <td>{record.physical}</td>
-                    <td>{record.intellectual}</td>
-                    <td>{record.mental}</td>
-                    <td>{record.employmentCount}</td>
-                    <td>{record.actualRate}%</td>
-                    <td>
-                      <span 
-                        className="status-indicator status-active" 
-                        style={{ backgroundColor: '#e6f7e6', color: '#28a745' }}
-                      >
-                        {record.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+      {/* タブコンテンツをレンダリング */}
+      {renderTabContent()}
       
-      {activeTab === 'employees' && <EmployeeDetailComponent />}
-      
-      {activeTab === 'monthly' && (
-        <div className="card" style={{ marginBottom: '20px', overflowX: 'auto' }}>
-          <table className="table" style={{ minWidth: '1500px' }}>
-            <thead>
-              <tr>
-                <th>項目</th>
-                <th>4月</th>
-                <th>5月</th>
-                <th>6月</th>
-                <th>7月</th>
-                <th>8月</th>
-                <th>9月</th>
-                <th>10月</th>
-                <th>11月</th>
-                <th>12月</th>
-                <th>1月</th>
-                <th>2月</th>
-                <th>3月</th>
-                <th>合計</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>従業員数</td>
-                <td>600</td>
-                <td>604</td>
-                <td>633</td>
-                <td>640</td>
-                <td>650</td>
-                <td>650</td>
-                <td>660</td>
-                <td>670</td>
-                <td>665</td>
-                <td>670</td>
-                <td>690</td>
-                <td>702</td>
-                <td>7822</td>
-              </tr>
-              <tr>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-              <tr>
-                <td>フルタイム従業員数</td>
-                <td>600</td>
-                <td>604</td>
-                <td>633</td>
-                <td>640</td>
-                <td>650</td>
-                <td>650</td>
-                <td>660</td>
-                <td>670</td>
-                <td>665</td>
-                <td>670</td>
-                <td>690</td>
-                <td>702</td>
-                <td>7822</td>
-              </tr>
-              <tr>
-                <td>パートタイム従業員数</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-              </tr>
-              <tr>
-                <td>トータル従業員数</td>
-                <td>600</td>
-                <td>604</td>
-                <td>633</td>
-                <td>640</td>
-                <td>650</td>
-                <td>650</td>
-                <td>660</td>
-                <td>670</td>
-                <td>665</td>
-                <td>670</td>
-                <td>690</td>
-                <td>702</td>
-                <td>7822</td>
-              </tr>
-              <tr>
-                <td colSpan={14} style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>障がい者</td>
-              </tr>
-              <tr>
-                <td>Level1 and Level2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>24</td>
-              </tr>
-              <tr>
-                <td>Other than above</td>
-                <td>2</td>
-                <td>2</td>
-                <td>2</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>3</td>
-                <td>33</td>
-              </tr>
-              <tr>
-                <td>トータル障がい者数</td>
-                <td>4</td>
-                <td>4</td>
-                <td>4</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>5</td>
-                <td>57</td>
-              </tr>
-              <tr>
-                <td colSpan={14}></td>
-              </tr>
-              <tr>
-                <td>実雇用率</td>
-                <td>0.7%</td>
-                <td>0.7%</td>
-                <td>0.6%</td>
-                <td>0.8%</td>
-                <td>0.8%</td>
-                <td>0.8%</td>
-                <td>0.8%</td>
-                <td>0.7%</td>
-                <td>0.8%</td>
-                <td>0.7%</td>
-                <td>0.7%</td>
-                <td>0.7%</td>
-                <td>0.7%</td>
-              </tr>
-              <tr>
-                <td>法定雇用率</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-                <td>2.5%</td>
-              </tr>
-              <tr>
-                <td>法定雇用者数</td>
-                <td>15</td>
-                <td>15</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td>17</td>
-                <td>17</td>
-                <td>17</td>
-                <td>17</td>
-                <td>17</td>
-                <td>18</td>
-                <td>196</td>
-              </tr>
-              <tr>
-                <td>Overs and Shorts</td>
-                <td className="text-danger">-11</td>
-                <td className="text-danger">-11</td>
-                <td className="text-danger">-12</td>
-                <td className="text-danger">-11</td>
-                <td className="text-danger">-11</td>
-                <td className="text-danger">-11</td>
-                <td className="text-danger">-12</td>
-                <td className="text-danger">-12</td>
-                <td className="text-danger">-12</td>
-                <td className="text-danger">-12</td>
-                <td className="text-danger">-12</td>
-                <td className="text-danger">-13</td>
-                <td className="text-danger">-139</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-      
+      {/* アクションボタン - すべてのタブで表示 */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
         <button className="btn btn-secondary">印刷</button>
         <button className="btn btn-primary">CSVエクスポート</button>

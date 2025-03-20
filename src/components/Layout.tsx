@@ -22,10 +22,15 @@ const ContentContainer = styled.div`
   flex: 1;
 `;
 
+const SidebarContainer = styled.div`
+  /* サイドバーコンテナのスタイル */
+`;
+
 const MainContent = styled.div`
   flex: 1;
   padding: 20px 30px;
   background-color: #fff;
+  overflow: auto;
 `;
 
 interface LayoutProps {
@@ -37,7 +42,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <LayoutContainer>
       <TopBar>DIwork</TopBar>
       <ContentContainer>
-        <Sidebar />
+        <SidebarContainer>
+          <Sidebar />
+        </SidebarContainer>
         <MainContent>
           {children}
         </MainContent>
