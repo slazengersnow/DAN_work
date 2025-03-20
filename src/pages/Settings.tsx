@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 
-// プロパティの型定義
-interface SettingsProps {
-  theme: string;
-  onChangeTheme: (newTheme: string) => void;
-}
-
-const Settings: React.FC<SettingsProps> = ({ theme, onChangeTheme }) => {
+const Settings: React.FC = () => {
   // モックデータ
   const mockCompanyData = {
     name: '株式会社サンプル',
@@ -27,10 +21,19 @@ const Settings: React.FC<SettingsProps> = ({ theme, onChangeTheme }) => {
   const [monthlyReportReminder, setMonthlyReportReminder] = useState<boolean>(false);
   const [legalRateAlert, setLegalRateAlert] = useState<boolean>(true);
   const [employmentEndNotice, setEmploymentEndNotice] = useState<boolean>(false);
+  
+  // テーマ設定（内部で状態管理）
+  const [theme, setTheme] = useState<string>('light');
 
   const handleSave = () => {
     // 実際のアプリではここで保存処理を行う
     alert('設定が保存されました');
+  };
+  
+  // テーマ変更のハンドラー（内部で処理）
+  const handleThemeChange = (newTheme: string) => {
+    setTheme(newTheme);
+    // ここでテーマ変更の処理を実装
   };
 
   return (
@@ -237,7 +240,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onChangeTheme }) => {
                     name="theme" 
                     value="light" 
                     checked={theme === 'light'} 
-                    onChange={() => onChangeTheme('light')} 
+                    onChange={() => handleThemeChange('light')} 
                     style={{ marginRight: '10px' }}
                   />
                   ライトモード
@@ -249,7 +252,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onChangeTheme }) => {
                     name="theme" 
                     value="dark" 
                     checked={theme === 'dark'} 
-                    onChange={() => onChangeTheme('dark')} 
+                    onChange={() => handleThemeChange('dark')} 
                     style={{ marginRight: '10px' }}
                   />
                   ダークモード

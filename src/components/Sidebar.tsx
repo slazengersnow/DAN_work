@@ -3,9 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 const SidebarContainer = styled.div`
-  width: 240px;
-  background-color: white;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  width: 250px;
+  background-color: #f0f2f5;
+  border-right: 1px solid #e0e0e0;
   height: 100%;
   writing-mode: horizontal-tb;
   display: flex;
@@ -14,11 +14,12 @@ const SidebarContainer = styled.div`
 `;
 
 const MenuTitle = styled.div`
-  padding: 10px 20px;
+  padding: 15px 20px;
   color: #666;
   font-size: 14px;
   writing-mode: horizontal-tb;
   white-space: nowrap;
+  margin-top: 10px;
 `;
 
 interface MenuLinkProps {
@@ -27,11 +28,11 @@ interface MenuLinkProps {
 
 const MenuLink = styled(Link)<MenuLinkProps>`
   display: block;
-  padding: 12px 20px;
+  padding: 15px 20px;
   text-decoration: none;
-  color: ${props => props.isActive ? '#4169e1' : '#333'};
-  background-color: ${props => props.isActive ? '#e8f0fe' : 'transparent'};
-  border-left: ${props => props.isActive ? '3px solid #4169e1' : '3px solid transparent'};
+  color: ${props => props.isActive ? '#0d6efd' : '#333'};
+  background-color: ${props => props.isActive ? '#e7f1ff' : 'transparent'};
+  border-left: ${props => props.isActive ? '4px solid #0d6efd' : '4px solid transparent'};
   writing-mode: horizontal-tb;
   text-orientation: mixed;
   white-space: nowrap;
@@ -40,7 +41,7 @@ const MenuLink = styled(Link)<MenuLinkProps>`
   transition: background-color 0.2s;
   
   &:hover {
-    background-color: #f0f7ff;
+    background-color: #e6e9ed;
   }
 `;
 
@@ -56,11 +57,11 @@ const Sidebar: React.FC = () => {
       <MenuTitle>メニュー</MenuTitle>
       
       <nav>
-        <MenuLink to="/dashboard" isActive={isActive('/dashboard')}>
+        <MenuLink to="/dashboard" isActive={isActive('/dashboard') || location.pathname === '/'}>
           ダッシュボード
         </MenuLink>
         
-        <MenuLink to="/employees" isActive={isActive('/employees')}>
+        <MenuLink to="/employee-list" isActive={isActive('/employee-list')}>
           社員リスト
         </MenuLink>
         
