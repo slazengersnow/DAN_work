@@ -58,6 +58,12 @@ const MonthlyReport: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(11);
   const [activeTab, setActiveTab] = useState<string>('summary');
 
+  const tabItems = [
+    { id: 'summary', label: 'サマリー' },
+    { id: 'employees', label: '従業員詳細' },
+    { id: 'monthly', label: '月次詳細' }
+  ];
+
   // サマリー情報と各タブ用のコンポーネントを表示
   return (
     <div>
@@ -105,41 +111,33 @@ const MonthlyReport: React.FC = () => {
         </div>
       </div>
 
-      {/* タブ切り替え */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #ddd', marginBottom: '20px' }}>
-        <div 
-          style={{ 
-            padding: '10px 20px', 
-            cursor: 'pointer', 
-            backgroundColor: activeTab === 'summary' ? '#f0f7ff' : 'transparent',
-            borderBottom: activeTab === 'summary' ? '2px solid #4169e1' : 'none',
-          }}
-          onClick={() => setActiveTab('summary')}
-        >
-          サマリー
-        </div>
-        <div 
-          style={{ 
-            padding: '10px 20px', 
-            cursor: 'pointer', 
-            backgroundColor: activeTab === 'employees' ? '#f0f7ff' : 'transparent',
-            borderBottom: activeTab === 'employees' ? '2px solid #4169e1' : 'none',
-          }}
-          onClick={() => setActiveTab('employees')}
-        >
-          従業員詳細
-        </div>
-        <div 
-          style={{ 
-            padding: '10px 20px', 
-            cursor: 'pointer', 
-            backgroundColor: activeTab === 'monthly' ? '#f0f7ff' : 'transparent',
-            borderBottom: activeTab === 'monthly' ? '2px solid #4169e1' : 'none',
-          }}
-          onClick={() => setActiveTab('monthly')}
-        >
-          月次詳細
-        </div>
+      {/* タブ切り替え - 完全にインラインスタイルで定義 */}
+      <div className="tabs-container" style={{ 
+        display: 'flex', 
+        width: '100%',
+        borderBottom: '1px solid #ddd', 
+        marginBottom: '20px',
+        flexDirection: 'row',  // 横向きに並べるために明示的に指定
+        flexWrap: 'nowrap'     // 折り返さないように指定
+      }}>
+        {tabItems.map(tab => (
+          <div 
+            key={tab.id}
+            className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
+            style={{ 
+              padding: '10px 20px', 
+              cursor: 'pointer',
+              display: 'block',  // インライン要素ではなくブロック要素として表示
+              whiteSpace: 'nowrap', // テキストを折り返さない
+              backgroundColor: activeTab === tab.id ? '#f0f7ff' : 'transparent',
+              borderBottom: activeTab === tab.id ? '2px solid #4169e1' : 'none',
+              fontWeight: activeTab === tab.id ? 'bold' : 'normal'
+            }}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </div>
+        ))}
       </div>
       
       {activeTab === 'summary' && (

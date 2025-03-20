@@ -53,10 +53,11 @@ body {
 
 /* サイドバースタイル */
 .sidebar {
-  width: 220px;
+  width: 240px;
   background-color: white;
   padding: 20px 0;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  height: 100%;
 }
 
 .menu-title {
@@ -66,7 +67,7 @@ body {
 }
 
 .menu-item {
-  padding: 10px 20px;
+  padding: 12px 20px;
   display: block;
   text-decoration: none;
   color: #333;
@@ -79,9 +80,38 @@ body {
 }
 
 .menu-item.active {
-  background-color: #e6f0ff;
+  background-color: #e8f0fe;
   color: #4169e1;
   border-left: 3px solid #4169e1;
+}
+
+/* サイドバーメニューリスト */
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-menu li {
+  padding: 0;
+}
+
+.sidebar-menu li a {
+  display: block;
+  padding: 12px 20px;
+  color: #333;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.sidebar-menu li a:hover {
+  background-color: #e0e0e0;
+}
+
+.sidebar-menu li.active a {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  border-left: 3px solid #1a73e8;
 }
 
 /* カードスタイル */
@@ -105,6 +135,32 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
   margin-bottom: 20px;
+}
+
+/* タブナビゲーション */
+.tabs-container {
+  display: flex;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.tab-item {
+  padding: 10px 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-item:hover {
+  background-color: #f0f7ff;
+}
+
+.tab-item.active {
+  background-color: #f0f7ff;
+  border-bottom: 2px solid #4169e1;
+  font-weight: bold;
 }
 
 /* ステータスインジケーター */
@@ -298,4 +354,44 @@ body {
 .sidebar {
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
+}
+
+/* タブナビゲーション専用スタイル */
+.tab-navigation {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  width: 100%;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.tab-item {
+  padding: 10px 20px;
+  cursor: pointer;
+  display: block;
+  white-space: nowrap;
+  transition: all 0.2s;
+  text-align: center;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-item:hover {
+  background-color: #f0f7ff;
+}
+
+.tab-item.active {
+  background-color: #f0f7ff;
+  border-bottom: 2px solid #4169e1;
+  font-weight: bold;
+}
+
+/* スクロールバーを非表示にする（オプション） */
+.tab-navigation::-webkit-scrollbar {
+  display: none;
+}
+.tab-navigation {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
