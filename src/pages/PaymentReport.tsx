@@ -1,137 +1,142 @@
 import React, { useState } from 'react';
 
-// モックデータ
-const mockSummary = {
-  status: '申告不要（法定雇用率達成）',
-  actualRate: 2.65,
-  legalRate: 2.3,
-};
-
-const mockMonthlyData = [
-  { month: '2024年4月', totalEmployees: 510, disabledEmployees: 13.0, actualRate: 2.55, legalDisabledEmployees: 11.7, missingCount: 0.0 },
-  { month: '2024年5月', totalEmployees: 515, disabledEmployees: 13.0, actualRate: 2.52, legalDisabledEmployees: 11.8, missingCount: 0.0 },
-  { month: '2024年6月', totalEmployees: 520, disabledEmployees: 14.0, actualRate: 2.69, legalDisabledEmployees: 12.0, missingCount: 0.0 },
-  { month: '2024年7月', totalEmployees: 523, disabledEmployees: 15.0, actualRate: 2.87, legalDisabledEmployees: 12.0, missingCount: 0.0 },
-];
-
-const yearlyAverage = {
-  totalEmployees: 517,
-  disabledEmployees: 13.7,
-  actualRate: 2.65,
-  legalDisabledEmployees: 11.9,
-  missingCount: 0.0,
-};
-
 const PaymentReport: React.FC = () => {
-  const [selectedYear, setSelectedYear] = useState<string>('2024年度');
+  const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+  const [activeTab, setActiveTab] = useState<string>('monthly');
 
   return (
-    <div>
-      <h2 className="card-header">納付金申告</h2>
+    <div className="page-container">
+      <h1 className="page-title">納付金申告</h1>
       
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label>対象年度</label>
-          <select 
-            className="form-control" 
-            style={{ width: '150px' }}
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-          >
-            <option value="2024年度">2024年度</option>
-            <option value="2023年度">2023年度</option>
-            <option value="2022年度">2022年度</option>
-          </select>
-          
-          <button className="btn btn-primary">表示</button>
-          
-          <button className="btn btn-primary" style={{ marginLeft: 'auto' }}>申告書ダウンロード</button>
+      <div className="period-selector">
+        <span>対象年度</span>
+        <select 
+          value={fiscalYear}
+          onChange={(e) => setFiscalYear(e.target.value)}
+        >
+          <option value="2024年度">2024年度</option>
+          <option value="2023年度">2023年度</option>
+        </select>
+        <button>表示</button>
+      </div>
+      
+      <div className="summary-box">
+        <h2>障害者雇用納付金申告サマリー (2024年度)</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>ステータス</div>
+            <div>申告不要 (法定雇用率達成)</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>年間平均実雇用率</div>
+            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#007bff' }}>2.65%</div>
+            <div style={{ fontSize: '12px', color: '#6c757d' }}>(法定雇用率2.3%)</div>
+          </div>
         </div>
       </div>
       
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>障害者雇用納付金申告サマリー（2024年度）</h3>
-        
-        <div style={{ backgroundColor: '#f0f9eb', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>ステータス</div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>年間平均実雇用率</div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{mockSummary.status}</div>
-            <div>
-              <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#4169e1' }}>{mockSummary.actualRate}%</span>
-              <span style={{ color: '#28a745', marginLeft: '10px' }}>（法定雇用率{mockSummary.legalRate}%）</span>
-            </div>
-          </div>
-        </div>
-        
-        <div style={{ display: 'flex', marginBottom: '15px' }}>
-          <div 
-            style={{ 
-              padding: '10px 20px', 
-              backgroundColor: '#f0f7ff', 
-              borderRadius: '5px 5px 0 0', 
-              borderBottom: '2px solid #4169e1',
-              cursor: 'pointer',
-            }}
-          >
-            月別データ
-          </div>
-          <div
-            style={{
-              padding: '10px 20px',
-              cursor: 'pointer',
-            }}
-          >
-            納付金情報
-          </div>
-          <div
-            style={{
-              padding: '10px 20px',
-              cursor: 'pointer',
-            }}
-          >
-            申告履歴
-          </div>
-        </div>
-        
-        <table className="table">
+      <div className="tab-navigation">
+        <button 
+          className={activeTab === 'monthly' ? 'active' : ''} 
+          onClick={() => setActiveTab('monthly')}
+        >
+          月別データ
+        </button>
+        <button 
+          className={activeTab === 'payment' ? 'active' : ''} 
+          onClick={() => setActiveTab('payment')}
+        >
+          納付金情報
+        </button>
+        <button 
+          className={activeTab === 'history' ? 'active' : ''} 
+          onClick={() => setActiveTab('history')}
+        >
+          申告履歴
+        </button>
+      </div>
+      
+      {activeTab === 'monthly' && (
+        <table className="data-table">
           <thead>
             <tr>
               <th>対象月</th>
               <th>常用労働者数</th>
               <th>障害者雇用数</th>
               <th>実雇用率</th>
-              <th>法定雇用障害者数</th>
+              <th>必要雇用数</th>
+              <th>法定雇用率</th>
               <th>不足数</th>
             </tr>
           </thead>
           <tbody>
-            {mockMonthlyData.map((data, index) => (
-              <tr key={index}>
-                <td>{data.month}</td>
-                <td>{data.totalEmployees}</td>
-                <td>{data.disabledEmployees}</td>
-                <td>{data.actualRate}%</td>
-                <td>{data.legalDisabledEmployees}</td>
-                <td>{data.missingCount}</td>
-              </tr>
-            ))}
-            <tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+            <tr>
+              <td>2024年4月</td>
+              <td>510</td>
+              <td>13</td>
+              <td>2.55%</td>
+              <td>11.7</td>
+              <td>0</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>2024年5月</td>
+              <td>515</td>
+              <td>13</td>
+              <td>2.52%</td>
+              <td>11.8</td>
+              <td>0</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>2024年6月</td>
+              <td>520</td>
+              <td>14</td>
+              <td>2.69%</td>
+              <td>12</td>
+              <td>0</td>
+              <td>0</td>
+            </tr>
+            <tr>
+              <td>2024年7月</td>
+              <td>523</td>
+              <td>15</td>
+              <td>2.87%</td>
+              <td>12</td>
+              <td>0</td>
+              <td>0</td>
+            </tr>
+            <tr>
               <td>年度平均</td>
-              <td>{yearlyAverage.totalEmployees}</td>
-              <td>{yearlyAverage.disabledEmployees}</td>
-              <td style={{ color: '#4169e1' }}>{yearlyAverage.actualRate}%</td>
-              <td>{yearlyAverage.legalDisabledEmployees}</td>
-              <td style={{ color: '#28a745' }}>{yearlyAverage.missingCount}</td>
+              <td>517</td>
+              <td>13.7</td>
+              <td>2.65%</td>
+              <td>11.9</td>
+              <td>0</td>
+              <td>0</td>
             </tr>
           </tbody>
         </table>
-        
-        <div style={{ marginTop: '15px', color: '#666', fontSize: '14px' }}>
-          注意: 年度の平均実雇用率が法定雇用率を上回っていますので、納付金の申告は不要です。
+      )}
+      
+      {activeTab === 'payment' && (
+        <div>
+          <p>納付金情報は表示されません。</p>
         </div>
+      )}
+      
+      {activeTab === 'history' && (
+        <div>
+          <p>申告履歴は表示されません。</p>
+        </div>
+      )}
+      
+      <div style={{ marginTop: '20px', fontSize: '12px', color: '#6c757d' }}>
+        注意: 年度の平均実雇用率が法定雇用率を上回っていますので、納付金の申告は不要です。
+      </div>
+      
+      <div className="action-buttons">
+        <button className="secondary">申告書ダウンロード</button>
       </div>
     </div>
   );

@@ -1,82 +1,38 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
-
-const SidebarContainer = styled.div`
-  width: 240px;
-  background-color: white;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-  height: 100%;
-  writing-mode: horizontal-tb;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-`;
-
-const MenuTitle = styled.div`
-  padding: 10px 20px;
-  color: #666;
-  font-size: 14px;
-  writing-mode: horizontal-tb;
-  white-space: nowrap;
-`;
-
-interface MenuLinkProps {
-  isActive: boolean;
-}
-
-const MenuLink = styled(Link)<MenuLinkProps>`
-  display: block;
-  padding: 12px 20px;
-  text-decoration: none;
-  color: ${props => props.isActive ? '#4169e1' : '#333'};
-  background-color: ${props => props.isActive ? '#e8f0fe' : 'transparent'};
-  border-left: ${props => props.isActive ? '3px solid #4169e1' : '3px solid transparent'};
-  writing-mode: horizontal-tb;
-  text-orientation: mixed;
-  white-space: nowrap;
-  font-size: 14px;
-  font-weight: ${props => props.isActive ? 'bold' : 'normal'};
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #f0f7ff;
-  }
-`;
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   
-  const isActive = (path: string) => {
-    return location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
+  // 現在のパスに基づいてアクティブなリンクを判断
+  const isActive = (path: string): boolean => {
+    return location.pathname === path;
   };
-  
+
   return (
-    <SidebarContainer>
-      <MenuTitle>メニュー</MenuTitle>
+    <div className="sidebar">
+      <div className="menu-title">メニュー</div>
       
-      <nav>
-        <MenuLink to="/dashboard" isActive={isActive('/dashboard')}>
-          ダッシュボード
-        </MenuLink>
-        
-        <MenuLink to="/employees" isActive={isActive('/employees')}>
-          社員リスト
-        </MenuLink>
-        
-        <MenuLink to="/monthly-report" isActive={isActive('/monthly-report')}>
-          月次報告
-        </MenuLink>
-        
-        <MenuLink to="/payment-report" isActive={isActive('/payment-report')}>
-          納付金申告
-        </MenuLink>
-        
-        <MenuLink to="/settings" isActive={isActive('/settings')}>
-          設定
-        </MenuLink>
-      </nav>
-    </SidebarContainer>
+      <Link to="/" className={`menu-item ${isActive('/') || isActive('/dashboard') ? 'selected' : ''}`}>
+        ダッシュボード
+      </Link>
+      
+      <Link to="/employee-list" className={`menu-item ${isActive('/employee-list') ? 'selected' : ''}`}>
+        社員リスト
+      </Link>
+      
+      <Link to="/monthly-report" className={`menu-item ${isActive('/monthly-report') ? 'selected' : ''}`}>
+        月次報告
+      </Link>
+      
+      <Link to="/payment-report" className={`menu-item ${isActive('/payment-report') ? 'selected' : ''}`}>
+        納付金申告
+      </Link>
+      
+      <Link to="/settings" className={`menu-item ${isActive('/settings') ? 'selected' : ''}`}>
+        設定
+      </Link>
+    </div>
   );
 };
 
