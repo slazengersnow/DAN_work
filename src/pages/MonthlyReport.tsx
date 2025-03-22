@@ -389,38 +389,40 @@ const MonthlyReport: React.FC = () => {
     <div>
       <h2 className="card-header">月次報告</h2>
       
-      {/* 対象期間の選択部分 - すべてのタブで表示 */}
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <label>対象期間</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <select 
-              className="form-control" 
-              style={{ width: '150px' }}
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-            >
-              <option value={2024}>2024年</option>
-              <option value={2023}>2023年</option>
-              <option value={2022}>2022年</option>
-            </select>
+      {/* 対象期間の選択部分 - サマリータブの時のみ表示 */}
+      {activeTab === 'summary' && (
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <label>対象期間</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <select 
+                className="form-control" 
+                style={{ width: '150px' }}
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+              >
+                <option value={2024}>2024年</option>
+                <option value={2023}>2023年</option>
+                <option value={2022}>2022年</option>
+              </select>
+              
+              <select 
+                className="form-control" 
+                style={{ width: '150px' }}
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                  <option key={month} value={month}>{month}月</option>
+                ))}
+              </select>
+            </div>
             
-            <select 
-              className="form-control" 
-              style={{ width: '150px' }}
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                <option key={month} value={month}>{month}月</option>
-              ))}
-            </select>
+            <button className="btn btn-primary">表示</button>
+            <button className="btn btn-secondary" style={{ marginLeft: 'auto' }}>月次確定</button>
           </div>
-          
-          <button className="btn btn-primary">表示</button>
-          <button className="btn btn-secondary" style={{ marginLeft: 'auto' }}>月次確定</button>
         </div>
-      </div>
+      )}
       
       {/* サマリー情報 - すべてのタブで表示 */}
       <div className="card" style={{ backgroundColor: '#f0f8ff', marginBottom: '20px' }}>
