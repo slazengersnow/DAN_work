@@ -68,6 +68,7 @@ body {
   align-items: center;
   padding: 10px 20px;
   background-color: #fff;
+<<<<<<< Updated upstream
   border-bottom: 1px solid #e9ecef;
 }
 
@@ -327,3 +328,8 @@ button.secondary:hover {
     grid-template-columns: 1fr;
   }
 }
+=======
+  padding: 0;
+}
+
+>>>>>>> Stashed changes
