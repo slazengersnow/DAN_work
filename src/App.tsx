@@ -1,8 +1,14 @@
-// src/App.tsx - メインコンポーネント（簡易版）
+// src/App.tsx - 完全版メインコンポーネント
 import React, { useState } from 'react';
 import EmployeeList from './components/EmployeeList';
 import EmployeeDetail from './components/EmployeeDetail';
 import { Employee } from './types/Employee';
+
+// 各ページコンポーネントをインポート
+import Dashboard from './pages/Dashboard';
+import MonthlyReport from './pages/MonthlyReport';
+import PaymentReport from './pages/PaymentReport';
+import Settings from './pages/Settings';
 
 // スタイルシートのインポート
 import './App.css';
@@ -36,32 +42,21 @@ const App: React.FC = () => {
     setCurrentView(view);
   };
 
-  // プレースホルダーコンポーネント
-  const PlaceholderView = ({ title }: { title: string }) => (
-    <div className="placeholder-container">
-      <h2 className="section-title">{title}</h2>
-      <div className="placeholder-content">
-        <p>この機能は現在開発中です。</p>
-        <p>今後のアップデートをお待ちください。</p>
-      </div>
-    </div>
-  );
-
   // 現在のビューに基づいてコンテンツを表示
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
-        return <PlaceholderView title="ダッシュボード" />;
+        return <Dashboard />;
       case 'employeeList':
         return <EmployeeList onEmployeeSelect={showEmployeeDetail} />;
       case 'employeeDetail':
         return <EmployeeDetail employee={selectedEmployee} onBack={backToList} />;
       case 'monthlyReport':
-        return <PlaceholderView title="月次報告" />;
+        return <MonthlyReport />;
       case 'financialReport':
-        return <PlaceholderView title="納付金申告" />;
+        return <PaymentReport />;
       case 'settings':
-        return <PlaceholderView title="設定" />;
+        return <Settings />;
       default:
         return <EmployeeList onEmployeeSelect={showEmployeeDetail} />;
     }
