@@ -1,22 +1,10 @@
-<<<<<<< Updated upstream
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Header from './components/Header';
-import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import EmployeeList from './pages/EmployeeList';
-import MonthlyReport from './pages/MonthlyReport';
-import PaymentReport from './pages/PaymentReport';
-import Settings from './pages/Settings';
-=======
-// src/App.tsx - メインコンポーネント（メニュー機能強化版）
+// src/App.tsx - メインコンポーネント（簡易版）
 import React, { useState } from 'react';
 import EmployeeList from './components/EmployeeList';
 import EmployeeDetail from './components/EmployeeDetail';
 import { Employee } from './types/Employee';
 
 // スタイルシートのインポート
->>>>>>> Stashed changes
 import './App.css';
 import './styles/employee-management.css';
 
@@ -48,8 +36,8 @@ const App: React.FC = () => {
     setCurrentView(view);
   };
 
-  // プレースホルダーコンポーネント - 実際の実装では適切なコンポーネントに置き換える
-  const PlaceholderView: React.FC<{ title: string }> = ({ title }) => (
+  // プレースホルダーコンポーネント
+  const PlaceholderView = ({ title }: { title: string }) => (
     <div className="placeholder-container">
       <h2 className="section-title">{title}</h2>
       <div className="placeholder-content">
@@ -80,28 +68,6 @@ const App: React.FC = () => {
   };
 
   return (
-<<<<<<< Updated upstream
-    <Router>
-      <div className="app-container">
-        {/* サイドバーを常に表示 */}
-        <Sidebar />
-        
-        <div className="main-content">
-          <Header />
-          <div className="content-wrapper">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/employee-list" element={<EmployeeList />} />
-              <Route path="/monthly-report" element={<MonthlyReport />} />
-              <Route path="/payment-report" element={<PaymentReport />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </div>
-        </div>
-      </div>
-    </Router>
-=======
     <div className="app">
       <header className="header">
         <h1>DIwork</h1>
@@ -149,7 +115,6 @@ const App: React.FC = () => {
         </div>
       </div>
     </div>
->>>>>>> Stashed changes
   );
 };
 
