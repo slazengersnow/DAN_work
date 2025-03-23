@@ -106,6 +106,9 @@ export interface Employee {
     reportFlag: number[];
     countValues: number[];
   };
+  
+  // 基本情報タブの一番下に配置する例外事由
+  exception?: string;
 }
 
 // コンポーネントのProps型

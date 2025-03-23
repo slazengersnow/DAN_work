@@ -1,9 +1,19 @@
 // src/components/EmployeeList.tsx
 import React, { useState, ChangeEvent } from 'react';
+// Employee型を明示的に参照するようにする
+import type { Employee } from '../types/Employee';
+// モックデータをインポート
 import { employeesData } from '../data/mockData';
-import { Employee, EmployeeListProps } from '../types/Employee';
 
-const EmployeeList: React.FC<EmployeeListProps> = ({ onEmployeeSelect }) => {
+interface EmployeeListProps {
+  employees?: Employee[]; // オプショナルに変更
+  onEmployeeSelect: (employee: Employee) => void;
+}
+
+const EmployeeList: React.FC<EmployeeListProps> = ({ 
+  employees = employeesData, // デフォルト値としてモックデータを設定
+  onEmployeeSelect 
+}) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [disabilityFilter, setDisabilityFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -24,7 +34,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ onEmployeeSelect }) => {
   };
 
   // 検索とフィルター適用後のデータ
-  const filteredEmployees = employeesData.filter(employee => {
+  const filteredEmployees = employees.filter(employee => {
     // 検索クエリでフィルタリング
     const matchesSearch = searchQuery === '' || 
       employee.name.includes(searchQuery) || 
