@@ -93,7 +93,6 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ onEmployeeSelect }) => {
               <th>カウント</th>
               <th>ステータス</th>
               <th>詳細</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -116,9 +115,6 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ onEmployeeSelect }) => {
                   >
                     詳細
                   </button>
-                </td>
-                <td>
-                  <button className="edit-btn">編集</button>
                 </td>
               </tr>
             ))}

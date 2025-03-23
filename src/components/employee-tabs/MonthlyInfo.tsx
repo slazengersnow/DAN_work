@@ -17,6 +17,7 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
   };
 
   const [monthlyData, setMonthlyData] = useState(employeeData.monthlyData || defaultMonthlyData);
+  const [activeCell, setActiveCell] = useState<{row: number, col: number} | null>(null);
 
   // 月名の配列
   const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
@@ -32,14 +33,85 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     setLaborTimeChange(e.target.value);
   };
 
+  // セルフォーカス時の処理
+  const handleCellFocus = (e: React.FocusEvent<HTMLInputElement>, rowIndex: number, colIndex: number) => {
+    e.target.select();
+    setActiveCell({ row: rowIndex, col: colIndex });
+  };
+
+  // キーボードナビゲーション
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, colIndex: number) => {
+    let nextRow = rowIndex;
+    let nextCol = colIndex;
+
+    switch (e.key) {
+      case 'ArrowUp':
+        if (rowIndex > 0) nextRow = rowIndex - 1;
+        break;
+      case 'ArrowDown':
+        if (rowIndex < 3) nextRow = rowIndex + 1; // 4行あるので最大値は3
+        break;
+      case 'ArrowLeft':
+        if (colIndex > 0) nextCol = colIndex - 1;
+        break;
+      case 'ArrowRight':
+        if (colIndex < 11) nextCol = colIndex + 1; // 12ヶ月なので最大値は11
+        break;
+      case 'Tab':
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+Tabで前のセルへ
+          if (colIndex > 0) {
+            nextCol = colIndex - 1;
+          } else if (rowIndex > 0) {
+            nextRow = rowIndex - 1;
+            nextCol = 11;
+          }
+        } else {
+          // Tabで次のセルへ
+          if (colIndex < 11) {
+            nextCol = colIndex + 1;
+          } else if (rowIndex < 3) {
+            nextRow = rowIndex + 1;
+            nextCol = 0;
+          }
+        }
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (rowIndex < 3) {
+          nextRow = rowIndex + 1;
+        } else {
+          nextRow = 0;
+          nextCol = (colIndex + 1) % 12;
+        }
+        break;
+      default:
+        return;
+    }
+
+    // 次のセルにフォーカス
+    setActiveCell({ row: nextRow, col: nextCol });
+
+    // 次のセルのIDを生成して要素を取得
+    const nextCellId = `cell-${nextRow}-${nextCol}`;
+    const nextCellElement = document.getElementById(nextCellId);
+    if (nextCellElement) {
+      (nextCellElement as HTMLInputElement).focus();
+    }
+  };
+
   // 月次データの編集ハンドラ
-  const handleMonthlyDataChange = (field: 'standardHours' | 'actualHours' | 'notes', monthIndex: number, value: string | number): void => {
+  const handleMonthlyDataChange = (field: 'standardHours' | 'actualHours' | 'notes', monthIndex: number, value: string): void => {
     const newMonthlyData = { ...monthlyData };
     
     if (field === 'notes') {
-      newMonthlyData[field][monthIndex] = value as string;
+      newMonthlyData[field][monthIndex] = value;
     } else {
-      newMonthlyData[field][monthIndex] = Number(value);
+      const numValue = value === '' ? 0 : Number(value);
+      if (!isNaN(numValue)) {
+        newMonthlyData[field][monthIndex] = numValue;
+      }
     }
     
     setMonthlyData(newMonthlyData);
@@ -101,85 +173,95 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         </div>
       </div>
 
-      {/* 労働時間テーブル */}
-      <div className="labor-hours-table">
+      {/* スプレッドシート風労働時間テーブル */}
+      <div className="labor-hours-section">
         <h3 className="section-subtitle">労働時間 ({fiscalYear})</h3>
-        <div className="table-container">
-          <table className="monthly-table">
-            <thead>
-              <tr>
-                <th>項目</th>
-                {months.map((month, index) => (
-                  <th key={index} className="month-header">{month}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>所定時間</td>
-                {monthlyData.standardHours.map((hours, index) => (
-                  <td key={index}>
-                    <input 
-                      type="number" 
-                      value={hours} 
-                      onChange={(e) => handleMonthlyDataChange('standardHours', index, e.target.value)}
-                      className="form-control text-center"
-                      min="0"
-                      max="200"
-                      disabled={laborTimeChange === 'なし'}
-                    />
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>実労働時間</td>
-                {monthlyData.actualHours.map((hours, index) => (
-                  <td key={index}>
-                    <input 
-                      type="number" 
-                      value={hours} 
-                      onChange={(e) => handleMonthlyDataChange('actualHours', index, e.target.value)}
-                      className="form-control text-center"
-                      min="0"
-                      max="200"
-                    />
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>非勤工リー理由</td>
-                {monthlyData.notes.map((note, index) => (
-                  <td key={index}>
-                    <input 
-                      type="text" 
-                      value={note} 
-                      onChange={(e) => handleMonthlyDataChange('notes', index, e.target.value)}
-                      className="form-control text-center"
-                      placeholder="-"
-                    />
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>在籍フラグ</td>
-                {monthlyData.attendanceFlag.map((flag, index) => (
-                  <td key={index}>{flag}</td>
-                ))}
-              </tr>
-              <tr>
-                <td>申告フラグ</td>
-                {monthlyData.reportFlag.map((flag, index) => (
-                  <td key={index}>{flag}</td>
-                ))}
-              </tr>
-              <tr>
-                <td>カウント</td>
-                {monthlyData.countValues.map((count, index) => (
-                  <td key={index}>{count.toFixed(1)}</td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
+        
+        <div className="spreadsheet-container">
+          <div className="spreadsheet-table">
+            <div className="spreadsheet-header-row">
+              <div className="spreadsheet-header-cell first-cell"></div>
+              {months.map((month, index) => (
+                <div key={`header-${index}`} className="spreadsheet-header-cell">{month}</div>
+              ))}
+            </div>
+            
+            {/* 所定労働時間の行 */}
+            <div className="spreadsheet-row">
+              <div className="spreadsheet-row-header">所定時間</div>
+              {monthlyData.standardHours.map((hours, index) => (
+                <div key={`standard-${index}`} className="spreadsheet-cell">
+                  <input
+                    id={`cell-0-${index}`}
+                    type="text"
+                    className="cell-input"
+                    value={hours}
+                    onChange={(e) => handleMonthlyDataChange('standardHours', index, e.target.value)}
+                    onFocus={(e) => handleCellFocus(e, 0, index)}
+                    onKeyDown={(e) => handleKeyDown(e, 0, index)}
+                    disabled={laborTimeChange === 'なし'}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            {/* 実労働時間の行 */}
+            <div className="spreadsheet-row">
+              <div className="spreadsheet-row-header">実労働時間</div>
+              {monthlyData.actualHours.map((hours, index) => (
+                <div key={`actual-${index}`} className="spreadsheet-cell">
+                  <input
+                    id={`cell-1-${index}`}
+                    type="text"
+                    className="cell-input"
+                    value={hours}
+                    onChange={(e) => handleMonthlyDataChange('actualHours', index, e.target.value)}
+                    onFocus={(e) => handleCellFocus(e, 1, index)}
+                    onKeyDown={(e) => handleKeyDown(e, 1, index)}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            {/* 在籍フラグの行 */}
+            <div className="spreadsheet-row">
+              <div className="spreadsheet-row-header">在籍フラグ</div>
+              {monthlyData.attendanceFlag.map((flag, index) => (
+                <div key={`attendance-${index}`} className="spreadsheet-cell">
+                  <span className="cell-text">{flag}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* カウント値の行 */}
+            <div className="spreadsheet-row">
+              <div className="spreadsheet-row-header">カウント</div>
+              {monthlyData.countValues.map((count, index) => (
+                <div key={`count-${index}`} className="spreadsheet-cell">
+                  <span className="cell-text">{count.toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* 備考の行 */}
+            <div className="spreadsheet-row">
+              <div className="spreadsheet-row-header">備考</div>
+              {monthlyData.notes.map((note, index) => (
+                <div key={`note-${index}`} className="spreadsheet-cell">
+                  <input
+                    id={`cell-2-${index}`}
+                    type="text"
+                    className="cell-input"
+                    value={note}
+                    onChange={(e) => handleMonthlyDataChange('notes', index, e.target.value)}
+                    onFocus={(e) => handleCellFocus(e, 2, index)}
+                    onKeyDown={(e) => handleKeyDown(e, 2, index)}
+                    placeholder="-"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
