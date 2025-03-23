@@ -1166,3 +1166,464 @@
   .employee-detail-table td:nth-child(8) {
     box-shadow: 5px 0 5px -5px rgba(0, 0, 0, 0.1);
   }
+
+  /* 月次報告のスタイル修正 */
+.monthly-section {
+    background-color: #f8f9fb;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    margin-bottom: 20px;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+    border-bottom: 2px solid #eaeaea;
+    padding-bottom: 10px;
+  }
+  
+  .filter-container {
+    background-color: #ffffff;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid #e1e4e8;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+  
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .filter-group label {
+    font-weight: 500;
+    color: #4a5568;
+  }
+  
+  .filter-controls {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .select-input {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    background-color: white;
+    color: #2d3748;
+  }
+  
+  .summary-box {
+    background-color: #e6f3ff;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid #cce5ff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+  
+  .summary-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #0066cc;
+  }
+  
+  .summary-content {
+    font-size: 0.9rem;
+    color: #2c5282;
+  }
+  
+  .tab-container {
+    margin-bottom: 0;
+  }
+  
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #fff;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+  }
+  
+  .tab-button {
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: #4a5568;
+  }
+  
+  .tab-button.active {
+    color: #0066cc;
+    border-bottom-color: #0066cc;
+    background-color: #f0f7ff;
+  }
+  
+  .content-wrapper {
+    background-color: #ffffff;
+    border: 1px solid #e1e4e8;
+    border-top: none;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+  
+  .data-container {
+    margin-bottom: 24px;
+    background-color: #ffffff;
+    padding: 0;
+    border-radius: 4px;
+  }
+  
+  .data-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #2d3748;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #edf2f7;
+  }
+  
+  .data-table-wrapper {
+    overflow-x: auto;
+    background-color: #ffffff;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .data-table th, 
+  .data-table td {
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #e9ecef;
+  }
+  
+  .data-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #4a5568;
+  }
+  
+  .data-table tbody tr:hover {
+    background-color: #f5f8ff;
+  }
+  
+  .status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .status-badge.active {
+    background-color: #e6f7e6;
+    color: #28a745;
+  }
+  
+  .status-badge.confirmed {
+    background-color: #e6f7e6;
+    color: #28a745;
+  }
+  
+  .action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+  
+  .primary-btn {
+    background-color: #0066cc;
+    color: white;
+  }
+  
+  .primary-btn:hover {
+    background-color: #0056b3;
+  }
+  
+  .secondary-btn {
+    background-color: #e9ecef;
+    color: #495057;
+  }
+  
+  .secondary-btn:hover {
+    background-color: #dee2e6;
+  }
+  
+  .action-btn {
+    background-color: #f0f3f8;
+    color: #0066cc;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .action-btn:hover {
+    background-color: #e6edf8;
+  }
+  
+  .save-btn {
+    background-color: #28a745;
+    color: white;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .save-btn:hover {
+    background-color: #218838;
+  }
+  
+  /* 月次詳細テーブルのスタイル */
+  .horizontal-scroll-container {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 12px;
+  }
+  
+  .monthly-detail-table th,
+  .monthly-detail-table td {
+    min-width: 80px;
+    text-align: center;
+    white-space: nowrap;
+    position: relative;
+  }
+  
+  .monthly-detail-table .fixed-column {
+    position: sticky;
+    left: 0;
+    background-color: #f8f9fa;
+    z-index: 1;
+    min-width: 180px;
+    text-align: left;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .monthly-detail-table .item-column {
+    font-weight: 500;
+    color: #2d3748;
+  }
+  
+  .monthly-detail-table tbody tr td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: #fff;
+    z-index: 1;
+    text-align: left;
+    font-weight: 500;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .monthly-detail-table tbody tr:hover td:first-child {
+    background-color: #f5f8ff;
+  }
+  
+  .header-row th {
+    background-color: #edf2f7;
+    text-align: left;
+    font-weight: 600;
+    color: #2c5282;
+    padding: 10px;
+  }
+  
+  .spacer-row td {
+    height: 10px;
+    padding: 0;
+    background-color: #f9f9f9;
+    border: none;
+  }
+  
+  .negative-value {
+    color: #e53e3e;
+    font-weight: 500;
+  }
+  
+  .ratio-value {
+    font-weight: 500;
+    color: #3182ce;
+  }
+  
+  .calculated-row {
+    background-color: #f9fafc;
+  }
+  
+  .calculated-cell {
+    background-color: #f0f4f8;
+    color: #4a5568;
+  }
+  
+  .cell {
+    position: relative;
+  }
+  
+  .active-cell {
+    background-color: #ebf8ff;
+    outline: 2px solid #3182ce;
+  }
+  
+  .editable-cell {
+    cursor: pointer;
+    display: block;
+    padding: 2px;
+  }
+  
+  .editable-cell:hover {
+    background-color: #ebf4ff;
+    border-radius: 2px;
+  }
+  
+  .cell-input {
+    width: 100%;
+    padding: 2px 4px;
+    border: none;
+    background: transparent;
+    text-align: center;
+    outline: none;
+  }
+  
+  .spreadsheet-help {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #718096;
+    text-align: right;
+  }
+  
+  /* 従業員詳細テーブルスタイル */
+  .employee-detail-table th,
+  .employee-detail-table td {
+    white-space: nowrap;
+    text-align: center;
+    padding: 6px;
+  }
+  
+  .employee-detail-table th:nth-child(-n+8),
+  .employee-detail-table td:nth-child(-n+8) {
+    position: sticky;
+    z-index: 1;
+    background-color: #fff;
+  }
+  
+  .employee-detail-table th {
+    background-color: #f8f9fa;
+  }
+  
+  .employee-detail-table th:nth-child(1) { left: 0; }
+  .employee-detail-table td:nth-child(1) { left: 0; }
+  .employee-detail-table th:nth-child(2) { left: 50px; }
+  .employee-detail-table td:nth-child(2) { left: 50px; }
+  .employee-detail-table th:nth-child(3) { left: 120px; }
+  .employee-detail-table td:nth-child(3) { left: 120px; }
+  .employee-detail-table th:nth-child(4) { left: 220px; }
+  .employee-detail-table td:nth-child(4) { left: 220px; }
+  .employee-detail-table th:nth-child(5) { left: 320px; }
+  .employee-detail-table td:nth-child(5) { left: 320px; }
+  .employee-detail-table th:nth-child(6) { left: 380px; }
+  .employee-detail-table td:nth-child(6) { left: 380px; }
+  .employee-detail-table th:nth-child(7) { left: 440px; }
+  .employee-detail-table td:nth-child(7) { left: 440px; }
+  .employee-detail-table th:nth-child(8) { left: 520px; }
+  .employee-detail-table td:nth-child(8) { left: 520px; }
+  
+  .employee-detail-table tbody tr:hover td:nth-child(-n+8) {
+    background-color: #f5f8ff;
+  }
+  
+  /* 固定列のシャドウ効果 */
+  .employee-detail-table th:nth-child(8),
+  .employee-detail-table td:nth-child(8) {
+    box-shadow: 5px 0 5px -5px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* 編集可能入力フィールド */
+  .editable-input {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  
+  .editable-select {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #fff;
+  }
+
+  /* 新しいヘッダースタイル */
+.data-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+  
+  /* 小さいサイズの入力フィールド */
+  .small-input {
+    width: 60px !important;
+    text-align: center;
+  }
+  
+  /* メモ入力フィールド */
+  .memo-input {
+    width: 150px;
+  }
+  
+  /* 従業員詳細テーブルの固定幅調整 */
+  .employee-detail-table th:nth-child(21),
+  .employee-detail-table td:nth-child(21) {
+    min-width: 150px;
+  }
+  
+  /* 計算セルのスタイル */
+  .calculated-row {
+    background-color: #f9fafc;
+  }
+  
+  .calculated-cell {
+    background-color: #f0f4f8;
+    color: #4a5568;
+    font-weight: 500;
+  }
+  
+  /* コンテンツラッパーのスタイル */
+  .content-wrapper {
+    background-color: #ffffff;
+    border: 1px solid #e1e4e8;
+    border-top: none;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+  }
