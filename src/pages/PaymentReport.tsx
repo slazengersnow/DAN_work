@@ -2,11 +2,60 @@ import React, { useState, useMemo } from 'react';
 
 const PaymentReport: React.FC = () => {
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
-  const [activeTab, setActiveTab] = useState<string>('monthly');
-
+  const [activeTab, setActiveTab] = useState<string>('history'); // 初期値を「申告履歴」に設定
+  
   // 法定雇用率
   const LEGAL_EMPLOYMENT_RATE = 2.3; // 2.3%
   
+  // 申告履歴データ
+  const historyData = [
+    { 
+      id: 1,
+      year: '2024年度', 
+      type: '調整金', 
+      amount: 533412, 
+      applicationDate: '2025/05/14', 
+      paymentDate: '2025/07/16', 
+      status: '受取済' 
+    },
+    { 
+      id: 2,
+      year: '2023年度', 
+      type: '調整金', 
+      amount: 487200, 
+      applicationDate: '2024/05/15', 
+      paymentDate: '2024/07/22', 
+      status: '受取済' 
+    },
+    { 
+      id: 3,
+      year: '2022年度', 
+      type: '納付金', 
+      amount: -240000, 
+      applicationDate: '2023/05/12', 
+      paymentDate: '2023/06/30', 
+      status: '支払済' 
+    },
+    { 
+      id: 4,
+      year: '2021年度', 
+      type: '納付金', 
+      amount: -600000, 
+      applicationDate: '2022/05/16', 
+      paymentDate: '2022/07/05', 
+      status: '支払済' 
+    },
+    { 
+      id: 5,
+      year: '2020年度', 
+      type: '納付金', 
+      amount: -840000, 
+      applicationDate: '2021/05/14', 
+      paymentDate: '2021/07/12', 
+      status: '支払済' 
+    }
+  ];
+
   // 月別データ
   const monthlyData = [
     { month: '4月', employees: 510, disabledEmployees: 13 },
@@ -92,6 +141,10 @@ const PaymentReport: React.FC = () => {
     return amount >= 0 ? '#28a745' : '#dc3545';
   };
 
+  // 申告履歴のページネーション
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
   return (
     <div className="page-container">
       <h1 className="page-title">納付金申告</h1>
@@ -101,11 +154,12 @@ const PaymentReport: React.FC = () => {
         <select 
           value={fiscalYear}
           onChange={(e) => setFiscalYear(e.target.value)}
+          className="year-select"
         >
           <option value="2024年度">2024年度</option>
           <option value="2023年度">2023年度</option>
         </select>
-        <button>表示</button>
+        <button className="display-button">表示</button>
       </div>
       
       <div className="summary-box">
@@ -113,21 +167,20 @@ const PaymentReport: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>ステータス</div>
-            <div>対象期間 2024年11月まで</div>
+            <div>対象期間 2024年4月～2025年3月</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-              {totals.totalPayment < 0 ? '納付金額' : '調整金額'}
+              調整金額
             </div>
             <div style={{ 
               fontSize: '18px', 
               fontWeight: 'bold', 
-              color: getPaymentColor(totals.totalPayment)
+              color: '#28a745'
             }}>
-              {totals.totalPayment < 0 ? '-' : ''}
-              {formatNumber(Math.abs(totals.totalPayment))}円
+              533,412円
             </div>
-            <div style={{ fontSize: '12px', color: '#6c757d' }}>(法定雇用率{LEGAL_EMPLOYMENT_RATE}%)</div>
+            <div style={{ fontSize: '12px', color: '#6c757d' }}>(法定雇用率2.3%)</div>
           </div>
         </div>
       </div>
@@ -246,20 +299,237 @@ const PaymentReport: React.FC = () => {
       )}
       
       {activeTab === 'history' && (
-        <div>
-          <p>申告履歴は表示されません。</p>
+        <div className="history-container">
+          <h3 className="history-title">障害者雇用納付金・調整金申告履歴</h3>
+          <div className="table-responsive">
+            <table className="history-table">
+              <thead>
+                <tr>
+                  <th>年度</th>
+                  <th>種別</th>
+                  <th>金額</th>
+                  <th>申告日</th>
+                  <th>支払/受取日</th>
+                  <th>状態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyData.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.year}</td>
+                    <td>{item.type}</td>
+                    <td style={{ 
+                      color: getPaymentColor(item.amount),
+                      textAlign: 'right'
+                    }}>
+                      {item.amount < 0 ? '-' : ''}{formatNumber(Math.abs(item.amount))}円
+                    </td>
+                    <td>{item.applicationDate}</td>
+                    <td>{item.paymentDate}</td>
+                    <td>
+                      <span className={`status-badge ${item.status === '受取済' ? 'received' : 'paid'}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="action-buttons">
+                      <button className="detail-btn">詳細</button>
+                      <button className="document-btn">申告書表示</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="pagination">
+            <button 
+              className={`pagination-btn ${currentPage === 1 ? 'active' : ''}`}
+              onClick={() => setCurrentPage(1)}
+            >
+              1
+            </button>
+            <button 
+              className={`pagination-btn ${currentPage === 2 ? 'active' : ''}`}
+              onClick={() => setCurrentPage(2)}
+            >
+              2
+            </button>
+            <button className="pagination-btn">...</button>
+          </div>
         </div>
       )}
       
       <div style={{ marginTop: '20px', fontSize: '12px', color: '#6c757d' }}>
         注意: このデータは毎月の障害者雇用状況に基づいて計算されています。年度末の確定値と異なる場合があります。
       </div>
-      
-      <div className="action-buttons">
-        <button className="secondary">申告書ダウンロード</button>
-      </div>
     </div>
   );
 };
 
 export default PaymentReport;
+
+// スタイル例
+const styles = `
+.page-container {
+  padding: 20px;
+  background-color: #f8f9fa;
+}
+
+.page-title {
+  margin-bottom: 20px;
+}
+
+.period-selector {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.year-select {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.display-button {
+  padding: 8px 15px;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.summary-box {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.tab-navigation {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.tab-navigation button {
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.tab-navigation button.active {
+  border-bottom: 2px solid #4285f4;
+  color: #4285f4;
+  font-weight: bold;
+}
+
+.history-title {
+  margin-bottom: 15px;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.history-table th, 
+.history-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.history-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.received {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge.paid {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.detail-btn, 
+.document-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+  cursor: pointer;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  gap: 5px;
+}
+
+.pagination-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background-color: #f8f9fa;
+  cursor: pointer;
+}
+
+.pagination-btn.active {
+  background-color: #4285f4;
+  color: white;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid #dee2e6;
+}
+
+.data-table th {
+  background-color: #f8f9fa;
+}
+
+.data-table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.data-table td:first-child {
+  text-align: left;
+  font-weight: 500;
+}
+`;
