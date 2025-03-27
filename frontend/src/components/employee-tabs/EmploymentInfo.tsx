@@ -1,0 +1,310 @@
+// src/components/employee-tabs/EmploymentInfo.tsx
+import React, { useState, ChangeEvent } from 'react';
+import { TabProps, EraType } from '../../types/Employee';
+
+const EmploymentInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
+  const [formData, setFormData] = useState({
+    // 雇用基本情報
+    employmentType: employeeData.employmentType || '正社員',
+    countValue: employeeData.countValue || '2.0',
+    status: employeeData.status || '在籍中',
+    hireDate: {
+      era: employeeData.hireDateEra || '令和' as EraType,
+      year: employeeData.hireDateYear || '2',
+      month: employeeData.hireDateMonth || '4',
+      day: employeeData.hireDateDay || '1'
+    },
+    
+    // 職務情報
+    department: employeeData.department || '総務部',
+    position: employeeData.position || '主任',
+    jobDescription: employeeData.jobDescription || 'データ入力、書類整理',
+    
+    // 転入・転出情報
+    transferInDate: employeeData.transferInDate || '',
+    previousWorkplace: employeeData.previousWorkplace || '',
+    transferOutDate: employeeData.transferOutDate || '',
+    nextWorkplace: employeeData.nextWorkplace || '',
+    
+    // 勤務条件
+    workHours: employeeData.workHours || '9:00 - 17:00',
+    workDaysPerWeek: employeeData.workDaysPerWeek || '5日',
+    exceptionalReason: employeeData.exceptionalReason || ''
+  });
+
+  // フォーム入力の変更処理
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // 親コンポーネントにデータ更新を通知
+    onUpdate({ [name]: value });
+  };
+
+  // 日付入力の変更処理
+  const handleDateChange = (dateType: string, field: string, value: string): void => {
+    setFormData(prev => ({
+      ...prev,
+      [dateType]: {
+        ...prev[dateType as keyof typeof prev] as Record<string, string>,
+        [field]: value
+      }
+    }));
+    
+    // 親コンポーネントにデータ更新を通知
+    onUpdate({ 
+      [`${dateType}${field.charAt(0).toUpperCase() + field.slice(1)}`]: value 
+    });
+  };
+
+  return (
+    <div className="employment-info-tab">
+      {/* 雇用基本情報 */}
+      <div className="employment-basic-info">
+        <h3 className="section-subtitle">雇用基本情報</h3>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>雇用形態</label>
+            <div className="select-wrapper">
+              <select 
+                name="employmentType" 
+                value={formData.employmentType} 
+                onChange={handleChange}
+                className="form-control"
+              >
+                <option value="正社員">正社員</option>
+                <option value="契約社員">契約社員</option>
+                <option value="パートタイム">パートタイム</option>
+                <option value="アルバイト">アルバイト</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>カウント数</label>
+            <div className="select-wrapper">
+              <select 
+                name="countValue" 
+                value={formData.countValue} 
+                onChange={handleChange}
+                className="form-control"
+              >
+                <option value="2.0">2.0</option>
+                <option value="1.0">1.0</option>
+                <option value="0.5">0.5</option>
+                <option value="0.0">0.0</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>ステータス</label>
+            <div className="select-wrapper">
+              <select 
+                name="status" 
+                value={formData.status} 
+                onChange={handleChange}
+                className="form-control"
+              >
+                <option value="在籍中">在籍中</option>
+                <option value="退職">退職</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group date-group">
+            <label>雇入れ年月日</label>
+            <div className="date-inputs">
+              <div className="select-wrapper era-select">
+                <select 
+                  value={formData.hireDate.era} 
+                  onChange={(e) => handleDateChange('hireDate', 'era', e.target.value)}
+                  className="form-control"
+                >
+                  <option value="平成">平成</option>
+                  <option value="令和">令和</option>
+                </select>
+              </div>
+              <input 
+                type="number" 
+                value={formData.hireDate.year} 
+                onChange={(e) => handleDateChange('hireDate', 'year', e.target.value)}
+                className="form-control year-input"
+                min="1"
+                max="99"
+              />
+              <span>年</span>
+              <input 
+                type="number" 
+                value={formData.hireDate.month} 
+                onChange={(e) => handleDateChange('hireDate', 'month', e.target.value)}
+                className="form-control month-input"
+                min="1"
+                max="12"
+              />
+              <span>月</span>
+              <input 
+                type="number" 
+                value={formData.hireDate.day} 
+                onChange={(e) => handleDateChange('hireDate', 'day', e.target.value)}
+                className="form-control day-input"
+                min="1"
+                max="31"
+              />
+              <span>日</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 職務情報 */}
+      <div className="job-info">
+        <h3 className="section-subtitle">職務情報</h3>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>所属部署</label>
+            <div className="select-wrapper">
+              <select 
+                name="department" 
+                value={formData.department} 
+                onChange={handleChange}
+                className="form-control"
+              >
+                <option value="総務部">総務部</option>
+                <option value="人事部">人事部</option>
+                <option value="経理部">経理部</option>
+                <option value="営業部">営業部</option>
+                <option value="開発部">開発部</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>職位</label>
+            <div className="select-wrapper">
+              <select 
+                name="position" 
+                value={formData.position} 
+                onChange={handleChange}
+                className="form-control"
+              >
+                <option value="一般">一般</option>
+                <option value="主任">主任</option>
+                <option value="係長">係長</option>
+                <option value="課長">課長</option>
+                <option value="部長">部長</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group full-width">
+            <label>業務内容</label>
+            <input 
+              type="text" 
+              name="jobDescription" 
+              value={formData.jobDescription} 
+              onChange={handleChange}
+              className="form-control"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 転入・転出情報 */}
+      <div className="transfer-info">
+        <h3 className="section-subtitle">転入・転出情報</h3>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>転入年月日</label>
+            <input 
+              type="text" 
+              name="transferInDate" 
+              value={formData.transferInDate} 
+              onChange={handleChange}
+              className="form-control"
+              placeholder="(該当なし)"
+            />
+          </div>
+          <div className="form-group">
+            <label>転入前の事業所名等</label>
+            <input 
+              type="text" 
+              name="previousWorkplace" 
+              value={formData.previousWorkplace} 
+              onChange={handleChange}
+              className="form-control"
+              placeholder="(該当なし)"
+            />
+          </div>
+          <div className="form-group">
+            <label>転出年月日</label>
+            <input 
+              type="text" 
+              name="transferOutDate" 
+              value={formData.transferOutDate} 
+              onChange={handleChange}
+              className="form-control"
+              placeholder="(該当なし)"
+            />
+          </div>
+          <div className="form-group">
+            <label>転出先の事業所名等</label>
+            <input 
+              type="text" 
+              name="nextWorkplace" 
+              value={formData.nextWorkplace} 
+              onChange={handleChange}
+              className="form-control"
+              placeholder="(該当なし)"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 勤務条件 */}
+      <div className="work-conditions">
+        <h3 className="section-subtitle">勤務条件</h3>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>勤務時間</label>
+            <input 
+              type="text" 
+              name="workHours" 
+              value={formData.workHours} 
+              onChange={handleChange}
+              className="form-control"
+            />
+          </div>
+          <div className="form-group">
+            <label>週勤務日数</label>
+            <div className="select-wrapper">
+              <select 
+                name="workDaysPerWeek" 
+                value={formData.workDaysPerWeek} 
+                onChange={handleChange}
+                className="form-control"
+              >
+                <option value="5日">5日</option>
+                <option value="4日">4日</option>
+                <option value="3日">3日</option>
+                <option value="2日">2日</option>
+                <option value="1日">1日</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group full-width">
+            <label>例外対応理由</label>
+            <input 
+              type="text" 
+              name="exceptionalReason" 
+              value={formData.exceptionalReason} 
+              onChange={handleChange}
+              className="form-control"
+              placeholder="(該当なし)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EmploymentInfo;

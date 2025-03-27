@@ -1,6 +1,82 @@
+// frontend/src/pages/MonthlyReport.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { reportApi } from '../api/reportApi'; // APIクライアントをインポート
+import Spinner from '../components/common/Spinner';
+import ErrorMessage from '../components/common/ErrorMessage';
 
-// モックデータ
+// 型定義
+interface Employee {
+  id: number;
+  employee_id: number;
+  name: string;
+  name_kana?: string;
+  gender?: string;
+  birth_date?: string;
+  hire_date: string;
+  disability_type?: string;
+  grade?: string;
+  physical_verified?: boolean;
+  intellectual_verified?: boolean;
+  mental_verified?: boolean;
+  physical_degree_current?: string;
+  intellectual_degree_current?: string;
+  mental_degree_current?: string;
+  status: string;
+  count: number;
+  disability?: string;
+  no?: number;
+  monthlyStatus?: number[];
+  memo?: string;
+  monthlyWork?: {
+    scheduled_hours: number;
+    actual_hours: number;
+    exception_reason?: string;
+  };
+}
+
+interface MonthlyData {
+  year: number;
+  month: number;
+  total_employees: number;
+  disabled_employees: number;
+  actual_rate: number;
+  legal_rate: number;
+  status?: string; // 追加
+}
+
+interface MonthlyTotal {
+  id?: number;
+  year: number;
+  month: number;
+  total_employees: number;
+  full_time_employees: number;
+  part_time_employees: number;
+  disabled_employees: number;
+  actual_rate: number;
+  legal_rate: number;
+  legal_count: number;
+  shortage: number;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface MonthlyDetailData {
+  months: string[];
+  data: Array<{
+    id: number;
+    item: string;
+    values: number[];
+    suffix?: string;
+    isDisability?: boolean;
+    isRatio?: boolean;
+    isCalculated?: boolean;
+    isNegative?: boolean;
+  }>;
+}
+
+// モックデータ（開発・フォールバック用）
 const mockSummary = {
   year: 2024,
   month: 11,
@@ -12,15 +88,15 @@ const mockSummary = {
 };
 
 const mockEmployees = [
-  { no: 1, id: 1001, name: '山田 太郎', type: '身体障害', disability: '視覚', grade: '1級', hireDate: '2020/04/01', status: '在籍', 
+  { no: 1, id: 1, employee_id: 1001, name: '山田 太郎', disability_type: '身体障害', disability: '視覚', grade: '1級', hire_date: '2020/04/01', status: '在籍', 
     count: 2.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '特記事項なし' },
-  { no: 2, id: 2222, name: '鈴木 花子', type: '身体障害', disability: '聴覚', grade: '4級', hireDate: '2020/04/01', status: '在籍', 
+  { no: 2, id: 2, employee_id: 2222, name: '鈴木 花子', disability_type: '身体障害', disability: '聴覚', grade: '4級', hire_date: '2020/04/01', status: '在籍', 
     count: 1.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '' },
-  { no: 3, id: 3333, name: '佐藤 一郎', type: '知的障害', disability: '-', grade: 'B', hireDate: '2020/04/01', status: '在籍', 
+  { no: 3, id: 3, employee_id: 3333, name: '佐藤 一郎', disability_type: '知的障害', disability: '-', grade: 'B', hire_date: '2020/04/01', status: '在籍', 
     count: 1.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '' },
-  { no: 4, id: 4444, name: '高橋 勇太', type: '精神障害', disability: 'ADHD', grade: '3級', hireDate: '2020/04/01', status: '在籍', 
+  { no: 4, id: 4, employee_id: 4444, name: '高橋 勇太', disability_type: '精神障害', disability: 'ADHD', grade: '3級', hire_date: '2020/04/01', status: '在籍', 
     count: 1.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '月1回面談実施' },
-  { no: 5, id: 5555, name: '田中 美咲', type: '精神障害', disability: 'うつ病', grade: '2級', hireDate: '2021/04/01', status: '在籍', 
+  { no: 5, id: 5, employee_id: 5555, name: '田中 美咲', disability_type: '精神障害', disability: 'うつ病', grade: '2級', hire_date: '2021/04/01', status: '在籍', 
     count: 1.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '短時間勤務' },
 ];
 
@@ -51,11 +127,9 @@ const initialMonthlyDetailData = {
 };
 
 const MonthlyReport: React.FC = () => {
-  const [selectedYear, setSelectedYear] = useState<number>(2024);
-  const [selectedMonth, setSelectedMonth] = useState<number>(11);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [activeTab, setActiveTab] = useState<string>('summary');
-  const [employees, setEmployees] = useState([...mockEmployees]);
-  const [monthlyDetailData, setMonthlyDetailData] = useState({...initialMonthlyDetailData});
   const [editingDetailRow, setEditingDetailRow] = useState<number | null>(null);
   const [editingDetailCol, setEditingDetailCol] = useState<number | null>(null);
   const [activeCell, setActiveCell] = useState<{row: number | null, col: number | null}>({row: null, col: null});
@@ -63,12 +137,181 @@ const MonthlyReport: React.FC = () => {
   const [editingSummary, setEditingSummary] = useState<boolean>(false);
   
   const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+  const queryClient = useQueryClient();
 
   const tabItems = [
     { id: 'summary', label: 'サマリー' },
     { id: 'employees', label: '従業員詳細' },
     { id: 'monthly', label: '月次詳細' }
   ];
+
+  // React Query: 月次データの取得
+  const { 
+    data: monthlyData, 
+    isLoading: isLoadingMonthlyData, 
+    error: monthlyError 
+  } = useQuery(
+    ['monthlyData', selectedYear, selectedMonth],
+    () => reportApi.getMonthlyData(selectedYear, selectedMonth),
+    { enabled: !process.env.REACT_APP_USE_MOCK }
+  );
+  
+  // React Query: 従業員データの取得
+  const { 
+    data: apiEmployeeData, 
+    isLoading: isLoadingEmployeeData, 
+    error: employeeError 
+  } = useQuery(
+    ['monthlyEmployees', selectedYear, selectedMonth],
+    () => reportApi.getEmployeesByMonth(selectedYear, selectedMonth),
+    { enabled: !process.env.REACT_APP_USE_MOCK }
+  );
+  
+  // React Query: 年間データの取得
+  const { 
+    data: apiYearlyData, 
+    isLoading: isLoadingYearlyData, 
+    error: yearlyError 
+  } = useQuery(
+    ['yearlyData', selectedYear],
+    () => reportApi.getYearlyData(selectedYear),
+    { enabled: !process.env.REACT_APP_USE_MOCK }
+  );
+
+  // Mutation: 従業員データの更新
+  const updateEmployeeMutation = useMutation(
+    (employee: Partial<Employee>) => reportApi.updateEmployee(employee.id!, employee),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['monthlyEmployees', selectedYear, selectedMonth]);
+        queryClient.invalidateQueries(['monthlyData', selectedYear, selectedMonth]);
+      }
+    }
+  );
+
+  // Mutation: 月次データの確定
+  const confirmMutation = useMutation(
+    () => reportApi.confirmMonthlyData(selectedYear, selectedMonth),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['monthlyData', selectedYear, selectedMonth]);
+        queryClient.invalidateQueries(['yearlyData', selectedYear]);
+        alert('月次データを確定しました');
+      }
+    }
+  );
+
+  // Mutation: 月次詳細データの保存
+  const saveMonthlyDetailMutation = useMutation(
+    (data: any) => reportApi.updateMonthlyDetail(selectedYear, selectedMonth, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['yearlyData', selectedYear]);
+        queryClient.invalidateQueries(['monthlyData', selectedYear, selectedMonth]);
+      }
+    }
+  );
+
+  // APIデータとモックデータのマージ
+  const [employees, setEmployees] = useState<Employee[]>([...mockEmployees]);
+  const [monthlyDetailData, setMonthlyDetailData] = useState<MonthlyDetailData>({...initialMonthlyDetailData});
+  const [historyData, setHistoryData] = useState<any[]>([...mockHistory]);
+
+  // APIデータの加工とローカルステートへの反映
+  useEffect(() => {
+    if (process.env.REACT_APP_USE_MOCK) return;
+    
+    // 従業員データの処理
+    if (apiEmployeeData) {
+      const formattedEmployees = apiEmployeeData.map((emp: any, index: number) => {
+        // 月次ステータスを計算
+        const monthlyStatus = Array(12).fill(1);
+        if (emp.monthlyWork) {
+          const monthIndex = emp.monthlyWork.month - 1;
+          if (emp.monthlyWork.actual_hours === 0) {
+            monthlyStatus[monthIndex] = 0;
+          } else if (emp.monthlyWork.actual_hours < emp.monthlyWork.scheduled_hours * 0.8) {
+            monthlyStatus[monthIndex] = 0.5;
+          }
+        }
+        
+        return {
+          ...emp,
+          no: index + 1,
+          monthlyStatus,
+          memo: emp.monthlyWork?.exception_reason || ''
+        };
+      });
+      
+      setEmployees(formattedEmployees);
+    }
+    
+    // 年間データの処理
+    if (apiYearlyData) {
+      const formattedData = formatYearlyDataForUI(apiYearlyData);
+      setMonthlyDetailData(formattedData);
+    }
+    
+    // 履歴データの処理
+    if (apiYearlyData) {
+      const historyItems = apiYearlyData.map((item: MonthlyTotal) => {
+        // 障害タイプの集計は実装しない場合はダミーデータを使用
+        return {
+          yearMonth: `${item.year}/${item.month.toString().padStart(2, '0')}`,
+          totalEmployees: item.total_employees,
+          disabledCount: item.disabled_employees,
+          physical: 0, // ダミーデータ
+          intellectual: 0, // ダミーデータ
+          mental: 0, // ダミーデータ
+          employmentCount: item.disabled_employees,
+          actualRate: item.actual_rate,
+          status: item.status
+        };
+      });
+      
+      // 降順に並べ替えて最新の3件のみを使用
+      setHistoryData(historyItems.sort((a, b) => 
+        b.yearMonth.localeCompare(a.yearMonth)
+      ).slice(0, 3));
+    }
+  }, [apiEmployeeData, apiYearlyData]);
+
+  // 年間データをUI用に変換
+  const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetailData => {
+    // 月別に並べ替え（4月始まり）
+    const orderedData = [
+      ...yearlyData.filter(d => d.month >= 4).sort((a, b) => a.month - b.month),
+      ...yearlyData.filter(d => d.month <= 3).sort((a, b) => a.month - b.month)
+    ];
+    
+    // 各値の合計を計算
+    const sumTotalEmployees = orderedData.reduce((sum, d) => sum + d.total_employees, 0);
+    const sumFullTimeEmployees = orderedData.reduce((sum, d) => sum + d.full_time_employees, 0);
+    const sumPartTimeEmployees = orderedData.reduce((sum, d) => sum + d.part_time_employees, 0);
+    const sumDisabledEmployees = orderedData.reduce((sum, d) => sum + Number(d.disabled_employees), 0);
+    const avgActualRate = orderedData.reduce((sum, d) => sum + Number(d.actual_rate), 0) / orderedData.length;
+    const avgLegalRate = orderedData.reduce((sum, d) => sum + Number(d.legal_rate), 0) / orderedData.length;
+    const sumLegalCount = orderedData.reduce((sum, d) => sum + Number(d.legal_count), 0);
+    const sumShortage = orderedData.reduce((sum, d) => sum + Number(d.shortage), 0);
+    
+    // UI表示用のデータ形式に変換
+    // 既存のデータ構造を維持しながら必要最小限の列のみ更新
+    return {
+      months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
+      data: [
+        { id: 1, item: '従業員数', values: [...orderedData.map(d => d.total_employees), sumTotalEmployees] },
+        { id: 2, item: 'フルタイム従業員数', values: [...orderedData.map(d => d.full_time_employees), sumFullTimeEmployees] },
+        { id: 3, item: 'パートタイム従業員数', values: [...orderedData.map(d => d.part_time_employees), sumPartTimeEmployees] },
+        { id: 4, item: 'トータル従業員数', values: [...orderedData.map(d => d.total_employees), sumTotalEmployees] },
+        // APIからのデータにLevel 1 & 2のような詳細な分類がない場合は省略
+        { id: 9, item: 'トータル障がい者数', values: [...orderedData.map(d => Number(d.disabled_employees)), sumDisabledEmployees], isDisability: true },
+        { id: 10, item: '実雇用率', values: [...orderedData.map(d => Number(d.actual_rate)), avgActualRate], suffix: '%', isRatio: true, isCalculated: true },
+        { id: 11, item: '法定雇用率', values: [...orderedData.map(d => Number(d.legal_rate)), avgLegalRate], suffix: '%', isRatio: true },
+        { id: 12, item: '法定雇用者数', values: [...orderedData.map(d => Number(d.legal_count)), sumLegalCount], isCalculated: true },
+        { id: 13, item: '超過・未達', values: [...orderedData.map(d => Number(d.shortage)), sumShortage], isNegative: true, isCalculated: true }
+      ]
+    };
+  };
 
   // 従業員データの更新ハンドラー
   const handleEmployeeDataChange = (id: number, field: string, value: string) => {
@@ -77,8 +320,8 @@ const MonthlyReport: React.FC = () => {
         const updatedEmp = { ...emp, [field]: value };
         
         // 身体障害で1級または2級の場合、自動的にカウントを2にする
-        if (field === 'type' || field === 'grade') {
-          if (updatedEmp.type === '身体障害' && (updatedEmp.grade === '1級' || updatedEmp.grade === '2級')) {
+        if (field === 'disability_type' || field === 'grade') {
+          if (updatedEmp.disability_type === '身体障害' && (updatedEmp.grade === '1級' || updatedEmp.grade === '2級')) {
             updatedEmp.count = 2.0;
           }
         }
@@ -93,7 +336,7 @@ const MonthlyReport: React.FC = () => {
   const handleMonthlyStatusChange = (id: number, monthIndex: number, value: string) => {
     setEmployees(employees.map(emp => {
       if (emp.id === id) {
-        const newMonthlyStatus = [...emp.monthlyStatus];
+        const newMonthlyStatus = [...(emp.monthlyStatus || [])];
         newMonthlyStatus[monthIndex] = Number(value);
         return { ...emp, monthlyStatus: newMonthlyStatus };
       }
@@ -150,7 +393,7 @@ const MonthlyReport: React.FC = () => {
   };
 
   // 計算の依存関係を考慮した全ての値の再計算
-  const recalculateValues = (data: typeof monthlyDetailData) => {
+  const recalculateValues = (data: MonthlyDetailData) => {
     const newData = {...data, data: [...data.data]};
     
     // インデックスで各行を取得
@@ -322,14 +565,91 @@ const MonthlyReport: React.FC = () => {
     }
   };
 
-  // 編集モードの切り替え
+  // 従業員データの編集モード切り替え
   const toggleEditMode = () => {
-    setEditMode(!editMode);
+    if (editMode) {
+      // 編集完了時：保存処理
+      const updatePromises = employees.map(employee => {
+        // API更新用のデータを構築
+        const updateData = {
+          id: employee.id,
+          employee_id: employee.employee_id,
+          name: employee.name,
+          disability_type: employee.disability_type,
+          status: employee.status,
+          count: employee.count,
+          hire_date: employee.hire_date,
+          // 月次ステータス情報を適切な形式で送信
+          monthlyWork: employee.monthlyStatus?.map((status, idx) => {
+            const month = idx >= 9 ? idx - 8 : idx + 4; // 4月始まりに変換
+            const year = idx >= 9 ? selectedYear + 1 : selectedYear;
+            
+            return {
+              year,
+              month,
+              scheduled_hours: 160, // デフォルト値
+              actual_hours: status * 160, // ステータスから実働時間を算出
+              exception_reason: employee.memo
+            };
+          })
+        };
+        
+        // モックモードの場合は更新をシミュレート
+        if (process.env.REACT_APP_USE_MOCK) {
+          return Promise.resolve(updateData);
+        } else {
+          return updateEmployeeMutation.mutateAsync(updateData);
+        }
+      });
+      
+      Promise.all(updatePromises)
+        .then(() => {
+          setEditMode(false);
+        })
+        .catch(error => {
+          console.error('従業員データの更新に失敗しました', error);
+        });
+    } else {
+      // 編集開始
+      setEditMode(true);
+    }
   };
 
   // サマリー編集モードの切り替え
   const toggleSummaryEditMode = () => {
-    setEditingSummary(!editingSummary);
+    if (editingSummary) {
+      // 編集完了時：保存処理
+      const updatePromises = employees.map(employee => {
+        const updateData = {
+          id: employee.id,
+          count: employee.count,
+          // メモは月次勤務データのexception_reasonとして保存
+          monthlyWork: {
+            year: selectedYear,
+            month: selectedMonth,
+            exception_reason: employee.memo
+          }
+        };
+        
+        // モックモードの場合は更新をシミュレート
+        if (process.env.REACT_APP_USE_MOCK) {
+          return Promise.resolve(updateData);
+        } else {
+          return updateEmployeeMutation.mutateAsync(updateData);
+        }
+      });
+      
+      Promise.all(updatePromises)
+        .then(() => {
+          setEditingSummary(false);
+        })
+        .catch(error => {
+          console.error('サマリーデータの更新に失敗しました', error);
+        });
+    } else {
+      // 編集開始
+      setEditingSummary(true);
+    }
   };
 
   // 従業員メモの更新ハンドラー
@@ -349,21 +669,88 @@ const MonthlyReport: React.FC = () => {
     ));
   };
 
-  // 初回読み込み時に自動計算と身体障害1級・2級のカウント設定
-  useEffect(() => {
-    setMonthlyDetailData(recalculateValues(monthlyDetailData));
+  // 月次データ表示ボタンのハンドラー
+  const handleDisplayClick = () => {
+    // キャッシュの更新をトリガー
+    queryClient.invalidateQueries(['monthlyData', selectedYear, selectedMonth]);
+    queryClient.invalidateQueries(['monthlyEmployees', selectedYear, selectedMonth]);
+    queryClient.invalidateQueries(['yearlyData', selectedYear]);
+  };
+
+  // 月次確定ボタンのハンドラー
+  const handleConfirmClick = () => {
+    if (window.confirm('月次データを確定しますか？確定後は編集できなくなります。')) {
+      confirmMutation.mutate();
+    }
+  };
+
+  // 月次詳細データの保存
+  const handleSaveMonthlyDetail = () => {
+    // APIに送信するデータを構築
+    const apiData = monthlyDetailData.data.map(row => {
+      return {
+        id: row.id,
+        item: row.item,
+        values: row.values
+      };
+    });
     
-    // 身体障害1級・2級のカウントを自動設定
-    setEmployees(prevEmployees => 
-      prevEmployees.map(emp => {
-        if (emp.type === '身体障害' && (emp.grade === '1級' || emp.grade === '2級')) {
-          return { ...emp, count: 2.0 };
-        }
-        return emp;
+    // モックモードの場合は更新をシミュレート
+    if (process.env.REACT_APP_USE_MOCK) {
+      console.log('月次詳細データ保存（モックモード）', apiData);
+      alert('月次詳細データを保存しました');
+    } else {
+      saveMonthlyDetailMutation.mutate(apiData);
+    }
+  };
+
+  // CSVエクスポートボタンのハンドラー
+  const handleExportCsv = () => {
+    // モックモードの場合はダミー処理
+    if (process.env.REACT_APP_USE_MOCK) {
+      console.log('CSVエクスポート（モックモード）');
+      alert('CSVエクスポート機能はAPIが必要です');
+      return;
+    }
+
+    // APIを呼び出してCSVファイルをダウンロード
+    reportApi.exportCsv(selectedYear, selectedMonth)
+      .then(response => {
+        // Blobとして受け取り、ダウンロードリンクを作成
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `月次報告_${selectedYear}年${selectedMonth}月.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       })
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .catch(error => {
+        console.error('CSVエクスポートに失敗しました', error);
+        alert('CSVエクスポートに失敗しました');
+      });
+  };
+
+  // 印刷ボタンのハンドラー
+  const handlePrint = () => {
+    // モックモードの場合はページを印刷
+    if (process.env.REACT_APP_USE_MOCK) {
+      window.print();
+      return;
+    }
+
+    // APIを呼び出してPDF生成とダウンロード
+    reportApi.generatePdf(selectedYear, selectedMonth)
+      .then(response => {
+        // Blobとして受け取り、新しいウィンドウで開く
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        window.open(url, '_blank');
+      })
+      .catch(error => {
+        console.error('印刷用PDFの生成に失敗しました', error);
+        alert('印刷用PDFの生成に失敗しました');
+      });
+  };
 
   // 入力参照用関数
   const setInputRef = useCallback((element: HTMLInputElement | null, key: string) => {
@@ -371,6 +758,32 @@ const MonthlyReport: React.FC = () => {
       inputRefs.current[key] = element;
     }
   }, []);
+
+  // ローディング表示
+  const isLoading = !process.env.REACT_APP_USE_MOCK && (
+    isLoadingMonthlyData || isLoadingEmployeeData || isLoadingYearlyData || 
+    updateEmployeeMutation.isLoading || confirmMutation.isLoading || saveMonthlyDetailMutation.isLoading
+  );
+
+  if (isLoading) {
+    return <Spinner />;
+  }
+
+  // エラー表示
+  const hasError = !process.env.REACT_APP_USE_MOCK && (monthlyError || employeeError || yearlyError);
+  if (hasError) {
+    return <ErrorMessage message="データの読み込み中にエラーが発生しました" />;
+  }
+
+  // サマリーデータの取得
+  const summaryData = monthlyData || {
+    year: selectedYear,
+    month: selectedMonth,
+    total_employees: mockSummary.totalEmployees,
+    disabled_employees: mockSummary.disabledEmployees,
+    actual_rate: mockSummary.actualRate,
+    legal_rate: mockSummary.legalRate
+  };
 
   return (
     <div className="section monthly-section" onClick={handleOutsideClick}>
@@ -386,9 +799,10 @@ const MonthlyReport: React.FC = () => {
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
               >
-                <option value={2024}>2024年</option>
-                <option value={2023}>2023年</option>
-                <option value={2022}>2022年</option>
+                {[...Array(5)].map((_, idx) => {
+                  const year = new Date().getFullYear() - 2 + idx;
+                  return <option key={year} value={year}>{year}年</option>;
+                })}
               </select>
               
               <select 
@@ -402,16 +816,32 @@ const MonthlyReport: React.FC = () => {
               </select>
             </div>
             
-            <button className="btn primary-btn">表示</button>
-            <button className="btn secondary-btn">月次確定</button>
+            <button 
+              className="btn primary-btn"
+              onClick={handleDisplayClick}
+            >
+              表示
+            </button>
+            
+            <button 
+              className="btn secondary-btn"
+              onClick={handleConfirmClick}
+              disabled={confirmMutation.isLoading || (summaryData.status === '確定済')}
+            >
+              {confirmMutation.isLoading ? '処理中...' : '月次確定'}
+            </button>
           </div>
         </div>
       )}
       
       <div className="summary-box">
-        <h3 className="summary-title">2024年集計サマリー</h3>
+        <h3 className="summary-title">{selectedYear}年集計サマリー</h3>
         <div className="summary-content">
-          常用労働者数: {mockSummary.totalEmployees}名 | 障害者数: {mockSummary.disabledEmployees}名 | 雇用カウント: {mockSummary.employmentCount} | 実雇用率: {mockSummary.actualRate}% | 法定雇用率: {mockSummary.legalRate}%
+          常用労働者数: {summaryData.total_employees}名 | 
+          障害者数: {summaryData.disabled_employees}名 | 
+          雇用カウント: {summaryData.disabled_employees} | 
+          実雇用率: {summaryData.actual_rate}% | 
+          法定雇用率: {summaryData.legal_rate}%
         </div>
       </div>
 
@@ -437,9 +867,21 @@ const MonthlyReport: React.FC = () => {
                 <h3 className="data-title">障害者雇用者詳細</h3>
                 <div className="header-actions">
                   {editingSummary ? (
-                    <button className="btn primary-btn" onClick={toggleSummaryEditMode}>保存</button>
+                    <button 
+                      className="btn primary-btn" 
+                      onClick={toggleSummaryEditMode}
+                      disabled={summaryData.status === '確定済'}
+                    >
+                      保存
+                    </button>
                   ) : (
-                    <button className="btn action-btn" onClick={toggleSummaryEditMode}>編集</button>
+                    <button 
+                      className="btn action-btn" 
+                      onClick={toggleSummaryEditMode}
+                      disabled={summaryData.status === '確定済'}
+                    >
+                      編集
+                    </button>
                   )}
                 </div>
               </div>
@@ -463,12 +905,12 @@ const MonthlyReport: React.FC = () => {
                     {employees.map((employee) => (
                       <tr key={employee.id}>
                         <td>{employee.no}</td>
-                        <td>{employee.id}</td>
+                        <td>{employee.employee_id}</td>
                         <td>{employee.name}</td>
-                        <td>{employee.type}</td>
+                        <td>{employee.disability_type}</td>
                         <td>{employee.disability}</td>
                         <td>{employee.grade}</td>
-                        <td>{employee.hireDate}</td>
+                        <td>{employee.hire_date}</td>
                         <td>
                           <span className="status-badge active">{employee.status}</span>
                         </td>
@@ -491,7 +933,7 @@ const MonthlyReport: React.FC = () => {
                           {editingSummary ? (
                             <input 
                               type="text" 
-                              value={employee.memo} 
+                              value={employee.memo || ''} 
                               onChange={(e) => handleMemoChange(employee.id, e.target.value)}
                               className="editable-input"
                             />
@@ -524,7 +966,7 @@ const MonthlyReport: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockHistory.map((record, index) => (
+                    {historyData.map((record, index) => (
                       <tr key={index}>
                         <td>{record.yearMonth}</td>
                         <td>{record.totalEmployees}</td>
@@ -552,9 +994,21 @@ const MonthlyReport: React.FC = () => {
               <h3 className="data-title">従業員詳細</h3>
               <div className="header-actions">
                 {editMode ? (
-                  <button className="btn primary-btn" onClick={toggleEditMode}>保存</button>
+                  <button 
+                    className="btn primary-btn" 
+                    onClick={toggleEditMode}
+                    disabled={summaryData.status === '確定済'}
+                  >
+                    保存
+                  </button>
                 ) : (
-                  <button className="btn action-btn" onClick={toggleEditMode}>編集</button>
+                  <button 
+                    className="btn action-btn" 
+                    onClick={toggleEditMode}
+                    disabled={summaryData.status === '確定済'}
+                  >
+                    編集
+                  </button>
                 )}
               </div>
             </div>
@@ -594,13 +1048,13 @@ const MonthlyReport: React.FC = () => {
                           {editMode ? (
                             <input 
                               type="text" 
-                              value={employee.id}
-                              onChange={(e) => handleEmployeeDataChange(employee.id, 'id', e.target.value)}
+                              value={employee.employee_id}
+                              onChange={(e) => handleEmployeeDataChange(employee.id, 'employee_id', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className="editable-input"
                             />
                           ) : (
-                            employee.id
+                            employee.employee_id
                           )}
                         </td>
                         <td>
@@ -619,24 +1073,25 @@ const MonthlyReport: React.FC = () => {
                         <td>
                           {editMode ? (
                             <select 
-                              value={employee.type}
-                              onChange={(e) => handleEmployeeDataChange(employee.id, 'type', e.target.value)}
+                              value={employee.disability_type || ''}
+                              onChange={(e) => handleEmployeeDataChange(employee.id, 'disability_type', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className="editable-select"
                             >
+                              <option value="">なし</option>
                               <option value="身体障害">身体障害</option>
                               <option value="知的障害">知的障害</option>
                               <option value="精神障害">精神障害</option>
                             </select>
                           ) : (
-                            employee.type
+                            employee.disability_type
                           )}
                         </td>
                         <td>
                           {editMode ? (
                             <input 
                               type="text" 
-                              value={employee.disability}
+                              value={employee.disability || ''}
                               onChange={(e) => handleEmployeeDataChange(employee.id, 'disability', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className="editable-input"
@@ -649,7 +1104,7 @@ const MonthlyReport: React.FC = () => {
                           {editMode ? (
                             <input 
                               type="text" 
-                              value={employee.grade}
+                              value={employee.grade || ''}
                               onChange={(e) => handleEmployeeDataChange(employee.id, 'grade', e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className="editable-input"
@@ -662,13 +1117,13 @@ const MonthlyReport: React.FC = () => {
                           {editMode ? (
                             <input 
                               type="date"
-                              value={employee.hireDate.split('/').join('-')}
-                              onChange={(e) => handleEmployeeDataChange(employee.id, 'hireDate', e.target.value.split('-').join('/'))}
+                              value={employee.hire_date.split('/').join('-')}
+                              onChange={(e) => handleEmployeeDataChange(employee.id, 'hire_date', e.target.value.split('-').join('/'))}
                               onClick={(e) => e.stopPropagation()}
                               className="editable-input"
                             />
                           ) : (
-                            employee.hireDate
+                            employee.hire_date
                           )}
                         </td>
                         <td>
@@ -687,7 +1142,7 @@ const MonthlyReport: React.FC = () => {
                             <span className="status-badge active">{employee.status}</span>
                           )}
                         </td>
-                        {employee.monthlyStatus.map((status, monthIndex) => (
+                        {(employee.monthlyStatus || Array(12).fill(1)).map((status, monthIndex) => (
                           <td key={`${employee.id}-month-${monthIndex}`}>
                             {editMode ? (
                               <select 
@@ -710,7 +1165,7 @@ const MonthlyReport: React.FC = () => {
                           {editMode ? (
                             <input 
                               type="text" 
-                              value={employee.memo}
+                              value={employee.memo || ''}
                               onChange={(e) => handleMemoChange(employee.id, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               className="editable-input memo-input"
@@ -730,6 +1185,18 @@ const MonthlyReport: React.FC = () => {
         
         {activeTab === 'monthly' && (
           <div className="data-container">
+            <div className="data-header">
+              <h3 className="data-title">月次詳細</h3>
+              <div className="header-actions">
+                <button 
+                  className="btn primary-btn" 
+                  onClick={handleSaveMonthlyDetail}
+                  disabled={summaryData.status === '確定済'}
+                >
+                  保存
+                </button>
+              </div>
+            </div>
             <div className="data-table-wrapper">
               <div className="horizontal-scroll-container">
                 <table className="data-table monthly-detail-table">
@@ -774,7 +1241,7 @@ const MonthlyReport: React.FC = () => {
                                   className={className}
                                   onClick={() => handleCellClick(row.id, colIndex)}
                                 >
-                                  {editingDetailRow === row.id && editingDetailCol === colIndex ? (
+                                  {editingDetailRow === row.id && editingDetailCol === colIndex && summaryData.status !== '確定済' ? (
                                     <input
                                       ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
                                       type="text"
@@ -785,7 +1252,7 @@ const MonthlyReport: React.FC = () => {
                                       className="cell-input"
                                     />
                                   ) : (
-                                    <span className={colIndex < 12 && !row.isCalculated ? 'editable-cell' : ''}>
+                                    <span className={colIndex < 12 && !row.isCalculated && summaryData.status !== '確定済' ? 'editable-cell' : ''}>
                                       {value}{row.suffix || ''}
                                     </span>
                                   )}
@@ -808,11 +1275,89 @@ const MonthlyReport: React.FC = () => {
       </div>
       
       <div className="action-buttons">
-        <button className="btn secondary-btn">印刷</button>
-        <button className="btn primary-btn">CSVエクスポート</button>
+        <button className="btn secondary-btn" onClick={handlePrint}>印刷</button>
+        <button className="btn primary-btn" onClick={handleExportCsv}>CSVエクスポート</button>
       </div>
     </div>
   );
 };
+
+// API呼び出しを行うクライアント（サンプル実装）
+// src/api/reportApi.ts として別ファイルに実装することを推奨
+/*
+export const reportApi = {
+  // 月次データ取得
+  getMonthlyData: async (year: number, month: number) => {
+    const response = await fetch(`/api/reports/monthly/${year}/${month}`);
+    if (!response.ok) throw new Error('APIエラー');
+    return response.json();
+  },
+  
+  // 従業員データ取得
+  getEmployeesByMonth: async (year: number, month: number) => {
+    const response = await fetch(`/api/reports/monthly/${year}/${month}/employees`);
+    if (!response.ok) throw new Error('APIエラー');
+    return response.json();
+  },
+  
+  // 年間データ取得
+  getYearlyData: async (year: number) => {
+    const response = await fetch(`/api/reports/yearly/${year}`);
+    if (!response.ok) throw new Error('APIエラー');
+    return response.json();
+  },
+  
+  // 従業員データ更新
+  updateEmployee: async (id: number, data: any) => {
+    const response = await fetch(`/api/employees/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('APIエラー');
+    return response.json();
+  },
+  
+  // 月次データ確定
+  confirmMonthlyData: async (year: number, month: number) => {
+    const response = await fetch(`/api/reports/monthly/${year}/${month}/confirm`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error('APIエラー');
+    return response.json();
+  },
+  
+  // 月次詳細データ更新
+  updateMonthlyDetail: async (year: number, month: number, data: any) => {
+    const response = await fetch(`/api/reports/monthly/${year}/${month}/detail`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('APIエラー');
+    return response.json();
+  },
+  
+  // CSVエクスポート
+  exportCsv: async (year: number, month: number) => {
+    const response = await fetch(`/api/reports/monthly/${year}/${month}/export`, {
+      method: 'GET',
+      headers: { 'Accept': 'text/csv' }
+    });
+    if (!response.ok) throw new Error('APIエラー');
+    return response;
+  },
+  
+  // PDF生成
+  generatePdf: async (year: number, month: number) => {
+    const response = await fetch(`/api/reports/monthly/${year}/${month}/print`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/pdf' }
+    });
+    if (!response.ok) throw new Error('APIエラー');
+    return response;
+  }
+};
+*/
 
 export default MonthlyReport;

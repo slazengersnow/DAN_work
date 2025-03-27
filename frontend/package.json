@@ -1,0 +1,26 @@
+{
+  "name": "disability-employment-system",
+  "version": "1.0.0",
+  "description": "障害者雇用管理システム",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "dependencies": {
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "axios": "^1.8.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-query": "^3.39.3",
+    "react-scripts": "^5.0.1",
+    "typescript": "^4.9.5"
+  }
+}

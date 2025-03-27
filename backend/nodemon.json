@@ -1,0 +1,4 @@
+{
+  "watch": ["*.js", "routes/", "controllers/", "models/", "middleware/", "utils/", "config/"],
+  "ignore": ["node_modules/"]
+}

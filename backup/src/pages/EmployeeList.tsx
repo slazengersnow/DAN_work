@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { employeeApi, exportEmployeesToCsv } from '../api/employeeApi';
+
 
 const EmployeeList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -20,6 +22,16 @@ const EmployeeList: React.FC = () => {
     employee.name.includes(searchQuery) || 
     employee.id.includes(searchQuery)
   );
+
+  // CSVエクスポートハンドラー
+  const handleExportCsv = async () => {
+    try {
+      await exportEmployeesToCsv();
+    } catch (error) {
+      console.error('CSVエクスポートエラー:', error);
+      alert('CSVエクスポート中にエラーが発生しました');
+    }
+  };
 
   return (
     <div className="page-container">
@@ -105,7 +117,13 @@ const EmployeeList: React.FC = () => {
             <option value="20">20件</option>
             <option value="50">50件</option>
           </select>
-          <button style={{ marginLeft: '10px' }}>CSVエクスポート</button>
+          // 画面下部のエクスポートボタン
+          <button 
+            className="btn btn-primary" 
+            onClick={handleExportCsv}
+          >
+            CSVエクスポート
+          </button>
         </div>
       </div>
     </div>
