@@ -61,6 +61,23 @@ const Login: React.FC = () => {
       return;
     }
     
+    // 開発環境かどうかを確認
+    if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK === 'true') {
+      // 開発用に認証を通過させる
+      localStorage.setItem('isAuthenticated', 'true');
+      // ダミーのユーザー情報を保存
+      localStorage.setItem('auth_token', 'dummy_token_for_development');
+      localStorage.setItem('user', JSON.stringify({
+        id: 1,
+        username: credentials.username || 'admin',
+        role: 'admin'
+      }));
+      // 社員リストページに遷移
+      navigate('/employee-list');
+      return;
+    }
+    
+    // 本番環境では通常のログインフローを使用
     loginMutation.mutate(credentials);
   };
   

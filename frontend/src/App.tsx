@@ -1,6 +1,6 @@
 // frontend/src/App.tsx
 import React from 'react';
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -22,18 +22,21 @@ const ProtectedRoute = ({
   children: React.ReactNode, 
   requiredRole?: string 
 }) => {
-  // 実際のアプリケーションでは認証状態をチェックする
-  const isAuthenticated = true; // 開発中はtrueに設定
-  const userRole = 'admin'; // 開発中は管理者権限に設定
+  // 開発中は常に認証済みとする
+  // const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const isAuthenticated = true; // 開発用に強制的に認証済みとする
+  
+  // 開発中は常に管理者権限に設定
+  const userRole = 'admin';
   
   if (!isAuthenticated) {
     // 未認証の場合はログインページにリダイレクト
-    return <Login />;
+    return <Navigate to="/login" replace />;
   }
   
   if (requiredRole && userRole !== requiredRole) {
     // 権限がない場合は未認証ページにリダイレクト
-    return <Unauthorized />;
+    return <Navigate to="/unauthorized" replace />;
   }
   
   return <>{children}</>;
