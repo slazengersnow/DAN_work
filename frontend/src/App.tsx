@@ -7,14 +7,14 @@ import './App.css';
 const queryClient = new QueryClient();
 
 // シンプルなコンポーネント
-const Home = () => (
+const Home: React.FC = () => (
   <div>
     <h2>ホームページ</h2>
     <p>ルーティングが機能しています！</p>
   </div>
 );
 
-const About = () => (
+const About: React.FC = () => (
   <div>
     <h2>Aboutページ</h2>
     <p>これは別のルートです。</p>
@@ -22,14 +22,18 @@ const About = () => (
 );
 
 // レイアウトコンポーネント
-const Layout = () => {
+const Layout: React.FC = () => {
   return (
     <div className="App" style={{ textAlign: 'center', padding: '20px' }}>
       <header style={{ backgroundColor: '#282c34', padding: '20px', color: 'white' }}>
         <h1>テストアプリケーション</h1>
         <nav style={{ marginTop: '15px' }}>
-          <Link to="/" style={{ color: 'white', margin: '0 10px', textDecoration: 'none' }}>ホーム</Link>
-          <Link to="/about" style={{ color: 'white', margin: '0 10px', textDecoration: 'none' }}>About</Link>
+          <Link to="/" style={{ color: 'white', margin: '0 10px', textDecoration: 'none' }}>
+            ホーム
+          </Link>
+          <Link to="/about" style={{ color: 'white', margin: '0 10px', textDecoration: 'none' }}>
+            About
+          </Link>
         </nav>
       </header>
       <main style={{ marginTop: '20px' }}>
@@ -42,7 +46,7 @@ const Layout = () => {
 // ルーターの定義
 const router = createBrowserRouter([
   {
-    path: "/",
+    path: '/',
     element: <Layout />,
     children: [
       {
@@ -50,7 +54,7 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "about",
+        path: 'about',
         element: <About />,
       },
     ],
