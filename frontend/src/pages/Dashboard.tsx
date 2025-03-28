@@ -1,3 +1,4 @@
+// src/pages/Dashboard.tsx
 import React, { useState } from 'react';
 
 const Dashboard: React.FC = () => {
@@ -272,6 +273,41 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
       
+      {/* 最近の更新情報 */}
+      <div className="chart-container">
+        <div className="chart-title">最近の更新</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #ddd' }}>
+              <th style={{ textAlign: 'left', padding: '8px' }}>日付</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>社員ID</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>氏名</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>更新内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ borderBottom: '1px solid #ddd' }}>
+              <td style={{ padding: '8px' }}>2023/11/15</td>
+              <td style={{ padding: '8px' }}>1005</td>
+              <td style={{ padding: '8px' }}>伊藤 由美</td>
+              <td style={{ padding: '8px' }}>障害等級更新（3級→2級）</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #ddd' }}>
+              <td style={{ padding: '8px' }}>2023/11/10</td>
+              <td style={{ padding: '8px' }}>1003</td>
+              <td style={{ padding: '8px' }}>佐藤 一郎</td>
+              <td style={{ padding: '8px' }}>休職開始</td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid #ddd' }}>
+              <td style={{ padding: '8px' }}>2023/11/01</td>
+              <td style={{ padding: '8px' }}>1007</td>
+              <td style={{ padding: '8px' }}>高橋 恵子</td>
+              <td style={{ padding: '8px' }}>新規登録</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
       {/* 年次データテーブル */}
       <div className="chart-container">
         <div className="chart-title">年次データ (2024年度)</div>
@@ -455,7 +491,7 @@ const Dashboard: React.FC = () => {
 
 export default Dashboard;
 
-// スタイル
+// CSSスタイル（これは実際には別のCSSファイルに配置するか、styled-componentsなどで管理すべきです）
 const styles = `
 .page-container {
   padding: 20px;

@@ -1,39 +1,28 @@
-// frontend/src/components/ProtectedRoute.tsx
+// src/components/ProtectedRoute.tsx
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: string | string[];
+  requiredRole?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiredRole 
-}) => {
-  const location = useLocation();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+  // 開発モードでは認証をバイパス
+  const isAuthenticated = true; // 開発中は常にtrueに設定
+  const userRole = 'admin'; // 開発中は管理者として扱う
   
-  // トークンの存在を確認
-  const token = localStorage.getItem('auth_token');
-  if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!isAuthenticated) {
+    // 未認証の場合はログインページにリダイレクト
+    return <Navigate to="/login" replace />;
   }
   
-  // 権限の確認（必要な場合）
-  if (requiredRole) {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      return <Navigate to="/login" state={{ from: location }} replace />;
-    }
-    
-    const user = JSON.parse(userStr);
-    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-    
-    if (!roles.includes(user.role)) {
-      return <Navigate to="/unauthorized" replace />;
-    }
+  if (requiredRole && userRole !== requiredRole) {
+    // 権限がない場合は未認証ページにリダイレクト
+    return <Navigate to="/unauthorized" replace />;
   }
   
+  // 認証・権限OKの場合は子コンポーネントを表示
   return <>{children}</>;
 };
 

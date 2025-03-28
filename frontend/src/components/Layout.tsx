@@ -1,55 +1,26 @@
+// src/components/Layout.tsx
 import React from 'react';
+import { Outlet } from 'react-router-dom';
+import Breadcrumbs from './Breadcrumbs';
 import Sidebar from './Sidebar';
-import styled from 'styled-components';
 
-const LayoutContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-`;
-
-const TopBar = styled.div`
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 15px 20px;
-  font-size: 18px;
-  font-weight: bold;
-  color: #333;
-`;
-
-const ContentContainer = styled.div`
-  display: flex;
-  flex: 1;
-`;
-
-const SidebarContainer = styled.div`
-  /* サイドバーコンテナのスタイル */
-`;
-
-const MainContent = styled.div`
-  flex: 1;
-  padding: 20px 30px;
-  background-color: #fff;
-  overflow: auto;
-`;
-
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC = () => {
   return (
-    <LayoutContainer>
-      <TopBar>DIwork</TopBar>
-      <ContentContainer>
-        <SidebarContainer>
-          <Sidebar />
-        </SidebarContainer>
-        <MainContent>
-          {children}
-        </MainContent>
-      </ContentContainer>
-    </LayoutContainer>
+    <div className="layout" style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* サイドバー */}
+      <Sidebar />
+      
+      {/* メインコンテンツエリア */}
+      <div className="main-container" style={{ flex: 1, padding: '20px', background: '#f5f7fa' }}>
+        {/* パンくずリスト */}
+        <Breadcrumbs />
+        
+        {/* メインコンテンツ - Outletを通してルートのコンポーネントが表示される */}
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 };
 

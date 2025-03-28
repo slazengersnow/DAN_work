@@ -56,43 +56,41 @@ const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute>
-        <Layout>
-          <Outlet />
-        </Layout>
+        <Layout />
       </ProtectedRoute>
     ),
     children: [
       {
         index: true,
-        element: <Dashboard />
+        element: <Dashboard />,
       },
       {
         path: "dashboard",
-        element: <Dashboard />
+        element: <Dashboard />,
       },
       {
-        path: "employee-list",
-        element: <EmployeeList />
+        path: "employee-list", // 社員リスト
+        element: <EmployeeList />,
       },
       {
-        path: "monthly-report",
-        element: <MonthlyReport />
+        path: "monthly-report", // 月次報告
+        element: <MonthlyReport />,
       },
       {
-        path: "payment-report",
-        element: <PaymentReport />
+        path: "payment-report", // 納付金申告
+        element: <PaymentReport />,
       },
       {
-        path: "settings",
+        path: "settings", // 設定
         element: (
           <ProtectedRoute requiredRole="admin">
             <Settings />
           </ProtectedRoute>
-        )
+        ),
       },
       {
         path: "*",
-        element: <Dashboard />
+        element: <Navigate to="/dashboard" replace />, // 存在しないパスはダッシュボードにリダイレクト
       }
     ]
   }

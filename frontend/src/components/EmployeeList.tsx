@@ -62,7 +62,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
     // 検索クエリでフィルタリング
     const matchesSearch = searchQuery === '' || 
       employee.name.includes(searchQuery) || 
-      (employee.employeeId && employee.employeeId.includes(searchQuery));
+      (employee.employeeId && employee.employeeId.toString().includes(searchQuery));
     
     // 障害種別でフィルタリング
     const matchesDisability = disabilityFilter === '' || 
@@ -77,7 +77,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
 
   return (
     <div className="employee-list-container">
-      <h2 className="section-title">社員リスト</h2>
+      <h1 className="section-title">社員リスト</h1>
       
       <div className="filters">
         <div className="search-container">
@@ -109,6 +109,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
           >
             <option value="">ステータス ▼</option>
             <option value="在籍中">在籍中</option>
+            <option value="休職">休職</option>
             <option value="退職">退職</option>
           </select>
           
@@ -138,18 +139,22 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
               <th>カウント</th>
               <th>ステータス</th>
               <th>詳細</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
             {filteredEmployees.map((employee) => (
-              <tr key={employee.employeeId}>
+              <tr key={employee.id || employee.employeeId}>
                 <td>{employee.employeeId}</td>
                 <td>{employee.name}</td>
                 <td>{employee.disabilityType}</td>
                 <td>{employee.grade}</td>
                 <td>{employee.count}</td>
                 <td>
-                  <span className={`status-badge ${employee.status === '在籍中' ? 'active' : 'inactive'}`}>
+                  <span className={`status-badge ${
+                    employee.status === '在籍中' ? 'active' : 
+                    employee.status === '休職' ? 'leave' : 'inactive'
+                  }`}>
                     {employee.status}
                   </span>
                 </td>
@@ -159,6 +164,11 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
                     onClick={() => onEmployeeSelect(employee)}
                   >
                     詳細
+                  </button>
+                </td>
+                <td>
+                  <button className="edit-btn">
+                    編集
                   </button>
                 </td>
               </tr>
@@ -177,7 +187,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
         }
 
         .section-title {
-          font-size: 20px;
+          font-size: 24px;
           margin-bottom: 20px;
           font-weight: 600;
         }
@@ -259,13 +269,18 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
           background-color: #d4edda;
           color: #155724;
         }
+        
+        .status-badge.leave {
+          background-color: #fff3cd;
+          color: #856404;
+        }
 
         .status-badge.inactive {
           background-color: #f8d7da;
           color: #721c24;
         }
 
-        .detail-btn {
+        .detail-btn, .edit-btn {
           padding: 5px 10px;
           background-color: #f1f3f4;
           border: 1px solid #ddd;
