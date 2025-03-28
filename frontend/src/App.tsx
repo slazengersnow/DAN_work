@@ -1,77 +1,66 @@
 // frontend/src/App.tsx
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Link, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import Layout from './components/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
-import Dashboard from './pages/Dashboard';
-import EmployeeList from './pages/EmployeeList';
-import MonthlyReport from './pages/MonthlyReport';
-import PaymentReport from './pages/PaymentReport';
-import Settings from './pages/Settings';
-import Login from './pages/Login';
-import Unauthorized from './pages/Unauthorized';
 import './App.css';
 
 const queryClient = new QueryClient();
 
+// シンプルなコンポーネント
+const Home = () => (
+  <div>
+    <h2>ホームページ</h2>
+    <p>ルーティングが機能しています！</p>
+  </div>
+);
+
+const About = () => (
+  <div>
+    <h2>Aboutページ</h2>
+    <p>これは別のルートです。</p>
+  </div>
+);
+
+// レイアウトコンポーネント
+const Layout = () => {
+  return (
+    <div className="App" style={{ textAlign: 'center', padding: '20px' }}>
+      <header style={{ backgroundColor: '#282c34', padding: '20px', color: 'white' }}>
+        <h1>テストアプリケーション</h1>
+        <nav style={{ marginTop: '15px' }}>
+          <Link to="/" style={{ color: 'white', margin: '0 10px', textDecoration: 'none' }}>ホーム</Link>
+          <Link to="/about" style={{ color: 'white', margin: '0 10px', textDecoration: 'none' }}>About</Link>
+        </nav>
+      </header>
+      <main style={{ marginTop: '20px' }}>
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
+// ルーターの定義
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      {
+        index: true,
+        element: <Home />,
+      },
+      {
+        path: "about",
+        element: <About />,
+      },
+    ],
+  },
+]);
+
 const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/employee-list" element={
-            <ProtectedRoute>
-              <Layout>
-                <EmployeeList />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/monthly-report" element={
-            <ProtectedRoute>
-              <Layout>
-                <MonthlyReport />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/payment-report" element={
-            <ProtectedRoute>
-              <Layout>
-                <PaymentReport />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/settings" element={
-            <ProtectedRoute requiredRole="admin">
-              <Layout>
-                <Settings />
-              </Layout>
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </Router>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   );
 };

@@ -189,7 +189,7 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             {/* 所定労働時間の行 */}
             <div className="spreadsheet-row">
               <div className="spreadsheet-row-header">所定時間</div>
-              {monthlyData.standardHours.map((hours, index) => (
+              {monthlyData.standardHours.map((hours: number, index: number) => (
                 <div key={`standard-${index}`} className="spreadsheet-cell">
                   <input
                     id={`cell-0-${index}`}
@@ -208,7 +208,7 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             {/* 実労働時間の行 */}
             <div className="spreadsheet-row">
               <div className="spreadsheet-row-header">実労働時間</div>
-              {monthlyData.actualHours.map((hours, index) => (
+              {monthlyData.actualHours.map((hours: number, index: number) => (
                 <div key={`actual-${index}`} className="spreadsheet-cell">
                   <input
                     id={`cell-1-${index}`}
@@ -226,7 +226,7 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             {/* 在籍フラグの行 */}
             <div className="spreadsheet-row">
               <div className="spreadsheet-row-header">在籍フラグ</div>
-              {monthlyData.attendanceFlag.map((flag, index) => (
+              {monthlyData.attendanceFlag.map((flag: number, index: number) => (
                 <div key={`attendance-${index}`} className="spreadsheet-cell">
                   <span className="cell-text">{flag}</span>
                 </div>
@@ -236,7 +236,7 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             {/* カウント値の行 */}
             <div className="spreadsheet-row">
               <div className="spreadsheet-row-header">カウント</div>
-              {monthlyData.countValues.map((count, index) => (
+              {monthlyData.countValues.map((count: number, index: number) => (
                 <div key={`count-${index}`} className="spreadsheet-cell">
                   <span className="cell-text">{count.toFixed(1)}</span>
                 </div>
@@ -246,7 +246,7 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             {/* 備考の行 */}
             <div className="spreadsheet-row">
               <div className="spreadsheet-row-header">備考</div>
-              {monthlyData.notes.map((note, index) => (
+              {monthlyData.notes.map((note: string, index: number) => (
                 <div key={`note-${index}`} className="spreadsheet-cell">
                   <input
                     id={`cell-2-${index}`}

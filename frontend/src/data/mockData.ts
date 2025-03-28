@@ -4,6 +4,7 @@ import { Employee, EraType } from '../types/Employee';
 // 社員データのモック
 export const employeesData: Employee[] = [
   {
+    id: 1, // 追加
     employeeId: '1001',
     name: '山田 太郎',
     nameKana: 'ヤマダ タロウ',
@@ -84,6 +85,7 @@ export const employeesData: Employee[] = [
     }
   },
   {
+    id: 2, // 追加
     employeeId: '1002',
     name: '鈴木 花子',
     disabilityType: '精神障害',
@@ -92,6 +94,7 @@ export const employeesData: Employee[] = [
     status: '在籍中'
   },
   {
+    id: 3, // 追加
     employeeId: '1003',
     name: '佐藤 一郎',
     disabilityType: '知的障害',
@@ -100,6 +103,7 @@ export const employeesData: Employee[] = [
     status: '在籍中'
   },
   {
+    id: 4, // 追加
     employeeId: '1004',
     name: '田中 健太',
     disabilityType: '身体障害',
@@ -108,6 +112,7 @@ export const employeesData: Employee[] = [
     status: '在籍中'
   },
   {
+    id: 5, // 追加
     employeeId: '1005',
     name: '伊藤 由美',
     disabilityType: '精神障害',
@@ -116,6 +121,7 @@ export const employeesData: Employee[] = [
     status: '在籍中'
   },
   {
+    id: 6, // 追加
     employeeId: '1006',
     name: '渡辺 隆',
     disabilityType: '身体障害',
@@ -124,6 +130,7 @@ export const employeesData: Employee[] = [
     status: '退職'
   },
   {
+    id: 7, // 追加
     employeeId: '1007',
     name: '高橋 恵子',
     disabilityType: '知的障害',

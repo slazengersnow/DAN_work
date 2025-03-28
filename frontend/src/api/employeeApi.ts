@@ -1,23 +1,19 @@
 import apiClient from './client';
-
-export interface Employee {
-  id: number;
-  employee_id: string;
-  name: string;
-  name_kana: string;
-  gender: string;
-  birth_date: string;
-  hire_date: string;
-  status: string;
-  count: number;
-  disability_type?: string;
-  physical_verified?: boolean;
-  intellectual_verified?: boolean;
-  mental_verified?: boolean;
-  // 他の属性
-}
+import { Employee } from '../types/Employee'; // 外部から型定義をインポート
 
 export const employeeApi = {
+  // getEmployees を追加（getAll の別名として機能）
+  getEmployees: async (): Promise<Employee[]> => {
+    try {
+      const response = await apiClient.get('/employees');
+      return response.data.data;
+    } catch (error) {
+      console.error('従業員データ取得エラー:', error);
+      throw error;
+    }
+  },
+  
+  // 既存のメソッドも維持
   getAll: async (): Promise<Employee[]> => {
     try {
       const response = await apiClient.get('/employees');
@@ -67,6 +63,7 @@ export const employeeApi = {
     }
   },
   
+  // オブジェクト内にもエクスポート機能を維持
   exportEmployeesToCsv: async () => {
     try {
       const response = await apiClient.get('/employees/export', { responseType: 'blob' });
@@ -77,3 +74,17 @@ export const employeeApi = {
     }
   }
 };
+
+// 独立したCSVエクスポート関数を追加
+export const exportEmployeesToCsv = async () => {
+  try {
+    const response = await apiClient.get('/employees/export', { responseType: 'blob' });
+    return response;
+  } catch (error) {
+    console.error('従業員データのCSVエクスポートエラー:', error);
+    throw error;
+  }
+};
+
+// Employee型を再エクスポート
+export type { Employee };

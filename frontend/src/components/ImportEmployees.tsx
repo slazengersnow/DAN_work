@@ -48,6 +48,7 @@ const ImportEmployees: React.FC<ImportEmployeesProps> = ({ onImportComplete }) =
     
     // Employeeオブジェクトを構築して返す
     return {
+      id: 0, // または適切な初期値、バックエンドで生成される場合は一時的な値
       employeeId: csvRow['社員ID'] || '',
       name: csvRow['氏名'] || '',
       nameKana: csvRow['フリガナ'] || '',

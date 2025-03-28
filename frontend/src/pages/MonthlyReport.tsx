@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { reportApi } from '../api/reportApi'; // APIクライアントをインポート
 import Spinner from '../components/common/Spinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import { MonthlyData } from '../types/MonthlyData'; // 型定義をインポート
 
 // 型定義
 interface Employee {
@@ -35,16 +36,6 @@ interface Employee {
   };
 }
 
-interface MonthlyData {
-  year: number;
-  month: number;
-  total_employees: number;
-  disabled_employees: number;
-  actual_rate: number;
-  legal_rate: number;
-  status?: string; // 追加
-}
-
 interface MonthlyTotal {
   id?: number;
   year: number;
@@ -60,6 +51,18 @@ interface MonthlyTotal {
   status: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// MonthlyDataSummary インターフェースを追加
+interface MonthlyDataSummary {
+  year: number;
+  month: number;
+  totalEmployees: number;
+  disabledEmployees: number;
+  employmentCount: number;
+  actualRate: number;
+  legalRate: number;
+  status?: string; // statusプロパティを追加
 }
 
 interface MonthlyDetailData {
@@ -85,6 +88,7 @@ const mockSummary = {
   employmentCount: 12.75,
   actualRate: 2.43,
   legalRate: 2.3,
+  status: '確定済' // statusプロパティを追加
 };
 
 const mockEmployees = [
@@ -124,6 +128,11 @@ const initialMonthlyDetailData = {
     { id: 12, item: '法定雇用者数', values: [15, 15, 16, 16, 16, 16, 17, 17, 17, 17, 17, 18, 196], isCalculated: true },
     { id: 13, item: '超過・未達', values: [-11, -11, -12, -11, -11, -11, -12, -12, -12, -12, -12, -13, -139], isNegative: true, isCalculated: true }
   ]
+};
+
+// summaryData.statusの存在チェック用の型ガード
+const hasStatus = (data: any): data is { status: string } => {
+  return data && 'status' in data;
 };
 
 const MonthlyReport: React.FC = () => {
@@ -180,7 +189,14 @@ const MonthlyReport: React.FC = () => {
 
   // Mutation: 従業員データの更新
   const updateEmployeeMutation = useMutation(
-    (employee: Partial<Employee>) => reportApi.updateEmployee(employee.id!, employee),
+    (employee: Partial<Employee>) => {
+      // employee_id が number の場合、文字列に変換
+      const updatedEmployee = {
+        ...employee,
+        employee_id: employee.employee_id?.toString()
+      };
+      return reportApi.updateEmployee(employee.id!, updatedEmployee);
+    },
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['monthlyEmployees', selectedYear, selectedMonth]);
@@ -594,11 +610,21 @@ const MonthlyReport: React.FC = () => {
           })
         };
         
+        // ここで修正: monthlyWorkの形式を変換する
+        const updatedData = {
+          ...updateData,
+          monthlyWork: updateData.monthlyWork ? {
+            scheduled_hours: updateData.monthlyWork[0]?.scheduled_hours || 0,
+            actual_hours: updateData.monthlyWork[0]?.actual_hours || 0,
+            exception_reason: updateData.monthlyWork[0]?.exception_reason
+          } : undefined
+        };
+        
         // モックモードの場合は更新をシミュレート
         if (process.env.REACT_APP_USE_MOCK) {
-          return Promise.resolve(updateData);
+          return Promise.resolve(updatedData);
         } else {
-          return updateEmployeeMutation.mutateAsync(updateData);
+          return updateEmployeeMutation.mutateAsync(updatedData);
         }
       });
       
@@ -635,8 +661,17 @@ const MonthlyReport: React.FC = () => {
         if (process.env.REACT_APP_USE_MOCK) {
           return Promise.resolve(updateData);
         } else {
-          return updateEmployeeMutation.mutateAsync(updateData);
+          const completeData = {
+            ...updateData,
+            monthlyWork: {
+              ...updateData.monthlyWork,
+              scheduled_hours: 0, // または適切なデフォルト値
+              actual_hours: 0     // または適切なデフォルト値
+            }
+          };
+          return updateEmployeeMutation.mutateAsync(completeData);
         }
+
       });
       
       Promise.all(updatePromises)
@@ -782,7 +817,8 @@ const MonthlyReport: React.FC = () => {
     total_employees: mockSummary.totalEmployees,
     disabled_employees: mockSummary.disabledEmployees,
     actual_rate: mockSummary.actualRate,
-    legal_rate: mockSummary.legalRate
+    legal_rate: mockSummary.legalRate,
+    status: mockSummary.status // 問題なし
   };
 
   return (
@@ -997,7 +1033,7 @@ const MonthlyReport: React.FC = () => {
                   <button 
                     className="btn primary-btn" 
                     onClick={toggleEditMode}
-                    disabled={summaryData.status === '確定済'}
+                    disabled={hasStatus(summaryData) && summaryData.status === '確定済'}
                   >
                     保存
                   </button>
@@ -1005,7 +1041,8 @@ const MonthlyReport: React.FC = () => {
                   <button 
                     className="btn action-btn" 
                     onClick={toggleEditMode}
-                    disabled={summaryData.status === '確定済'}
+                    disabled={hasStatus(summaryData) && summaryData.status === '確定済'}
+
                   >
                     編集
                   </button>

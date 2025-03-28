@@ -5,19 +5,18 @@ interface ErrorMessageProps {
 }
 
 const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
+  const errorStyle = {
+    color: '#721c24',
+    backgroundColor: '#f8d7da',
+    border: '1px solid #f5c6cb',
+    padding: '10px',
+    borderRadius: '4px',
+    margin: '10px 0'
+  };
+
   return (
-    <div className="error-message">
+    <div style={errorStyle} className="error-message">
       <p>{message}</p>
-      <style jsx>{`
-        .error-message {
-          color: #721c24;
-          background-color: #f8d7da;
-          border: 1px solid #f5c6cb;
-          padding: 10px;
-          border-radius: 4px;
-          margin: 10px 0;
-        }
-      `}</style>
     </div>
   );
 };

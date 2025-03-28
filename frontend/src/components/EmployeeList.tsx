@@ -62,7 +62,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({
     // 検索クエリでフィルタリング
     const matchesSearch = searchQuery === '' || 
       employee.name.includes(searchQuery) || 
-      employee.employeeId.includes(searchQuery);
+      (employee.employeeId && employee.employeeId.includes(searchQuery));
     
     // 障害種別でフィルタリング
     const matchesDisability = disabilityFilter === '' || 

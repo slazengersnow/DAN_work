@@ -82,5 +82,16 @@ export const settingsApi = {
       console.error('ユーザー削除エラー:', error);
       throw error;
     }
+  },
+  
+  // パスワード変更メソッドを追加
+  changePassword: async (passwordData: any) => {
+    try {
+      const response = await apiClient.post('/settings/change-password', passwordData);
+      return response.data;
+    } catch (error) {
+      console.error('パスワード変更エラー:', error);
+      throw error;
+    }
   }
 };

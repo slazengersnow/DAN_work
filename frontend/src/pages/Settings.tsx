@@ -20,6 +20,11 @@ interface CompanySettings {
   notifications?: boolean;
 }
 
+// CompanySettingsを拡張したインターフェース
+interface ExtendedCompanySettings extends CompanySettings {
+  language?: string;
+  notifications?: boolean;
+}
 interface User {
   id: number;
   username: string;
@@ -96,11 +101,13 @@ const Settings: React.FC = () => {
   // データが読み込まれたらフォームを初期化
   useEffect(() => {
     if (companySettings) {
+      // companySettingsをExtendedCompanySettingsに変換
+      const extendedSettings = companySettings as ExtendedCompanySettings;
       setFormData({
         ...companySettings,
-        language: companySettings.language || 'ja',
-        notifications: companySettings.notifications !== undefined 
-          ? companySettings.notifications 
+        language: extendedSettings.language || 'ja',
+        notifications: extendedSettings.notifications !== undefined 
+          ? extendedSettings.notifications 
           : true
       });
     }
@@ -405,7 +412,7 @@ const Settings: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((user: User) => (
+                      {users.map((user: any) => (
                         <tr key={user.id}>
                           <td>{user.id}</td>
                           <td>{user.username}</td>

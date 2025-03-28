@@ -19,14 +19,40 @@ export type EmployeeStatus = '在籍中' | '退職';
 
 // 社員基本情報の型
 export interface Employee {
-  employeeId: string;
+  // 必須プロパティ
+  id: number;
   name: string;
+  
+  // ID両方サポート
+  employee_id?: string;
+  employeeId?: string;
+  
+  // 障害関連プロパティ
+  disability_type?: string;
+  disabilityType?: string;
+  
+  // 検証ステータス
+  physical_verified?: boolean;
+  physicalVerified?: boolean;
+  intellectual_verified?: boolean;
+  intellectualVerified?: boolean;
+  mental_verified?: boolean;
+  mentalVerified?: boolean;
+  
+  // 等級
+  physical_degree_current?: string;
+  physicalDegreeCurrent?: string;
+  intellectual_degree_current?: string;
+  intellectualDegreeCurrent?: string;
+  mental_degree_current?: string;
+  mentalDegreeCurrent?: string;
+  
+  // 基本情報
+  gender?: string | '1' | '2'; // 1:男性, 2:女性
+  grade?: string;
+  count?: number;
+  status?: string | EmployeeStatus;
   nameKana?: string;
-  gender?: '1' | '2'; // 1:男性, 2:女性
-  disabilityType: DisabilityType;
-  grade: string;
-  count: number;
-  status: EmployeeStatus;
   
   // 基本情報タブの追加情報
   birthYear?: string;
@@ -57,14 +83,6 @@ export interface Employee {
   physicalCertDateMonth?: string;
   physicalCertDateDay?: string;
   
-  // 追加された障害情報
-  physicalDegreeCurrent?: string;
-  intellectualDegreeCurrent?: string;
-  mentalDegreeCurrent?: string;
-  physicalVerified?: boolean;
-  intellectualVerified?: boolean;
-  mentalVerified?: boolean;
-  
   // 手帳情報
   certificateNumber?: string;
   certificateIssuer?: string;
@@ -88,6 +106,7 @@ export interface Employee {
   hireDateYear?: string;
   hireDateMonth?: string;
   hireDateDay?: string;
+  hire_date?: string;
   
   // 職務情報
   department?: string;
@@ -113,10 +132,28 @@ export interface Employee {
     attendanceFlag: number[];
     reportFlag: number[];
     countValues: number[];
-  };
+  } | any;
+  
+  // 月次勤務データ - 単一オブジェクトと配列の両方をサポート
+  monthlyWork?: {
+    scheduled_hours?: number;
+    actual_hours?: number;
+    exception_reason?: string;
+    year?: number;
+    month?: number;
+  } | Array<{
+    year: number;
+    month: number;
+    scheduled_hours: number;
+    actual_hours: number;
+    exception_reason?: string;
+  }>;
   
   // 基本情報タブの一番下に配置する例外事由
   exception?: string;
+  
+  // 臨時的な対応として任意のプロパティを許可
+  [key: string]: any;
 }
 
 // コンポーネントのProps型
