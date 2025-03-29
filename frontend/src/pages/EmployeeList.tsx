@@ -2,10 +2,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import Spinner from '../components/common/Spinner';
-import ErrorMessage from '../components/common/ErrorMessage';
-import ImportEmployees from '../components/ImportEmployees';
-import { Employee as ImportedEmployee } from '../types/Employee';
 
 // モックデータ用のタイプ定義
 interface Employee {
@@ -21,27 +17,10 @@ interface Employee {
   mental_degree_current?: string;
   count: number;
   status: string;
+  selected?: boolean; // 選択状態を追加
 }
 
-// インポートされた社員データを現在のシステムの型に変換する関数
-const convertImportedEmployees = (importedEmployees: ImportedEmployee[]): Employee[] => {
-  return importedEmployees.map(imp => ({
-    id: imp.id || 0,
-    employee_id: imp.employeeId || '',
-    name: imp.name || '',
-    disability_type: imp.disabilityType as string || '',
-    physical_verified: imp.disabilityType === '身体障害' || false,
-    intellectual_verified: imp.disabilityType === '知的障害' || false,
-    mental_verified: imp.disabilityType === '精神障害' || false,
-    physical_degree_current: imp.physicalGrade,
-    intellectual_degree_current: imp.grade,
-    mental_degree_current: imp.grade,
-    count: imp.count || 0,
-    status: imp.status || '在籍中',
-  }));
-};
-
-// モックAPI実装
+// モックAPI実装（実際の環境では実際のAPIに置き換え）
 const employeeApi = {
   getAll: async (): Promise<Employee[]> => {
     // 開発用のモックデータ
@@ -60,27 +39,163 @@ const employeeApi = {
     console.log(`社員ID ${id} を削除しました`);
     return Promise.resolve();
   },
-  importEmployees: async (employees: Employee[]): Promise<void> => {
-    // モックインポート処理
-    console.log(`${employees.length}人の社員データをインポートしました`, employees);
+  downloadTemplate: async (): Promise<void> => {
+    // テンプレートダウンロードのモック処理
+    console.log('CSVテンプレートをダウンロードしました（モック処理）');
+    return Promise.resolve();
+  },
+  importCsv: async (file: File): Promise<void> => {
+    // CSVインポートのモック処理
+    console.log(`CSVファイル "${file.name}" をインポートしました（モック処理）`);
     return Promise.resolve();
   }
 };
 
-// CSVエクスポートのモック関数
+// CSVエクスポート/インポートのモック関数
 const exportEmployeesToCsv = async (): Promise<void> => {
   console.log('CSVエクスポート処理（モック）');
   return Promise.resolve();
 };
 
+// Spinnerコンポーネント（モック）
+const Spinner = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', padding: '50px' }}>
+    読み込み中...
+  </div>
+);
+
+// ErrorMessageコンポーネント（モック）
+const ErrorMessage = ({ message }: { message: string }) => (
+  <div style={{ color: 'red', padding: '20px', textAlign: 'center' }}>
+    {message}
+  </div>
+);
+
+// インポートモーダルコンポーネント
+const ImportModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ isOpen, onClose, onSuccess }) => {
+  const handleDownloadTemplate = async () => {
+    try {
+      await employeeApi.downloadTemplate();
+      alert('テンプレートをダウンロードしました（モック処理）');
+    } catch (error) {
+      console.error('テンプレートダウンロードエラー:', error);
+      alert('テンプレートのダウンロード中にエラーが発生しました');
+    }
+  };
+
+  const handleFileSelect = async () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.csv';
+    
+    fileInput.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        try {
+          await employeeApi.importCsv(file);
+          alert('CSVインポートが完了しました（モック処理）');
+          onSuccess();
+          onClose();
+        } catch (error) {
+          console.error('CSVインポートエラー:', error);
+          alert('CSVインポート中にエラーが発生しました');
+        }
+      }
+    };
+    
+    fileInput.click();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '20px',
+        borderRadius: '8px',
+        width: '600px',
+        maxWidth: '90%'
+      }}>
+        <h2 style={{ fontSize: '1.3rem', marginBottom: '20px' }}>社員データのインポート</h2>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <button
+            onClick={handleDownloadTemplate}
+            style={{
+              backgroundColor: '#4269f5',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '10px 16px',
+              cursor: 'pointer',
+              width: '100%'
+            }}
+          >
+            インポートテンプレートをダウンロード
+          </button>
+          
+          <button
+            onClick={handleFileSelect}
+            style={{
+              backgroundColor: '#f8f9fa',
+              color: '#212529',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px',
+              padding: '10px 16px',
+              cursor: 'pointer',
+              width: '100%'
+            }}
+          >
+            CSVファイルを選択
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '8px 16px',
+              cursor: 'pointer'
+            }}
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const EmployeeList: React.FC = () => {
-  const navigate = useNavigate();  // window.location.href の代わりに使用
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [displayCount, setDisplayCount] = useState<string>('10');
   const [disabilityFilter, setDisabilityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showImportSection, setShowImportSection] = useState<boolean>(false);
+  const [selectedEmployees, setSelectedEmployees] = useState<Record<number, boolean>>({});
+  const [allSelected, setAllSelected] = useState<boolean>(false);
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
   
   // React Queryを使ってデータを取得
   const { 
@@ -103,18 +218,6 @@ const EmployeeList: React.FC = () => {
       onSuccess: () => {
         // 成功時にキャッシュを更新
         queryClient.invalidateQueries('employees');
-      }
-    }
-  );
-
-  // インポートミューテーション
-  const importMutation = useMutation(
-    (employees: Employee[]) => employeeApi.importEmployees(employees),
-    {
-      onSuccess: () => {
-        // 成功時にキャッシュを更新
-        queryClient.invalidateQueries('employees');
-        setShowImportSection(false);
       }
     }
   );
@@ -145,19 +248,23 @@ const EmployeeList: React.FC = () => {
   const displayLimit = parseInt(displayCount);
   const displayedEmployees = filteredEmployees.slice(0, displayLimit);
   
-  // 新規追加ハンドラー - React Routerのnavigateを使用
+  // 新規追加ハンドラー
   const handleAddNew = () => {
     navigate('/employees/new');
   };
   
-  // 詳細表示ハンドラー - React Routerのnavigateを使用
+  // 詳細表示ハンドラー - 修正
   const handleViewDetails = (id: number) => {
-    navigate(`/employees/${id}`);
+    // 正しいルートパスを設定
+    navigate(`/employee-detail/${id}`);
+    console.log(`社員ID: ${id} の詳細を表示します`);
   };
   
-  // 編集ハンドラー - React Routerのnavigateを使用
+  // 編集ハンドラー - 修正
   const handleEdit = (id: number) => {
-    navigate(`/employees/${id}/edit`);
+    // 正しいルートパスを設定
+    navigate(`/employee-edit/${id}`);
+    console.log(`社員ID: ${id} を編集します`);
   };
   
   // 削除ハンドラー
@@ -167,28 +274,38 @@ const EmployeeList: React.FC = () => {
     }
   };
   
-  // CSVエクスポートハンドラー
-  const handleExportCsv = async () => {
-    try {
-      await exportEmployeesToCsv();
-      alert('CSVエクスポートが完了しました（モック処理）');
-    } catch (error) {
-      console.error('CSVエクスポートエラー:', error);
-      alert('CSVエクスポート中にエラーが発生しました');
-    }
+  // CSVインポートモーダルを表示
+  const handleShowImportModal = () => {
+    setShowImportModal(true);
+  };
+  
+  // インポート成功時の処理
+  const handleImportSuccess = () => {
+    queryClient.invalidateQueries('employees');
   };
 
-  // CSVインポート完了ハンドラー
-  const handleImportComplete = (importedEmployees: ImportedEmployee[]) => {
-    try {
-      // インポートされたデータを現在のシステムの型に変換
-      const convertedEmployees = convertImportedEmployees(importedEmployees);
-      // 変換されたデータをインポート
-      importMutation.mutate(convertedEmployees);
-    } catch (error) {
-      console.error('インポートエラー:', error);
-      alert('データのインポート中にエラーが発生しました');
-    }
+  // 全選択/解除の処理
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isChecked = e.target.checked;
+    setAllSelected(isChecked);
+    
+    // 表示されている全社員の選択状態を更新
+    const newSelectedEmployees = { ...selectedEmployees };
+    displayedEmployees.forEach(employee => {
+      newSelectedEmployees[employee.id] = isChecked;
+    });
+    
+    setSelectedEmployees(newSelectedEmployees);
+  };
+
+  // 個別選択の処理
+  const handleSelectEmployee = (id: number, checked: boolean) => {
+    const newSelectedEmployees = { ...selectedEmployees, [id]: checked };
+    setSelectedEmployees(newSelectedEmployees);
+    
+    // 全選択状態のチェック
+    const allChecked = displayedEmployees.every(employee => newSelectedEmployees[employee.id]);
+    setAllSelected(allChecked);
   };
   
   if (isLoading) {
@@ -200,23 +317,33 @@ const EmployeeList: React.FC = () => {
   }
 
   return (
-    <div className="page-container">
-      <h1 className="page-title">社員リスト</h1>
+    <div className="page-container" style={{ padding: '20px' }}>
+      <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>社員リスト</h1>
       
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
+      {/* 検索・フィルターコントロール */}
+      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
         <input 
           type="text"
           placeholder="社員名または社員IDで検索..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: '300px' }}
+          style={{ 
+            width: '50%', 
+            padding: '8px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}
         />
         
-        <div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
           <select 
-            style={{ marginRight: '10px' }}
             value={disabilityFilter}
             onChange={(e) => setDisabilityFilter(e.target.value)}
+            style={{ 
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px'
+            }}
           >
             <option value="all">障害種別 ▼</option>
             <option value="physical">身体障害</option>
@@ -225,97 +352,137 @@ const EmployeeList: React.FC = () => {
           </select>
           
           <select 
-            style={{ marginRight: '10px' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ 
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px'
+            }}
           >
             <option value="all">ステータス ▼</option>
             <option value="active">在籍中</option>
             <option value="inactive">退職</option>
           </select>
           
-          <button onClick={handleAddNew}>新規追加</button>
+          <button 
+            onClick={handleAddNew}
+            style={{ 
+              backgroundColor: '#4269f5', 
+              color: 'white', 
+              border: 'none',
+              borderRadius: '4px',
+              padding: '8px 16px',
+              cursor: 'pointer'
+            }}
+          >
+            新規
+          </button>
+          
+          <button
+            onClick={handleShowImportModal}
+            style={{ 
+              backgroundColor: '#4caf50', 
+              color: 'white', 
+              border: 'none',
+              borderRadius: '4px',
+              padding: '8px 16px',
+              cursor: 'pointer'
+            }}
+          >
+            CSVインポート
+          </button>
         </div>
       </div>
-
-      {/* インポートセクション切り替えボタン */}
-      <div style={{ marginBottom: '20px' }}>
-        <button 
-          onClick={() => setShowImportSection(!showImportSection)}
-          style={{
-            backgroundColor: '#f8f9fa',
-            border: '1px solid #ced4da',
-            padding: '8px 15px',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          {showImportSection ? 'インポート機能を閉じる' : 'CSVインポート機能を表示'}
-        </button>
-      </div>
-
-      {/* インポート機能セクション */}
-      {showImportSection && (
-        <ImportEmployees onImportComplete={handleImportComplete} />
-      )}
       
-      <table className="data-table">
+      {/* 社員一覧テーブル */}
+      <table style={{ 
+        width: '100%', 
+        borderCollapse: 'collapse',
+        backgroundColor: 'white',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
         <thead>
-          <tr>
-            <th>社員ID</th>
-            <th>氏名</th>
-            <th>障害種別</th>
-            <th>障害</th>
-            <th>等級</th>
-            <th>カウント</th>
-            <th>ステータス</th>
-            <th>詳細</th>
-            <th>操作</th>
+          <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
+            <th style={{ padding: '12px 8px', textAlign: 'center', width: '40px' }}>
+              <input 
+                type="checkbox"
+                checked={allSelected}
+                onChange={handleSelectAll}
+              />
+            </th>
+            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#3a66d4' }}>社員ID</th>
+            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#3a66d4' }}>氏名</th>
+            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#3a66d4' }}>障害種別</th>
+            <th style={{ padding: '12px 8px', textAlign: 'right', color: '#3a66d4' }}>等級</th>
+            <th style={{ padding: '12px 8px', textAlign: 'center', color: '#3a66d4' }}>カウント</th>
+            <th style={{ padding: '12px 8px', textAlign: 'left', color: '#3a66d4' }}>ステータス</th>
+            <th style={{ padding: '12px 8px', textAlign: 'center', color: '#3a66d4' }}>操作</th>
           </tr>
         </thead>
         <tbody>
           {displayedEmployees.map(employee => (
-            <tr key={employee.id}>
-              <td>{employee.employee_id}</td>
-              <td>{employee.name}</td>
-              <td>{employee.disability_type || '-'}</td>
-              <td>{getDisabilityDetail(employee)}</td>
-              <td>{getGradeDisplay(employee)}</td>
-              <td>{employee.count}</td>
-              <td>
-                <span className={`status-badge ${employee.status === '在籍中' ? 'status-active' : 'status-inactive'}`}>
+            <tr key={employee.id} style={{ borderBottom: '1px solid #dee2e6' }}>
+              <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                <input 
+                  type="checkbox"
+                  checked={!!selectedEmployees[employee.id]}
+                  onChange={(e) => handleSelectEmployee(employee.id, e.target.checked)}
+                />
+              </td>
+              <td style={{ padding: '12px 8px' }}>{employee.employee_id}</td>
+              <td style={{ padding: '12px 8px' }}>{employee.name}</td>
+              <td style={{ padding: '12px 8px' }}>{employee.disability_type || '-'}</td>
+              <td style={{ padding: '12px 8px', textAlign: 'right' }}>{getGradeDisplay(employee)}</td>
+              <td style={{ padding: '12px 8px', textAlign: 'center' }}>{employee.count}</td>
+              <td style={{ padding: '12px 8px' }}>
+                <span style={{ 
+                  display: 'inline-block',
+                  padding: '4px 8px',
+                  borderRadius: '16px',
+                  fontSize: '0.85rem',
+                  backgroundColor: employee.status === '在籍中' ? '#d4edda' : '#f8d7da',
+                  color: employee.status === '在籍中' ? '#155724' : '#721c24'
+                }}>
                   {employee.status}
                 </span>
               </td>
-              <td>
-                <button 
-                  className="secondary"
-                  onClick={() => handleViewDetails(employee.id)}
-                >
-                  詳細
-                </button>
-              </td>
-              <td>
-                <button 
-                  className="secondary" 
-                  onClick={() => handleEdit(employee.id)}
-                  style={{ marginRight: '5px' }}
-                >
-                  編集
-                </button>
-                <button 
-                  className="danger"
-                  onClick={() => handleDelete(employee.id)}
-                >
-                  削除
-                </button>
+              <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                  <button 
+                    onClick={() => handleViewDetails(employee.id)}
+                    style={{ 
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    詳細
+                  </button>
+                  <button 
+                    onClick={() => handleEdit(employee.id)}
+                    style={{ 
+                      backgroundColor: '#ffc107',
+                      color: '#212529',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    編集
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
           
           {displayedEmployees.length === 0 && (
             <tr>
-              <td colSpan={9} style={{ textAlign: 'center', padding: '20px' }}>
+              <td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>
                 社員情報が見つかりません
               </td>
             </tr>
@@ -340,16 +507,15 @@ const EmployeeList: React.FC = () => {
             <option value="20">20件</option>
             <option value="50">50件</option>
           </select>
-          
-          <button 
-            className="btn btn-primary" 
-            onClick={handleExportCsv}
-            disabled={filteredEmployees.length === 0}
-          >
-            CSVエクスポート
-          </button>
         </div>
       </div>
+      
+      {/* インポートモーダル */}
+      <ImportModal 
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+      />
     </div>
   );
 };
