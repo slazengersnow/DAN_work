@@ -1,133 +1,71 @@
 // frontend/src/pages/Login.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from 'react-query';
-import apiClient from '../api/client';
-
-interface LoginCredentials {
-  username: string;
-  password: string;
-}
-
-interface LoginResponse {
-  success: boolean;
-  token: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-  };
-}
 
 const Login: React.FC = () => {
-  const [credentials, setCredentials] = useState<LoginCredentials>({
-    username: '',
-    password: ''
-  });
-  const [error, setError] = useState<string>('');
   const navigate = useNavigate();
   
-  const loginMutation = useMutation(
-    async (loginData: LoginCredentials) => {
-      const response = await apiClient.post<LoginResponse>('/auth/login', loginData);
-      return response.data;
-    },
-    {
-      onSuccess: (data) => {
-        // トークンと基本ユーザー情報の保存
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // ダッシュボードへリダイレクト
-        navigate('/dashboard');
-      },
-      onError: (err: any) => {
-        setError(err.response?.data?.message || 'ログインに失敗しました');
-      }
-    }
-  );
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCredentials(prev => ({ ...prev, [name]: value }));
-  };
-  
+  // 通常のフォーム送信ではなく、単にユーザーをダッシュボードにリダイレクト
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    
-    if (!credentials.username || !credentials.password) {
-      setError('ユーザー名とパスワードを入力してください');
-      return;
-    }
-    
-    // 開発環境かどうかを確認
-    if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_USE_MOCK === 'true') {
-      // 開発用に認証を通過させる
-      localStorage.setItem('isAuthenticated', 'true');
-      // ダミーのユーザー情報を保存
-      localStorage.setItem('auth_token', 'dummy_token_for_development');
-      localStorage.setItem('user', JSON.stringify({
-        id: 1,
-        username: credentials.username || 'admin',
-        role: 'admin'
-      }));
-      // 社員リストページに遷移
-      navigate('/employee-list');
-      return;
-    }
-    
-    // 本番環境では通常のログインフローを使用
-    loginMutation.mutate(credentials);
+    navigate('/dashboard');
   };
   
   return (
-    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <div className="card" style={{ width: '400px', padding: '20px' }}>
-        <h2 className="text-center mb-4">障害者雇用管理システム</h2>
-        <form onSubmit={handleSubmit}>
-          {error && (
-            <div className="alert alert-danger" role="alert">
-              {error}
-            </div>
-          )}
-          
-          <div className="form-group mb-3">
-            <label htmlFor="username">ユーザー名</label>
-            <input
-              type="text"
-              className="form-control"
-              id="username"
-              name="username"
-              value={credentials.username}
-              onChange={handleChange}
-              placeholder="ユーザー名を入力"
-              required
-            />
-          </div>
-          
-          <div className="form-group mb-4">
-            <label htmlFor="password">パスワード</label>
-            <input
-              type="password"
-              className="form-control"
-              id="password"
-              name="password"
-              value={credentials.password}
-              onChange={handleChange}
-              placeholder="パスワードを入力"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            className="btn btn-primary w-100"
-            disabled={loginMutation.isLoading}
-          >
-            {loginMutation.isLoading ? '認証中...' : 'ログイン'}
-          </button>
-        </form>
+    <div className="login-container" style={{ 
+      maxWidth: '400px', 
+      margin: '100px auto', 
+      padding: '20px', 
+      backgroundColor: '#fff',
+      borderRadius: '8px',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
+    }}>
+      <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>ログイン</h1>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>ユーザー名</label>
+          <input
+            type="text"
+            placeholder="ユーザー名を入力"
+            style={{ 
+              width: '100%', 
+              padding: '10px', 
+              border: '1px solid #ddd',
+              borderRadius: '4px'
+            }}
+          />
+        </div>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>パスワード</label>
+          <input
+            type="password"
+            placeholder="パスワードを入力"
+            style={{ 
+              width: '100%', 
+              padding: '10px', 
+              border: '1px solid #ddd',
+              borderRadius: '4px'
+            }}
+          />
+        </div>
+        <button
+          type="submit"
+          style={{ 
+            width: '100%', 
+            padding: '10px', 
+            backgroundColor: '#4285f4', 
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}
+        >
+          ログイン
+        </button>
+      </form>
+      <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+        開発モード: ユーザー名とパスワードは任意の値で進めます
       </div>
     </div>
   );

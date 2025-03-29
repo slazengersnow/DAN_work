@@ -1,8 +1,31 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const PaymentReport: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  
+  // URLからタブパラメータを取得（デフォルトは'history'）
+  const tabFromUrl = queryParams.get('tab') || 'history';
+  
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
-  const [activeTab, setActiveTab] = useState<string>('history'); // 初期値を「申告履歴」に設定
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl);
+  
+  // タブが変更されたらURLも更新
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    params.set('tab', activeTab);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  }, [activeTab, location.pathname, location.search, navigate]);
+  
+  // URLからタブパラメータが変更された場合、状態を更新
+  useEffect(() => {
+    const tabParam = queryParams.get('tab');
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search, activeTab, queryParams]);
   
   // 法定雇用率
   const LEGAL_EMPLOYMENT_RATE = 2.3; // 2.3%
@@ -369,7 +392,7 @@ const PaymentReport: React.FC = () => {
 
 export default PaymentReport;
 
-// スタイル例
+// スタイル
 const styles = `
 .page-container {
   padding: 20px;

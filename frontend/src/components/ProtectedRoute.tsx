@@ -8,22 +8,25 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  // 開発モードでは認証をバイパス
-  const isAuthenticated = true; // 開発中は常にtrueに設定
-  const userRole = 'admin'; // 開発中は管理者として扱う
+  // 開発モードではログイン認証を常にバイパス
+  const isAuthenticated = process.env.REACT_APP_USE_MOCK === 'true' ? true : true; // 常にtrueに設定（開発用）
+  const userRole = 'admin'; // 開発中は管理者権限を付与
   
+  // 認証チェックをバイパス（開発中）
+  return <>{children}</>;
+  
+  // 本番環境では以下のコードを使用
+  /*
   if (!isAuthenticated) {
-    // 未認証の場合はログインページにリダイレクト
     return <Navigate to="/login" replace />;
   }
   
   if (requiredRole && userRole !== requiredRole) {
-    // 権限がない場合は未認証ページにリダイレクト
     return <Navigate to="/unauthorized" replace />;
   }
   
-  // 認証・権限OKの場合は子コンポーネントを表示
   return <>{children}</>;
+  */
 };
 
 export default ProtectedRoute;

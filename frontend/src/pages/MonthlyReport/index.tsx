@@ -1,5 +1,6 @@
 // src/pages/MonthlyReport/index.tsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { reportApi } from '../../api/reportApi';
 import Spinner from '../../components/common/Spinner';
@@ -19,8 +20,7 @@ import {
 } from './types';
 import { 
   formatYearlyDataForUI, 
-  processEmployeeData, 
-  tabItems 
+  processEmployeeData
 } from './utils';
 
 // モックデータ（型に厳密に合わせる）
@@ -109,10 +109,18 @@ const initialMonthlyDetailData: MonthlyDetailData = {
 };
 
 const MonthlyReport: React.FC = () => {
+  // React Router Hooks
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+
+  // URLからタブパラメータを取得（デフォルトは'summary'）
+  const tabFromUrl = queryParams.get('tab') || 'summary';
+
   // 基本的な状態管理
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
-  const [activeTab, setActiveTab] = useState<string>('summary');
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl);
 
   // データ状態
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
@@ -121,6 +129,28 @@ const MonthlyReport: React.FC = () => {
 
   // Query Client
   const queryClient = useQueryClient();
+
+  // タブ定義
+  const tabItems = [
+    { id: 'summary', label: 'サマリー' },
+    { id: 'employees', label: '従業員詳細' },
+    { id: 'monthly', label: '月次詳細' }
+  ];
+
+  // タブが変更されたらURLも更新
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    params.set('tab', activeTab);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  }, [activeTab, location.pathname, location.search, navigate]);
+
+  // URLからタブパラメータが変更された場合、状態を更新
+  useEffect(() => {
+    const tabParam = queryParams.get('tab');
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search, activeTab, queryParams]);
 
   // データ取得用クエリ
   const { 
@@ -218,6 +248,14 @@ const MonthlyReport: React.FC = () => {
     });
   };
 
+  // 表示ボタンのハンドラー
+  const handleDisplayClick = () => {
+    queryClient.invalidateQueries(['monthlyData', selectedYear, selectedMonth]);
+    queryClient.invalidateQueries(['monthlyEmployees', selectedYear, selectedMonth]);
+    queryClient.invalidateQueries(['yearlyData', selectedYear]);
+    console.log(`${selectedYear}年${selectedMonth}月のデータを取得`);
+  };
+
   // レンダリング前のローディングとエラー処理
   if (isLoadingMonthlyData || isLoadingEmployeeData || isLoadingYearlyData) {
     return <Spinner />;
@@ -229,75 +267,112 @@ const MonthlyReport: React.FC = () => {
 
   return (
     <div className="monthly-report-container">
-      <div className="report-header">
-        <div className="filter-container">
-          <select 
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="year-select"
-          >
-            {[...Array(5)].map((_, idx) => {
-              const year = new Date().getFullYear() - 2 + idx;
-              return <option key={year} value={year}>{year}年</option>;
-            })}
-          </select>
+      <h1>月次報告</h1>
 
-          <select 
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="month-select"
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-              <option key={month} value={month}>{month}月</option>
-            ))}
-          </select>
-
-          <button 
-            onClick={() => queryClient.invalidateQueries()}
-            className="display-btn"
-          >
-            表示
-          </button>
-
-          <button 
-            onClick={() => {
-              if (window.confirm('月次データを確定しますか？')) {
-                // 確定処理のロジックを追加
-                console.log('月次データ確定');
-              }
-            }}
-            className="confirm-btn"
-            disabled={summaryData.status === '確定済'}
-          >
-            月次確定
-          </button>
-        </div>
-
-        <div className="summary-box">
-          <h3>月次サマリー</h3>
-          <div className="summary-content">
-            <p>
-              常用労働者数: {summaryData.total_employees}名 | 
-              障害者数: {summaryData.disabled_employees}名 | 
-              実雇用率: {summaryData.actual_rate}% | 
-              法定雇用率: {summaryData.legal_rate}%
-            </p>
-          </div>
-        </div>
-
-        <div className="tab-navigation">
-          {tabItems.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-            >
-              {tab.label}
-            </button>
+      {/* 年月選択 */}
+      <div className="filter-container" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <select 
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(Number(e.target.value))}
+          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+        >
+          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+            <option key={year} value={year}>{year}年</option>
           ))}
+        </select>
+        
+        <select 
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(Number(e.target.value))}
+          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+        >
+          {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+            <option key={month} value={month}>{month}月</option>
+          ))}
+        </select>
+        
+        <button 
+          onClick={handleDisplayClick}
+          style={{ 
+            padding: '8px 16px',
+            backgroundColor: '#3a66d4',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          表示
+        </button>
+
+        <button 
+          onClick={() => {
+            if (window.confirm('月次データを確定しますか？')) {
+              // 確定処理のロジックを追加
+              console.log('月次データ確定');
+            }
+          }}
+          style={{ 
+            padding: '8px 16px',
+            backgroundColor: '#3a66d4',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            opacity: summaryData.status === '確定済' ? 0.5 : 1
+          }}
+          disabled={summaryData.status === '確定済'}
+        >
+          月次確定
+        </button>
+      </div>
+      
+      {/* サマリーボックス */}
+      <div style={{ 
+        backgroundColor: '#e9f2ff', 
+        padding: '15px 20px', 
+        borderRadius: '8px',
+        marginBottom: '20px',
+        borderLeft: '4px solid #3a66d4'
+      }}>
+        <h2>{summaryData.year}年{summaryData.month}月集計サマリー</h2>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '10px' }}>
+          <span>常用労働者数: {summaryData.total_employees}名</span>
+          <span>|</span>
+          <span>障害者数: {summaryData.disabled_employees}名</span>
+          <span>|</span>
+          <span>実雇用率: {summaryData.actual_rate}%</span>
+          <span>|</span>
+          <span>法定雇用率: {summaryData.legal_rate}%</span>
         </div>
       </div>
 
+      {/* タブナビゲーション */}
+      <div style={{ 
+        display: 'flex', 
+        borderBottom: '1px solid #ddd', 
+        marginBottom: '20px' 
+      }}>
+        {tabItems.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '10px 20px',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === tab.id ? '2px solid #3a66d4' : '2px solid transparent',
+              color: activeTab === tab.id ? '#3a66d4' : '#666',
+              fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+              cursor: 'pointer'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* タブコンテンツ */}
       <div className="tab-content">
         {activeTab === 'summary' && (
           <SummaryTab 

@@ -11,80 +11,52 @@ const pathMap: { [key: string]: string } = {
   'settings': '設定'
 };
 
-// サブレベルの状態をマップするための関数型
-type SubPathGetter = (pathname: string, search: string) => {path: string, label: string}[] | null;
-
-// 特定のパスに対するサブパスマッピング
-const subPathGetters: {[key: string]: SubPathGetter} = {
-  // 月次報告のサブパスマッピング
-  'monthly-report': (pathname, search) => {
-    // URLパラメータからタブを取得
-    const params = new URLSearchParams(search);
-    const tab = params.get('tab') || 'summary';
-    
-    // URLの末尾から詳細ページかどうかを判断
-    const isDetail = pathname.endsWith('/detail');
-    
-    // タブの名前マッピング
-    const tabNames: {[key: string]: string} = {
-      'summary': 'サマリー',
-      'employees': '従業員詳細',
-      'monthly': '月次詳細'
-    };
-    
-    // 詳細ページの場合はさらに深いパンくずを表示
-    if (isDetail) {
-      return [
-        { path: `/monthly-report?tab=${tab}`, label: tabNames[tab] || tab },
-        { path: `${pathname}`, label: '詳細表示' }
-      ];
-    }
-    
-    // タブが選択されている場合
-    if (tab !== 'summary') {
-      return [
-        { path: `/monthly-report?tab=summary`, label: 'サマリー' },
-        { path: `/monthly-report?tab=${tab}`, label: tabNames[tab] || tab }
-      ];
-    }
-    
-    return null;
+// 各ページのタブマッピング
+const tabMap: { [key: string]: { [key: string]: string } } = {
+  'monthly-report': {
+    'summary': 'サマリー',
+    'employees': '従業員詳細',
+    'monthly': '月次詳細'
+  },
+  'payment-report': {
+    'summary': 'サマリー',
+    'monthly': '月別データ',
+    'payment': '納付金情報',
+    'history': '申告履歴'
   }
 };
 
 const Breadcrumbs: React.FC = () => {
   const location = useLocation();
   
-  // パスからパンくずリストのセグメントを取得
+  // パスセグメントとクエリパラメータを取得
   const pathSegments = location.pathname.split('/').filter(segment => segment);
+  const queryParams = new URLSearchParams(location.search);
+  const activeTab = queryParams.get('tab');
   
-  // パスが空の場合はダッシュボード
-  if (pathSegments.length === 0) {
-    pathSegments.push('dashboard');
-  }
+  // パンくずリストアイテムを格納する配列
+  const breadcrumbItems: { path: string; label: string }[] = [];
   
-  // 基本パスとサブパスを生成
-  let breadcrumbs = [];
+  // ホームリンクを追加
+  breadcrumbItems.push({ path: '/', label: 'ホーム' });
   
-  // ホームリンク
-  breadcrumbs.push({ path: '/', label: 'ホーム' });
+  // 基本的なパスセグメントを処理
+  let currentPath = '';
   
-  // 基本パスを追加
-  for (let i = 0; i < pathSegments.length; i++) {
-    const segment = pathSegments[i];
-    const path = `/${pathSegments.slice(0, i + 1).join('/')}`;
+  for (const segment of pathSegments) {
+    currentPath += `/${segment}`;
     const label = pathMap[segment] || segment;
+    breadcrumbItems.push({ path: currentPath, label });
     
-    breadcrumbs.push({ path, label });
-    
-    // 最後のセグメントの場合、サブパスも確認
-    if (i === pathSegments.length - 1) {
-      const subPathGetter = subPathGetters[segment];
-      if (subPathGetter) {
-        const subPaths = subPathGetter(location.pathname, location.search);
-        if (subPaths) {
-          breadcrumbs = [...breadcrumbs, ...subPaths];
-        }
+    // 最後のセグメントの場合はタブ情報も追加
+    if (segment === pathSegments[pathSegments.length - 1] && activeTab) {
+      // 該当ページのタブマッピングが存在するか確認
+      const tabs = tabMap[segment];
+      if (tabs && tabs[activeTab]) {
+        breadcrumbItems.push({
+          path: `${currentPath}?tab=${activeTab}`,
+          label: tabs[activeTab]
+        });
       }
     }
   }
@@ -94,12 +66,13 @@ const Breadcrumbs: React.FC = () => {
       padding: '0.5rem 1rem', 
       background: '#f5f5f5', 
       borderRadius: '4px',
-      marginBottom: '1rem'
+      marginBottom: '1rem',
+      fontSize: '0.9rem'
     }}>
-      {breadcrumbs.map((item, index) => (
-        <span key={item.path}>
-          {index > 0 && <span style={{ margin: '0 0.5rem' }}>&gt;</span>}
-          {index === breadcrumbs.length - 1 ? (
+      {breadcrumbItems.map((item, index) => (
+        <span key={`${item.path}-${index}`}>
+          {index > 0 && <span style={{ margin: '0 0.5rem', color: '#666' }}>&gt;</span>}
+          {index === breadcrumbItems.length - 1 ? (
             <span style={{ color: '#666' }}>{item.label}</span>
           ) : (
             <Link to={item.path} style={{ color: '#0066cc', textDecoration: 'none' }}>

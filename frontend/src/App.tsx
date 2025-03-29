@@ -1,6 +1,11 @@
 // frontend/src/App.tsx
 import React from 'react';
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
+import { 
+  BrowserRouter as Router, 
+  Routes, 
+  Route, 
+  Navigate
+} from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -8,98 +13,45 @@ import EmployeeList from './pages/EmployeeList';
 import MonthlyReport from './pages/MonthlyReport';
 import PaymentReport from './pages/PaymentReport';
 import Settings from './pages/Settings';
-import Login from './pages/Login';
-import Unauthorized from './pages/Unauthorized';
 import './App.css';
 
-const queryClient = new QueryClient();
+// 環境変数を設定
+// これがない場合、window.process.envオブジェクトが存在しない可能性がある
+window.process = window.process || {};
+window.process.env = window.process.env || {};
+window.process.env.REACT_APP_USE_MOCK = 'true';  // 開発中はモックモードを有効化
 
-// ProtectedRouteのロジックを実装
-const ProtectedRoute = ({ 
-  children, 
-  requiredRole 
-}: { 
-  children: React.ReactNode, 
-  requiredRole?: string 
-}) => {
-  // 開発中は常に認証済みとする
-  // const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-  const isAuthenticated = true; // 開発用に強制的に認証済みとする
-  
-  // 開発中は常に管理者権限に設定
-  const userRole = 'admin';
-  
-  if (!isAuthenticated) {
-    // 未認証の場合はログインページにリダイレクト
-    return <Navigate to="/login" replace />;
-  }
-  
-  if (requiredRole && userRole !== requiredRole) {
-    // 権限がない場合は未認証ページにリダイレクト
-    return <Navigate to="/unauthorized" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-// ルーターの定義
-const router = createBrowserRouter([
-  {
-    path: "/login",
-    element: <Login />
+// 新しいQueryClientを作成
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+    },
   },
-  {
-    path: "/unauthorized",
-    element: <Unauthorized />
-  },
-  {
-    path: "/",
-    element: (
-      <ProtectedRoute>
-        <Layout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        index: true,
-        element: <Dashboard />,
-      },
-      {
-        path: "dashboard",
-        element: <Dashboard />,
-      },
-      {
-        path: "employee-list", // 社員リスト
-        element: <EmployeeList />,
-      },
-      {
-        path: "monthly-report", // 月次報告
-        element: <MonthlyReport />,
-      },
-      {
-        path: "payment-report", // 納付金申告
-        element: <PaymentReport />,
-      },
-      {
-        path: "settings", // 設定
-        element: (
-          <ProtectedRoute requiredRole="admin">
-            <Settings />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "*",
-        element: <Navigate to="/dashboard" replace />, // 存在しないパスはダッシュボードにリダイレクト
-      }
-    ]
-  }
-]);
+});
 
+// シンプルなルーティング構造
 const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/employee-list" element={<EmployeeList />} />
+            <Route path="/employees/new" element={<div>新規社員追加（未実装）</div>} />
+            <Route path="/employees/:id" element={<div>社員詳細（未実装）</div>} />
+            <Route path="/employees/:id/edit" element={<div>社員編集（未実装）</div>} />
+            <Route path="/monthly-report" element={<MonthlyReport />} />
+            <Route path="/payment-report" element={<PaymentReport />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Route>
+        </Routes>
+      </Router>
     </QueryClientProvider>
   );
 };

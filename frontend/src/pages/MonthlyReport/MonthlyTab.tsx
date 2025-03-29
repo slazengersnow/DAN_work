@@ -175,84 +175,156 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
     setEditingDetailCol(null);
   };
 
+  // 保存ボタンのハンドラー
+  const handleSave = () => {
+    console.log('月次詳細データを保存');
+  };
+
   return (
-    <div className="monthly-tab-container">
-      <div className="data-container">
-        <div className="data-header">
-          <h3 className="data-title">月次詳細</h3>
-        </div>
-        <div className="data-table-wrapper horizontal-scroll-container">
-          <table className="data-table monthly-detail-table">
-            <thead>
-              <tr>
-                <th className="fixed-column"></th>
-                {monthlyDetailData.months.map(month => (
-                  <th key={month}>{month}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {monthlyDetailData.data.map((row) => {
-                // 特定の行の前にスペーサー行を追加
-                const needsSpacerBefore = row.id === 5 || row.id === 10;
-                const isHeaderRow = row.id === 5;
-                
-                return (
-                  <React.Fragment key={`row-${row.id}`}>
-                    {needsSpacerBefore && (
-                      <tr className="spacer-row">
-                        <td colSpan={14}></td>
-                      </tr>
-                    )}
-                    {isHeaderRow && (
-                      <tr className="header-row">
-                        <th colSpan={14}>障がい者</th>
-                      </tr>
-                    )}
-                    <tr className={row.isCalculated ? 'calculated-row' : ''}>
-                      <td className="fixed-column item-column">{row.item}</td>
-                      {row.values.map((value, colIndex) => {
-                        let className = 'cell';
-                        if (row.isNegative && value < 0) className += ' negative-value';
-                        else if (row.isRatio) className += ' ratio-value';
-                        if (row.isCalculated) className += ' calculated-cell';
-                        if (activeCell.row === row.id && activeCell.col === colIndex) className += ' active-cell';
-                        
-                        return (
-                          <td 
-                            key={`value-${row.id}-${colIndex}`} 
-                            className={className}
-                            onClick={() => handleCellClick(row.id, colIndex)}
-                          >
-                            {editingDetailRow === row.id && editingDetailCol === colIndex && summaryData.status !== '確定済' ? (
-                              <input
-                                ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
-                                type="text"
-                                value={value}
-                                onChange={(e) => onDetailCellChange(row.id, colIndex, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => handleKeyDown(e, row.id, colIndex)}
-                                className="cell-input"
-                                disabled={row.isCalculated || summaryData.status === '確定済'}
-                              />
-                            ) : (
-                              <span className={colIndex < 12 && !row.isCalculated && summaryData.status !== '確定済' ? 'editable-cell' : ''}>
-                                {value}{row.suffix || ''}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
+    <div className="monthly-tab">
+      <h3>月次詳細</h3>
+      
+      {/* 保存ボタン */}
+      <button 
+        onClick={handleSave}
+        style={{
+          backgroundColor: '#3a66d4',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          padding: '8px 16px',
+          marginBottom: '20px',
+          cursor: 'pointer'
+        }}
+      >
+        保存
+      </button>
+
+      {/* 月次詳細テーブル */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+          <thead>
+            <tr>
+              <th style={{ 
+                textAlign: 'left', 
+                padding: '10px', 
+                borderBottom: '1px solid #ddd', 
+                position: 'sticky',
+                left: 0,
+                backgroundColor: '#f8f9fa'
+              }}></th>
+              {monthlyDetailData.months.map((month, index) => (
+                <th key={index} style={{ 
+                  padding: '10px', 
+                  borderBottom: '1px solid #ddd',
+                  textAlign: 'center',
+                  minWidth: '80px'
+                }}>
+                  {month}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {monthlyDetailData.data.map((row) => {
+              // 特定の行の前にスペーサー行を追加
+              const needsSpacerBefore = row.id === 5 || row.id === 10;
+              const isHeaderRow = row.id === 5;
+              
+              return (
+                <React.Fragment key={`row-${row.id}`}>
+                  {needsSpacerBefore && (
+                    <tr className="spacer-row">
+                      <td colSpan={14} style={{ padding: '5px', backgroundColor: '#f8f9fa' }}></td>
                     </tr>
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="spreadsheet-help">
-          <p>注: 矢印キー、Tab キー、Enter キーでセル間を移動できます。 「実雇用率」「法定雇用者数」「超過・未達」は自動計算されます。</p>
-        </div>
+                  )}
+                  {isHeaderRow && (
+                    <tr className="header-row">
+                      <th colSpan={14} style={{ 
+                        textAlign: 'left', 
+                        padding: '10px',
+                        backgroundColor: '#e9f2ff'
+                      }}>障がい者</th>
+                    </tr>
+                  )}
+                  <tr style={{ 
+                    backgroundColor: row.isCalculated ? '#f8f9fa' : 'white'
+                  }}>
+                    <td style={{ 
+                      fontWeight: 'bold', 
+                      padding: '10px', 
+                      borderBottom: '1px solid #ddd',
+                      position: 'sticky',
+                      left: 0,
+                      backgroundColor: row.isCalculated ? '#f8f9fa' : 'white'
+                    }}>
+                      {row.item}
+                    </td>
+                    {row.values.map((value, colIndex) => {
+                      let cellStyle: React.CSSProperties = {
+                        textAlign: 'center', 
+                        padding: '10px', 
+                        borderBottom: '1px solid #ddd',
+                        color: row.isNegative && value < 0 ? '#dc3545' : 'inherit'
+                      };
+                      
+                      if (activeCell.row === row.id && activeCell.col === colIndex) {
+                        cellStyle.backgroundColor = '#e9f2ff';
+                        cellStyle.outline = '2px solid #3a66d4';
+                      }
+                      
+                      return (
+                        <td 
+                          key={`value-${row.id}-${colIndex}`} 
+                          style={cellStyle}
+                          onClick={() => handleCellClick(row.id, colIndex)}
+                        >
+                          {editingDetailRow === row.id && editingDetailCol === colIndex && summaryData.status !== '確定済' ? (
+                            <input
+                              ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
+                              type="text"
+                              value={value}
+                              onChange={(e) => onDetailCellChange(row.id, colIndex, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => handleKeyDown(e, row.id, colIndex)}
+                              style={{
+                                width: '60px',
+                                padding: '4px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px',
+                                textAlign: 'center'
+                              }}
+                              disabled={row.isCalculated || summaryData.status === '確定済'}
+                            />
+                          ) : (
+                            <span style={
+                              colIndex < 12 && !row.isCalculated && summaryData.status !== '確定済' 
+                                ? { cursor: 'pointer', textDecoration: 'underline dotted #ccc' } 
+                                : {}
+                            }>
+                              {value}{row.suffix || ''}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      
+      <div style={{ 
+        marginTop: '20px', 
+        padding: '10px', 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: '4px',
+        fontSize: '0.9em',
+        color: '#666'
+      }}>
+        <p>注: 矢印キー、Tab キー、Enter キーでセル間を移動できます。 「実雇用率」「法定雇用者数」「超過・未達」は自動計算されます。</p>
       </div>
     </div>
   );

@@ -1,16 +1,86 @@
 // frontend/src/pages/EmployeeList.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { employeeApi, Employee, exportEmployeesToCsv } from '../api/employeeApi';
 import Spinner from '../components/common/Spinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import ImportEmployees from '../components/ImportEmployees';
+import { Employee as ImportedEmployee } from '../types/Employee';
+
+// モックデータ用のタイプ定義
+interface Employee {
+  id: number;
+  employee_id: string;
+  name: string;
+  disability_type?: string;
+  physical_verified?: boolean;
+  intellectual_verified?: boolean;
+  mental_verified?: boolean;
+  physical_degree_current?: string;
+  intellectual_degree_current?: string;
+  mental_degree_current?: string;
+  count: number;
+  status: string;
+}
+
+// インポートされた社員データを現在のシステムの型に変換する関数
+const convertImportedEmployees = (importedEmployees: ImportedEmployee[]): Employee[] => {
+  return importedEmployees.map(imp => ({
+    id: imp.id || 0,
+    employee_id: imp.employeeId || '',
+    name: imp.name || '',
+    disability_type: imp.disabilityType as string || '',
+    physical_verified: imp.disabilityType === '身体障害' || false,
+    intellectual_verified: imp.disabilityType === '知的障害' || false,
+    mental_verified: imp.disabilityType === '精神障害' || false,
+    physical_degree_current: imp.physicalGrade,
+    intellectual_degree_current: imp.grade,
+    mental_degree_current: imp.grade,
+    count: imp.count || 0,
+    status: imp.status || '在籍中',
+  }));
+};
+
+// モックAPI実装
+const employeeApi = {
+  getAll: async (): Promise<Employee[]> => {
+    // 開発用のモックデータ
+    return [
+      { id: 1, employee_id: "1001", name: "山田 太郎", disability_type: "身体障害", physical_verified: true, physical_degree_current: "1級", count: 2, status: "在籍中" },
+      { id: 2, employee_id: "1002", name: "鈴木 花子", disability_type: "精神障害", mental_verified: true, mental_degree_current: "2級", count: 1, status: "在籍中" },
+      { id: 3, employee_id: "1003", name: "佐藤 一郎", disability_type: "知的障害", intellectual_verified: true, intellectual_degree_current: "B", count: 1, status: "在籍中" },
+      { id: 4, employee_id: "1004", name: "田中 健太", disability_type: "身体障害", physical_verified: true, physical_degree_current: "3級", count: 0.5, status: "在籍中" },
+      { id: 5, employee_id: "1005", name: "伊藤 由美", disability_type: "精神障害", mental_verified: true, mental_degree_current: "3級", count: 1, status: "在籍中" },
+      { id: 6, employee_id: "1006", name: "渡辺 隆", disability_type: "身体障害", physical_verified: true, physical_degree_current: "2級", count: 1, status: "退職" },
+      { id: 7, employee_id: "1007", name: "高橋 恵子", disability_type: "知的障害", intellectual_verified: true, intellectual_degree_current: "A", count: 1, status: "在籍中" },
+    ];
+  },
+  delete: async (id: number): Promise<void> => {
+    // モック削除処理
+    console.log(`社員ID ${id} を削除しました`);
+    return Promise.resolve();
+  },
+  importEmployees: async (employees: Employee[]): Promise<void> => {
+    // モックインポート処理
+    console.log(`${employees.length}人の社員データをインポートしました`, employees);
+    return Promise.resolve();
+  }
+};
+
+// CSVエクスポートのモック関数
+const exportEmployeesToCsv = async (): Promise<void> => {
+  console.log('CSVエクスポート処理（モック）');
+  return Promise.resolve();
+};
 
 const EmployeeList: React.FC = () => {
+  const navigate = useNavigate();  // window.location.href の代わりに使用
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [displayCount, setDisplayCount] = useState<string>('10');
   const [disabilityFilter, setDisabilityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showImportSection, setShowImportSection] = useState<boolean>(false);
   
   // React Queryを使ってデータを取得
   const { 
@@ -33,6 +103,18 @@ const EmployeeList: React.FC = () => {
       onSuccess: () => {
         // 成功時にキャッシュを更新
         queryClient.invalidateQueries('employees');
+      }
+    }
+  );
+
+  // インポートミューテーション
+  const importMutation = useMutation(
+    (employees: Employee[]) => employeeApi.importEmployees(employees),
+    {
+      onSuccess: () => {
+        // 成功時にキャッシュを更新
+        queryClient.invalidateQueries('employees');
+        setShowImportSection(false);
       }
     }
   );
@@ -63,20 +145,19 @@ const EmployeeList: React.FC = () => {
   const displayLimit = parseInt(displayCount);
   const displayedEmployees = filteredEmployees.slice(0, displayLimit);
   
-  // 新規追加ハンドラー
+  // 新規追加ハンドラー - React Routerのnavigateを使用
   const handleAddNew = () => {
-    // 新規追加ページへ遷移
-    window.location.href = '/employees/new';
+    navigate('/employees/new');
   };
   
-  // 詳細表示ハンドラー
+  // 詳細表示ハンドラー - React Routerのnavigateを使用
   const handleViewDetails = (id: number) => {
-    window.location.href = `/employees/${id}`;
+    navigate(`/employees/${id}`);
   };
   
-  // 編集ハンドラー
+  // 編集ハンドラー - React Routerのnavigateを使用
   const handleEdit = (id: number) => {
-    window.location.href = `/employees/${id}/edit`;
+    navigate(`/employees/${id}/edit`);
   };
   
   // 削除ハンドラー
@@ -90,9 +171,23 @@ const EmployeeList: React.FC = () => {
   const handleExportCsv = async () => {
     try {
       await exportEmployeesToCsv();
+      alert('CSVエクスポートが完了しました（モック処理）');
     } catch (error) {
       console.error('CSVエクスポートエラー:', error);
       alert('CSVエクスポート中にエラーが発生しました');
+    }
+  };
+
+  // CSVインポート完了ハンドラー
+  const handleImportComplete = (importedEmployees: ImportedEmployee[]) => {
+    try {
+      // インポートされたデータを現在のシステムの型に変換
+      const convertedEmployees = convertImportedEmployees(importedEmployees);
+      // 変換されたデータをインポート
+      importMutation.mutate(convertedEmployees);
+    } catch (error) {
+      console.error('インポートエラー:', error);
+      alert('データのインポート中にエラーが発生しました');
     }
   };
   
@@ -142,6 +237,27 @@ const EmployeeList: React.FC = () => {
           <button onClick={handleAddNew}>新規追加</button>
         </div>
       </div>
+
+      {/* インポートセクション切り替えボタン */}
+      <div style={{ marginBottom: '20px' }}>
+        <button 
+          onClick={() => setShowImportSection(!showImportSection)}
+          style={{
+            backgroundColor: '#f8f9fa',
+            border: '1px solid #ced4da',
+            padding: '8px 15px',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          {showImportSection ? 'インポート機能を閉じる' : 'CSVインポート機能を表示'}
+        </button>
+      </div>
+
+      {/* インポート機能セクション */}
+      {showImportSection && (
+        <ImportEmployees onImportComplete={handleImportComplete} />
+      )}
       
       <table className="data-table">
         <thead>
