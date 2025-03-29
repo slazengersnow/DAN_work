@@ -1,0 +1,215 @@
+/* frontend/src/components/employee-tabs/MonthlyInfo.css */
+
+.monthly-info-tab .section-title {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+/* テーブルのスタイル */
+.monthly-table-container {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.monthly-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.monthly-table th,
+.monthly-table td {
+  border: 1px solid #dee2e6;
+  padding: 4px;
+  text-align: center;
+}
+
+.monthly-table th {
+  background-color: #f8f9fa;
+  font-weight: normal;
+}
+
+.monthly-table thead th {
+  padding: 8px 4px;
+}
+
+.monthly-table tbody th {
+  text-align: left;
+  padding-left: 10px;
+}
+
+/* 入力フィールドのスタイル */
+.table-input {
+  width: 100%;
+  padding: 4px;
+  border: none;
+  text-align: center;
+  background-color: transparent;
+}
+
+.table-input:focus {
+  outline: none;
+  background-color: #f0f8ff;
+}
+
+/* 年間合計セクション */
+.summary-section {
+  margin-top: 20px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 5px 0;
+}
+
+.summary-label {
+  font-weight: bold;
+}
+
+.summary-value {
+  font-weight: bold;
+}
+
+/* アクションボタンのスタイル */
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* 申告設定のセクション */
+.declaration-settings {
+  margin-bottom: 20px;
+}
+
+/* 労働時間のセクション */
+.labor-hours-section {
+  margin-bottom: 20px;
+}
+
+.monthly-info-tab .section-title {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: #333;
+  }
+  
+  /* テーブルのスタイル - スプレッドシート風 */
+  .monthly-table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+  }
+  
+  .monthly-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  
+  .monthly-table th,
+  .monthly-table td {
+    border: 1px solid #dee2e6;
+    padding: 0;
+    text-align: center;
+  }
+  
+  .monthly-table th {
+    background-color: #f8f9fa;
+    font-weight: normal;
+    height: 32px;
+  }
+  
+  .monthly-table tbody th {
+    text-align: left;
+    padding-left: 10px;
+    font-weight: normal;
+  }
+  
+  /* セルの入力フィールド */
+  .monthly-table input {
+    width: 100%;
+    height: 30px;
+    border: none;
+    padding: 0 4px;
+    text-align: center;
+    background-color: transparent;
+    box-sizing: border-box;
+  }
+  
+  .monthly-table input:focus {
+    outline: none;
+    background-color: #f0f8ff;
+  }
+  
+  .monthly-table input:disabled {
+    background-color: #f9f9f9;
+    color: #666;
+  }
+  
+  /* ホバー効果 */
+  .monthly-table tr:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .monthly-table tr:hover input {
+    background-color: #f5f5f5;
+  }
+  
+  /* 年間合計セクション */
+  .summary-section {
+    margin-top: 20px;
+  }
+  
+  .summary-total {
+    display: flex;
+    gap: 40px;
+  }
+  
+  .summary-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .summary-label {
+    font-weight: bold;
+  }
+  
+  .summary-value {
+    font-weight: bold;
+  }
+  
+  /* アクションボタン */
+  .action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .action-button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+  
+  .btn-primary {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  /* ヘッダー行とデータ行の区別 */
+  .monthly-table thead tr {
+    border-bottom: 2px solid #dee2e6;
+  }

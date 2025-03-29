@@ -1,5 +1,5 @@
 // frontend/src/pages/EmployeeList.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 
@@ -40,9 +40,29 @@ const employeeApi = {
     return Promise.resolve();
   },
   downloadTemplate: async (): Promise<void> => {
-    // テンプレートダウンロードのモック処理
-    console.log('CSVテンプレートをダウンロードしました（モック処理）');
-    return Promise.resolve();
+    try {
+      // CSVテンプレートの内容
+      const template = `社員ID,氏名,フリガナ,性別,障害種別,等級,手帳番号,発行日,カウント,ステータス
+1001,山田 太郎,ヤマダ タロウ,1,身体障害,1級,A-12345,2020-04-01,2,在籍中
+,,,,,,,,,
+`;
+      
+      // CSVファイルを作成
+      const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'employee_template.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('テンプレートをダウンロードしました');
+    } catch (error) {
+      console.error('テンプレートダウンロードエラー:', error);
+      throw error;
+    }
   },
   importCsv: async (file: File): Promise<void> => {
     // CSVインポートのモック処理
@@ -51,20 +71,14 @@ const employeeApi = {
   }
 };
 
-// CSVエクスポート/インポートのモック関数
-const exportEmployeesToCsv = async (): Promise<void> => {
-  console.log('CSVエクスポート処理（モック）');
-  return Promise.resolve();
-};
-
-// Spinnerコンポーネント（モック）
+// Spinnerコンポーネント
 const Spinner = () => (
   <div style={{ display: 'flex', justifyContent: 'center', padding: '50px' }}>
     読み込み中...
   </div>
 );
 
-// ErrorMessageコンポーネント（モック）
+// ErrorMessageコンポーネント
 const ErrorMessage = ({ message }: { message: string }) => (
   <div style={{ color: 'red', padding: '20px', textAlign: 'center' }}>
     {message}
@@ -77,17 +91,20 @@ const ImportModal: React.FC<{
   onClose: () => void;
   onSuccess: () => void;
 }> = ({ isOpen, onClose, onSuccess }) => {
+  if (!isOpen) return null;
+
+  // テンプレートダウンロード処理
   const handleDownloadTemplate = async () => {
     try {
       await employeeApi.downloadTemplate();
-      alert('テンプレートをダウンロードしました（モック処理）');
     } catch (error) {
       console.error('テンプレートダウンロードエラー:', error);
       alert('テンプレートのダウンロード中にエラーが発生しました');
     }
   };
 
-  const handleFileSelect = async () => {
+  // CSVファイル選択処理
+  const handleFileSelect = () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.csv';
@@ -109,8 +126,6 @@ const ImportModal: React.FC<{
     
     fileInput.click();
   };
-
-  if (!isOpen) return null;
 
   return (
     <div style={{
@@ -253,25 +268,18 @@ const EmployeeList: React.FC = () => {
     navigate('/employees/new');
   };
   
-  // 詳細表示ハンドラー - 修正
+  // 詳細表示ハンドラー
   const handleViewDetails = (id: number) => {
-    // 正しいルートパスを設定
+    // 詳細画面へ遷移
     navigate(`/employee-detail/${id}`);
     console.log(`社員ID: ${id} の詳細を表示します`);
   };
   
-  // 編集ハンドラー - 修正
+  // 編集ハンドラー
   const handleEdit = (id: number) => {
-    // 正しいルートパスを設定
+    // 編集画面へ遷移
     navigate(`/employee-edit/${id}`);
     console.log(`社員ID: ${id} を編集します`);
-  };
-  
-  // 削除ハンドラー
-  const handleDelete = (id: number) => {
-    if (window.confirm('本当にこの社員を削除しますか？')) {
-      deleteMutation.mutate(id);
-    }
   };
   
   // CSVインポートモーダルを表示

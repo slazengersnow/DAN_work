@@ -1,3 +1,4 @@
+// frontend/src/components/employee-tabs/BasicInfo.tsx
 import React, { useState, ChangeEvent } from 'react';
 import { TabProps, EraType } from '../../types/Employee';
 
@@ -13,6 +14,10 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
       month: employeeData.birthMonth || '',
       day: employeeData.birthDay || '',
     },
+    
+    // 部署・職位情報
+    department: employeeData.department || '',
+    position: employeeData.position || '',
     
     // 連絡先情報
     address: employeeData.address || '',
@@ -68,12 +73,17 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     });
   };
 
+  // 電話番号フィールドスタイル（再利用）
+  const phoneFieldStyle = {
+    width: '50%' // 連絡先情報の電話番号と同じサイズ
+  };
+
   return (
     <div className="basic-info-tab">
       {/* 基本情報 */}
-      <div className="personal-info">
-        <h3 className="section-subtitle">基本情報</h3>
-        <div className="form-grid">
+      <div className="form-section">
+        <h3 className="section-title">基本情報</h3>
+        <div className="form-row">
           <div className="form-group">
             <label>氏名</label>
             <input 
@@ -82,7 +92,6 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               value={formData.name} 
               onChange={handleChange}
               className="form-control"
-              required
             />
           </div>
           <div className="form-group">
@@ -95,86 +104,108 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
-          <div className="form-group">
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={{ width: '50%' }}>
             <label>性別</label>
-            <div className="select-wrapper">
-              <select 
-                name="gender" 
-                value={formData.gender} 
-                onChange={handleChange}
-                className="form-control"
-              >
-                <option value="1">男性</option>
-                <option value="2">女性</option>
-              </select>
-            </div>
+            <select 
+              name="gender" 
+              value={formData.gender} 
+              onChange={handleChange}
+              className="form-control"
+              style={{ width: '100%' }}
+            >
+              <option value="1">男性</option>
+              <option value="2">女性</option>
+            </select>
           </div>
-          <div className="form-group date-group">
+          <div className="form-group">
             <label>生年月日</label>
             <div className="date-inputs">
-              <div className="select-wrapper era-select">
-                <select 
-                  value={formData.birthDate.era} 
-                  onChange={(e) => handleDateChange('birthDate', 'era', e.target.value)}
-                  className="form-control"
-                >
-                  <option value="明治">明治</option>
-                  <option value="大正">大正</option>
-                  <option value="昭和">昭和</option>
-                  <option value="平成">平成</option>
-                  <option value="令和">令和</option>
-                </select>
-              </div>
+              <select 
+                value={formData.birthDate.era} 
+                onChange={(e) => handleDateChange('birthDate', 'era', e.target.value)}
+                className="form-control era-select"
+                style={{ width: '33%' }}
+              >
+                <option value="明治">明治</option>
+                <option value="大正">大正</option>
+                <option value="昭和">昭和</option>
+                <option value="平成">平成</option>
+                <option value="令和">令和</option>
+              </select>
               <input 
-                type="number" 
+                type="text" 
                 value={formData.birthDate.year} 
                 onChange={(e) => handleDateChange('birthDate', 'year', e.target.value)}
                 className="form-control year-input"
                 placeholder="年"
-                min="1"
-                max="99"
+                maxLength={2}
+                style={{ width: '40px' }}
               />
               <span>年</span>
               <input 
-                type="number" 
+                type="text" 
                 value={formData.birthDate.month} 
                 onChange={(e) => handleDateChange('birthDate', 'month', e.target.value)}
                 className="form-control month-input"
                 placeholder="月"
-                min="1"
-                max="12"
+                maxLength={2}
+                style={{ width: '40px' }}
               />
               <span>月</span>
               <input 
-                type="number" 
+                type="text" 
                 value={formData.birthDate.day} 
                 onChange={(e) => handleDateChange('birthDate', 'day', e.target.value)}
                 className="form-control day-input"
                 placeholder="日"
-                min="1"
-                max="31"
+                maxLength={2}
+                style={{ width: '40px' }}
               />
               <span>日</span>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* 連絡先情報 */}
-      <div className="contact-info">
-        <h3 className="section-subtitle">連絡先情報</h3>
-        <div className="form-grid">
-          <div className="form-group full-width">
-            <label>住所</label>
+        <div className="form-row">
+          <div className="form-group">
+            <label>部署</label>
             <input 
               type="text" 
-              name="address" 
-              value={formData.address} 
+              name="department" 
+              value={formData.department} 
               onChange={handleChange}
               className="form-control"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ width: '60%' }}>
+            <label>職位</label>
+            <input 
+              type="text" 
+              name="position" 
+              value={formData.position} 
+              onChange={handleChange}
+              className="form-control"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 連絡先情報 */}
+      <div className="form-section">
+        <h3 className="section-title">連絡先情報</h3>
+        <div className="form-group full-width">
+          <label>住所</label>
+          <input 
+            type="text" 
+            name="address" 
+            value={formData.address} 
+            onChange={handleChange}
+            className="form-control"
+          />
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={phoneFieldStyle}>
             <label>電話番号</label>
             <input 
               type="tel" 
@@ -198,9 +229,9 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
       </div>
 
       {/* 緊急連絡先情報 */}
-      <div className="emergency-contact">
-        <h3 className="section-subtitle">緊急連絡先</h3>
-        <div className="form-grid">
+      <div className="form-section">
+        <h3 className="section-title">緊急連絡先</h3>
+        <div className="form-row">
           <div className="form-group">
             <label>氏名</label>
             <input 
@@ -211,7 +242,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ width: '50%' }}>
             <label>続柄</label>
             <input 
               type="text" 
@@ -221,7 +252,9 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
-          <div className="form-group">
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={phoneFieldStyle}>
             <label>電話番号</label>
             <input 
               type="tel" 
@@ -231,13 +264,16 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
+          <div className="form-group" style={{ width: '50%' }}>
+            {/* 空のスペースでバランスを保つ */}
+          </div>
         </div>
       </div>
 
       {/* 責任者情報 */}
-      <div className="supervisor-info">
-        <h3 className="section-subtitle">責任者情報</h3>
-        <div className="form-grid">
+      <div className="form-section">
+        <h3 className="section-title">責任者情報</h3>
+        <div className="form-row">
           <div className="form-group">
             <label>氏名</label>
             <input 
@@ -248,7 +284,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ width: '60%' }}>
             <label>職位</label>
             <input 
               type="text" 
@@ -258,7 +294,9 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
-          <div className="form-group">
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={phoneFieldStyle}>
             <label>電話番号</label>
             <input 
               type="tel" 
@@ -268,20 +306,22 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               className="form-control"
             />
           </div>
+          <div className="form-group" style={{ width: '50%' }}>
+            {/* 空のスペースでバランスを保つ */}
+          </div>
         </div>
       </div>
 
-      {/* 例外事由 - 最下部に移動 */}
-      <div className="exception-section">
-        <h3 className="section-subtitle">例外事由</h3>
+      {/* 例外事由 */}
+      <div className="form-section">
+        <h3 className="section-title">例外事由</h3>
         <div className="form-group full-width">
           <textarea 
             name="exception" 
             value={formData.exception} 
             onChange={handleChange}
-            className="form-control exception-textarea"
+            className="textarea-field"
             placeholder="例外事由を入力してください"
-            rows={4}
           />
         </div>
       </div>

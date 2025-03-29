@@ -1,10 +1,11 @@
-// components/EmployeeDetail.tsx - 社員詳細のメインコンポーネント
+// frontend/src/components/EmployeeDetail.tsx
 import React, { useState } from 'react';
 import BasicInfo from './employee-tabs/BasicInfo';
 import DisabilityInfo from './employee-tabs/DisabilityInfo';
 import EmploymentInfo from './employee-tabs/EmploymentInfo';
 import MonthlyInfo from './employee-tabs/MonthlyInfo';
 import { Employee, EmployeeDetailProps } from '../types/Employee';
+import './EmployeeDetail.css'; // CSSファイルをインポート
 
 const EmployeeDetail: React.FC<EmployeeDetailProps> = ({ employee, onBack }) => {
   const [activeTab, setActiveTab] = useState<'basicInfo' | 'disabilityInfo' | 'employmentInfo' | 'monthlyInfo'>('basicInfo');
@@ -34,42 +35,42 @@ const EmployeeDetail: React.FC<EmployeeDetailProps> = ({ employee, onBack }) => 
 
   return (
     <div className="employee-detail-container">
-      <div className="detail-header">
-        <h2 className="section-title">社員詳細</h2>
-        {activeTab !== 'basicInfo' && (
-          <span className="employee-name">{employeeData.name} ({employeeData.employeeId})</span>
-        )}
+      <div className="employee-detail-header">
+        <h2 className="employee-detail-title">社員詳細</h2>
+        <div className="employee-id-name">{employeeData.name} ({employeeData.employeeId})</div>
         <div className="action-buttons">
-          <button className="back-btn" onClick={onBack}>戻る</button>
-          <button className="save-btn" onClick={handleSave}>保存</button>
+          <button className="btn btn-secondary" onClick={onBack}>戻る</button>
+          <button className="btn btn-primary" onClick={handleSave}>保存</button>
         </div>
       </div>
       
-      <div className="tabs">
-        <button 
-          className={`tab-btn ${activeTab === 'basicInfo' ? 'active' : ''}`}
-          onClick={() => setActiveTab('basicInfo')}
-        >
-          基本情報
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'disabilityInfo' ? 'active' : ''}`}
-          onClick={() => setActiveTab('disabilityInfo')}
-        >
-          障害情報
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'employmentInfo' ? 'active' : ''}`}
-          onClick={() => setActiveTab('employmentInfo')}
-        >
-          雇用情報
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'monthlyInfo' ? 'active' : ''}`}
-          onClick={() => setActiveTab('monthlyInfo')}
-        >
-          月次情報
-        </button>
+      <div className="tab-container">
+        <div className="tabs">
+          <button 
+            className={`tab-button ${activeTab === 'basicInfo' ? 'active' : ''}`}
+            onClick={() => setActiveTab('basicInfo')}
+          >
+            基本情報
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'disabilityInfo' ? 'active' : ''}`}
+            onClick={() => setActiveTab('disabilityInfo')}
+          >
+            障害情報
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'employmentInfo' ? 'active' : ''}`}
+            onClick={() => setActiveTab('employmentInfo')}
+          >
+            雇用情報
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'monthlyInfo' ? 'active' : ''}`}
+            onClick={() => setActiveTab('monthlyInfo')}
+          >
+            月次情報
+          </button>
+        </div>
       </div>
       
       <div className="tab-content">
