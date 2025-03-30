@@ -1,3 +1,4 @@
+// src/pages/MonthlyReport/index.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -5,7 +6,7 @@ import { reportApi } from '../../api/reportApi';
 import Spinner from '../../components/common/Spinner';
 import ErrorMessage from '../../components/common/ErrorMessage';
 
-// 各タブのインポート
+// 各タブのインポート - 正しいパス
 import SummaryTab from './SummaryTab';
 import EmployeesTab from './EmployeesTab';
 import MonthlyReportDetail from './MonthlyReportDetail';

@@ -17,6 +17,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   
+  // 編集モード状態
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  
   // 初期データ（独立ページモードで使用）
   const initialData: MonthlyDetailData = {
     months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
@@ -74,9 +77,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   // 年度表示用（独立ページモードで使用）
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
   
-  // 編集モード
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  
   // IDが与えられている場合、そこから年度を取得
   useEffect(() => {
     if (id && id.includes('-')) {
@@ -125,7 +125,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
   // 編集モード切り替え
   const toggleEditMode = () => {
-    setIsEditing(!isEditing);
+    console.log('編集モード切り替え: 現在の状態 =', isEditing, ' → 新しい状態 =', !isEditing); 
+    setIsEditing(prevState => !prevState);
   };
   
   // 戻るボタンのハンドラー
@@ -145,8 +146,24 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
   // 保存ボタンのハンドラー
   const handleSave = () => {
+    console.log('保存ボタンクリック'); 
+    
+    // 実際の実装では、ここでAPIを呼び出すなどのデータ保存処理を行う
+    if (isEmbedded && onDetailCellChange) {
+      // 埋め込みモードの場合、親コンポーネントに変更を通知
+      localData.data.forEach((row, rowIndex) => {
+        row.values.forEach((value, colIndex) => {
+          if (colIndex < 12) { // 合計列は除外
+            onDetailCellChange(row.id, colIndex, value.toString());
+          }
+        });
+      });
+    } else {
+      // 独立モードの場合、ここでAPI呼び出しを行う
+      // 例: api.saveMonthlyDetail(localData);
+    }
+    
     alert('データを保存しました');
-    console.log('月次詳細データを保存');
     setIsEditing(false);
   };
   
@@ -293,6 +310,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
   // セル値変更のハンドラー
   const handleLocalCellChange = (rowId: number, colIndex: number, value: string) => {
+    console.log(`セル値変更: rowId=${rowId}, colIndex=${colIndex}, value=${value}`); // デバッグ用
+    
     // 値の検証
     const numValue = value === '' ? 0 : Number(value);
     if (isNaN(numValue)) return;
@@ -362,8 +381,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
       
       for (let i = 0; i < 13; i++) {
-        // 各月のデータを計算
         if (i < 12) {
+          // 各月のデータを計算
           newData.data[totalEmployeesRowIndex].values[i] = 
             fullTimeValues[i] + (partTimeValues[i] * 0.5);
         } else {
@@ -503,37 +522,45 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           </div>
         </>
       )}
-      
+
       {/* アクションボタン */}
-      <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'space-between' }}>
-        <div>
-          {!isEditing ? (
+      <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'flex-end' }}>
+        {/* 編集ボタンと保存ボタンを横に並べる */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            type="button"
+            onClick={() => {
+              console.log('編集ボタンがクリックされました');
+              toggleEditMode();
+            }}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+            disabled={isConfirmed}
+          >
+            {isEditing ? '編集中止' : '編集'}
+          </button>
+          
+          {/* 編集モード時のみ保存ボタンを表示 */}
+          {isEditing && (
             <button 
-              onClick={toggleEditMode}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                marginRight: '10px'
+              type="button"
+              onClick={() => {
+                console.log('保存ボタンがクリックされました');
+                handleSave();
               }}
-              disabled={isConfirmed}
-            >
-              編集
-            </button>
-          ) : (
-            <button 
-              onClick={handleSave}
               style={{
                 padding: '8px 16px',
                 backgroundColor: '#3a66d4',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer',
-                marginRight: '10px'
+                cursor: 'pointer'
               }}
               disabled={isConfirmed}
             >
@@ -542,9 +569,11 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           )}
         </div>
         
+        {/* 独立モードの場合のみ印刷とCSVエクスポートボタンを表示 */}
         {!isEmbedded && (
-          <div>
+          <div style={{ marginLeft: '10px' }}>
             <button
+              type="button"
               onClick={handlePrint}
               style={{
                 padding: '8px 16px',
@@ -560,6 +589,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             </button>
             
             <button
+              type="button"
               onClick={exportToCSV}
               style={{
                 padding: '8px 16px',
@@ -599,7 +629,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                 zIndex: 1,
                 width: '180px'
               }}></th>
-              {localData.months.slice(0, 12).map((month, index) => (
+              {localData.months.map((month, index) => (
                 <th key={`month-${index}`} style={{ padding: '2px', textAlign: 'center', fontWeight: 'normal' }}>
                   {month}
                 </th>
@@ -609,7 +639,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           <tbody>
             {/* 従業員数セクション */}
             <tr>
-              <td colSpan={13} style={{ 
+              <td colSpan={14} style={{ 
                 textAlign: 'left', 
                 padding: '4px 6px', 
                 fontWeight: 'bold',
@@ -632,12 +662,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                 <React.Fragment key={`row-${row.id}`}>
                   {needsSpacerBefore && (
                     <tr className="spacer-row">
-                      <td colSpan={13} style={{ padding: '3px', backgroundColor: '#f8f9fa' }}></td>
+                      <td colSpan={14} style={{ padding: '3px', backgroundColor: '#f8f9fa' }}></td>
                     </tr>
                   )}
                   {isHeaderRow && (
                     <tr className="header-row">
-                      <th colSpan={13} style={{ 
+                      <th colSpan={14} style={{ 
                         textAlign: 'left', 
                         padding: '4px 6px',
                         fontWeight: 'bold',
@@ -652,7 +682,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                   )}
                   {row.id === 10 && (
                     <tr className="header-row">
-                      <th colSpan={13} style={{ 
+                      <th colSpan={14} style={{ 
                         textAlign: 'left', 
                         padding: '4px 6px',
                         fontWeight: 'bold',
@@ -682,7 +712,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                     }}>
                       {row.item}
                     </td>
-                    {row.values.slice(0, 12).map((value, colIndex) => {
+                    {row.values.map((value, colIndex) => {
                       // 法定雇用率は特別処理
                       const isLegalRate = row.id === 11;
                       const isFirstColumn = colIndex === 0;
