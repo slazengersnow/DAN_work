@@ -1,0 +1,660 @@
+// src/pages/MonthlyReport/MonthlyReportDetail.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { MonthlyDetailData, MonthlyTotal } from './types';
+
+interface MonthlyReportDetailProps {
+  // タブ内に埋め込む場合に必要なprops
+  monthlyDetailData?: MonthlyDetailData;
+  onDetailCellChange?: (rowId: number, colIndex: number, value: string) => void;
+  summaryData?: MonthlyTotal;
+  isEmbedded?: boolean;
+}
+
+const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
+  const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded } = props;
+  
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  
+  // 初期データ（独立ページモードで使用）
+  const initialData: MonthlyDetailData = {
+    months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
+    data: [
+      { id: 1, item: '従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
+      { id: 2, item: 'フルタイム従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
+      { id: 3, item: 'パートタイム従業員数', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 4, item: 'トータル従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
+      { id: 5, item: 'Level 1 & 2', values: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 24] },
+      { id: 6, item: 'その他', values: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 33] },
+      { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 8, item: 'その他 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      { id: 9, item: 'トータル障がい者数', values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57] },
+      { 
+        id: 10, 
+        item: '実雇用率', 
+        values: [0.67, 0.66, 0.63, 0.78, 0.77, 0.77, 0.76, 0.75, 0.75, 0.75, 0.74, 0.72, 0.73], 
+        suffix: '%', 
+        isRatio: true, 
+        isCalculated: true 
+      },
+      { 
+        id: 11, 
+        item: '法定雇用率', 
+        values: [2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3], 
+        suffix: '%', 
+        isRatio: true 
+      },
+      { 
+        id: 12, 
+        item: '法定雇用者数', 
+        values: [13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 15, 15, 172], 
+        isCalculated: true 
+      },
+      { 
+        id: 13, 
+        item: '超過・未達', 
+        values: [-9, -9, -10, -9, -9, -9, -10, -10, -10, -10, -10, -10, -115], 
+        isNegative: true, 
+        isCalculated: true 
+      }
+    ]
+  };
+
+  // 年度表示用（独立ページモードで使用）
+  const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+  
+  // IDが与えられている場合、そこから年度を取得
+  useEffect(() => {
+    if (id && id.includes('-')) {
+      const [year] = id.split('-');
+      if (!isNaN(Number(year))) {
+        setFiscalYear(`${year}年度`);
+      }
+    }
+  }, [id]);
+
+  // セル編集用の状態
+  const [activeCell, setActiveCell] = useState<{row: number | null, col: number | null}>({row: null, col: null});
+  const [editingDetailRow, setEditingDetailRow] = useState<number | null>(null);
+  const [editingDetailCol, setEditingDetailCol] = useState<number | null>(null);
+
+  // ローカルデータ（埋め込みモードではpropsから、独立モードでは初期データから）
+  const [localData, setLocalData] = useState<MonthlyDetailData>(
+    isEmbedded && monthlyDetailData ? monthlyDetailData : initialData
+  );
+  
+  // props変更に応じてローカルデータを更新
+  useEffect(() => {
+    if (isEmbedded && monthlyDetailData) {
+      setLocalData(monthlyDetailData);
+    }
+  }, [monthlyDetailData, isEmbedded]);
+
+  // 入力参照用
+  const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+  const setInputRef = useCallback((element: HTMLInputElement | null, key: string) => {
+    if (element) {
+      inputRefs.current[key] = element;
+    }
+  }, []);
+
+  // 自動計算対象のフィールドかをチェック
+  const isCalculatedField = (rowId: number): boolean => {
+    return [10, 12, 13].includes(rowId);
+  };
+
+  // 法定雇用率フィールドかをチェック
+  const isLegalRateField = (rowId: number): boolean => {
+    return rowId === 11;
+  };
+
+  // 戻るボタンのハンドラー
+  const handleBack = () => {
+    navigate('/monthly-report?tab=monthly');
+  };
+
+  // CSVエクスポート
+  const exportToCSV = (): void => {
+    alert('CSVエクスポート機能はまだ実装されていません');
+  };
+
+  // 印刷
+  const handlePrint = (): void => {
+    window.print();
+  };
+
+  // 保存ボタンのハンドラー
+  const handleSave = () => {
+    alert('データを保存しました');
+    console.log('月次詳細データを保存');
+  };
+  
+  // セルクリック時のハンドラー
+  const handleCellClick = (rowId: number, colIndex: number) => {
+    if (colIndex >= 12) return; // 合計列はクリック不可
+    setActiveCell({row: rowId, col: colIndex});
+    
+    if (!isCalculatedField(rowId)) {
+      handleDetailCellEdit(rowId, colIndex);
+    }
+  };
+
+  // セル編集開始ハンドラー
+  const handleDetailCellEdit = (rowId: number, colIndex: number) => {
+    if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
+    
+    setEditingDetailRow(rowId);
+    setEditingDetailCol(colIndex);
+    
+    // 遅延してフォーカスを設定
+    setTimeout(() => {
+      const inputKey = `input-${rowId}-${colIndex}`;
+      if (inputRefs.current[inputKey]) {
+        inputRefs.current[inputKey]?.focus();
+      }
+    }, 10);
+  };
+
+  // キーボードナビゲーション
+  const handleKeyDown = (e: React.KeyboardEvent, rowId: number, colIndex: number) => {
+    if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
+    
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleDetailCellSave();
+      
+      // 次の編集可能なセルを探して移動
+      const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
+      let nextRowId = null;
+      
+      for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
+        if (!isCalculatedField(localData.data[i].id)) {
+          nextRowId = localData.data[i].id;
+          break;
+        }
+      }
+      
+      if (nextRowId !== null) {
+        handleDetailCellEdit(nextRowId, colIndex);
+      }
+    }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      handleDetailCellSave();
+      
+      // Tab + Shift キーでの移動
+      if (e.shiftKey) {
+        if (colIndex > 0) {
+          handleDetailCellEdit(rowId, colIndex - 1);
+        } else {
+          const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
+          if (currentRowIndex > 0) {
+            let prevRowId = null;
+            for (let i = currentRowIndex - 1; i >= 0; i--) {
+              if (!isCalculatedField(localData.data[i].id)) {
+                prevRowId = localData.data[i].id;
+                break;
+              }
+            }
+            if (prevRowId !== null) {
+              handleDetailCellEdit(prevRowId, 11);
+            }
+          }
+        }
+      } else {
+        if (colIndex < 11) {
+          handleDetailCellEdit(rowId, colIndex + 1);
+        } else {
+          const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
+          if (currentRowIndex < localData.data.length - 1) {
+            let nextRowId = null;
+            for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
+              if (!isCalculatedField(localData.data[i].id)) {
+                nextRowId = localData.data[i].id;
+                break;
+              }
+            }
+            if (nextRowId !== null) {
+              handleDetailCellEdit(nextRowId, 0);
+            }
+          }
+        }
+      }
+    }
+    // 矢印キーでの移動
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      handleDetailCellSave();
+      
+      const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
+      
+      if (e.key === 'ArrowUp' && currentRowIndex > 0) {
+        let prevRowId = null;
+        for (let i = currentRowIndex - 1; i >= 0; i--) {
+          if (!isCalculatedField(localData.data[i].id)) {
+            prevRowId = localData.data[i].id;
+            break;
+          }
+        }
+        if (prevRowId !== null) {
+          handleDetailCellEdit(prevRowId, colIndex);
+        }
+      }
+      else if (e.key === 'ArrowDown' && currentRowIndex < localData.data.length - 1) {
+        let nextRowId = null;
+        for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
+          if (!isCalculatedField(localData.data[i].id)) {
+            nextRowId = localData.data[i].id;
+            break;
+          }
+        }
+        if (nextRowId !== null) {
+          handleDetailCellEdit(nextRowId, colIndex);
+        }
+      }
+      else if (e.key === 'ArrowLeft' && colIndex > 0) {
+        handleDetailCellEdit(rowId, colIndex - 1);
+      }
+      else if (e.key === 'ArrowRight' && colIndex < 11) {
+        handleDetailCellEdit(rowId, colIndex + 1);
+      }
+    }
+  };
+
+  // セル編集の完了
+  const handleDetailCellSave = () => {
+    setEditingDetailRow(null);
+    setEditingDetailCol(null);
+  };
+
+  // セル値変更のハンドラー
+  const handleLocalCellChange = (rowId: number, colIndex: number, value: string) => {
+    // 値の検証
+    const numValue = value === '' ? 0 : Number(value);
+    if (isNaN(numValue)) return;
+    
+    // ローカルデータの更新
+    setLocalData(prevData => {
+      const newData = {...prevData};
+      const rowIndex = newData.data.findIndex(row => row.id === rowId);
+      
+      if (rowIndex !== -1 && colIndex < 12) {
+        const updatedValues = [...newData.data[rowIndex].values];
+        updatedValues[colIndex] = numValue;
+        
+        // 合計の再計算
+        updatedValues[12] = updatedValues.slice(0, 12).reduce((a, b) => a + b, 0);
+        
+        newData.data[rowIndex].values = updatedValues;
+        
+        // 法定雇用率の場合、全ての月に同じ値を設定
+        if (isLegalRateField(rowId)) {
+          newData.data[rowIndex].values = newData.data[rowIndex].values.map((_, idx) => 
+            idx < 12 ? numValue : newData.data[rowIndex].values[idx]
+          );
+        }
+        
+        // 自動計算を実行
+        return recalculateData(newData);
+      }
+      
+      return newData;
+    });
+    
+    // 埋め込みモードの場合、親コンポーネントにも変更を通知
+    if (isEmbedded && onDetailCellChange) {
+      onDetailCellChange(rowId, colIndex, value);
+    }
+  };
+
+  // 自動計算を行う
+  const recalculateData = (data: MonthlyDetailData): MonthlyDetailData => {
+    const newData = {...data};
+    
+    // トータル従業員数の行
+    const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === 4);
+    // トータル障がい者数の行
+    const totalDisabledRowIndex = newData.data.findIndex(row => row.id === 9);
+    // 法定雇用率の行
+    const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+    
+    if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
+      const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
+      const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
+      const legalRateValues = newData.data[legalRateRowIndex].values;
+      
+      // 実雇用率の計算 (障がい者数/従業員数)
+      const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
+      if (actualRateRowIndex !== -1) {
+        newData.data[actualRateRowIndex].values = totalEmployeeValues.map((employees, index) => {
+          if (index < 12 && employees > 0) {
+            return Number(((totalDisabledValues[index] / employees) * 100).toFixed(2));
+          }
+          return index === 12 ? Number(((totalDisabledValues[12] / employees) * 100).toFixed(2)) : 0;
+        });
+      }
+      
+      // 法定雇用者数の計算 (法定雇用率 * 従業員数 / 100)
+      const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
+      if (legalCountRowIndex !== -1) {
+        newData.data[legalCountRowIndex].values = totalEmployeeValues.map((employees, index) => {
+          if (index < 12) {
+            return Math.floor((legalRateValues[0] * employees) / 100);
+          }
+          return newData.data[legalCountRowIndex].values[12]; // 合計列はそのまま
+        });
+      }
+      
+      // 超過・未達の計算 (障がい者数 - 法定雇用者数)
+      const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
+      if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
+        const legalCountValues = newData.data[legalCountRowIndex].values;
+        newData.data[overUnderRowIndex].values = totalDisabledValues.map((disabled, index) => {
+          return disabled - legalCountValues[index];
+        });
+      }
+    }
+    
+    return newData;
+  };
+
+  // スタイル定義
+  const cellStyle = {
+    width: '100%',
+    height: '24px',
+    border: 'none',
+    textAlign: 'center' as const,
+    background: 'transparent',
+    fontSize: '13px'
+  };
+
+  const readonlyCellStyle = {
+    ...cellStyle,
+    backgroundColor: '#f8f9fa'
+  };
+
+  // ステータスの取得（埋め込みモードではpropsから、独立モードでは固定値）
+  const currentStatus = isEmbedded && summaryData?.status ? summaryData.status : '未確定';
+  const isConfirmed = currentStatus === '確定済';
+
+  return (
+    <div className="monthly-report-detail" style={{ padding: isEmbedded ? '0' : '20px' }}>
+      {/* 独立ページモードの場合のみ表示 */}
+      {!isEmbedded && (
+        <>
+          <button 
+            onClick={handleBack}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginBottom: '15px'
+            }}
+          >
+            ← 月次報告一覧に戻る
+          </button>
+          
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>月次報告詳細</h1>
+          
+          <div style={{ 
+            backgroundColor: '#f0f8ff', 
+            padding: '15px', 
+            borderRadius: '4px', 
+            marginBottom: '20px' 
+          }}>
+            <h2 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px' }}>{fiscalYear}集計サマリー</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+              <span>常用労働者数: 525名</span>
+              <span>|</span>
+              <span>障害者数: 5名</span>
+              <span>|</span>
+              <span>雇用カウント: 5</span>
+              <span>|</span>
+              <span>実雇用率: 2.43%</span>
+              <span>|</span>
+              <span>法定雇用率: 2.3%</span>
+            </div>
+          </div>
+        </>
+      )}
+      
+      {/* アクションボタン */}
+      <div style={{ marginBottom: '15px' }}>
+        <button 
+          onClick={handleSave}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#3a66d4',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            marginRight: '10px'
+          }}
+          disabled={isConfirmed}
+        >
+          保存
+        </button>
+        
+        {!isEmbedded && (
+          <>
+            <button
+              onClick={handlePrint}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+            >
+              印刷
+            </button>
+            
+            <button
+              onClick={exportToCSV}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              CSVエクスポート
+            </button>
+          </>
+        )}
+      </div>
+      
+      {/* 月次詳細テーブル */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        border: '1px solid #dee2e6', 
+        borderRadius: '4px',
+        overflow: 'auto'
+      }}>
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse',
+          fontSize: '13px'
+        }}>
+          <thead>
+            <tr style={{ height: '32px', backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+              <th style={{ 
+                textAlign: 'left', 
+                padding: '8px', 
+                position: 'sticky', 
+                left: 0, 
+                backgroundColor: '#f8f9fa', 
+                zIndex: 1,
+                width: '180px'
+              }}></th>
+              {localData.months.slice(0, 12).map((month, index) => (
+                <th key={`month-${index}`} style={{ padding: '4px', textAlign: 'center', fontWeight: 'normal' }}>
+                  {month}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* 従業員数セクション */}
+            <tr>
+              <td colSpan={13} style={{ 
+                textAlign: 'left', 
+                padding: '8px', 
+                fontWeight: 'bold',
+                backgroundColor: '#f8f9fa',
+                borderTop: '1px solid #dee2e6',
+                borderBottom: '1px solid #dee2e6'
+              }}>
+                従業員数
+              </td>
+            </tr>
+            
+            {/* 各データ行 */}
+            {localData.data.map((row) => {
+              // 特定の行の前にスペーサー行を追加
+              const needsSpacerBefore = row.id === 5 || row.id === 10;
+              const isHeaderRow = row.id === 5;
+              
+              return (
+                <React.Fragment key={`row-${row.id}`}>
+                  {needsSpacerBefore && (
+                    <tr className="spacer-row">
+                      <td colSpan={13} style={{ padding: '5px', backgroundColor: '#f8f9fa' }}></td>
+                    </tr>
+                  )}
+                  {isHeaderRow && (
+                    <tr className="header-row">
+                      <th colSpan={13} style={{ 
+                        textAlign: 'left', 
+                        padding: '8px',
+                        fontWeight: 'bold',
+                        backgroundColor: '#f8f9fa',
+                        borderTop: '1px solid #dee2e6',
+                        borderBottom: '1px solid #dee2e6'
+                      }}>
+                        障がい者
+                      </th>
+                    </tr>
+                  )}
+                  {row.id === 10 && (
+                    <tr className="header-row">
+                      <th colSpan={13} style={{ 
+                        textAlign: 'left', 
+                        padding: '8px',
+                        fontWeight: 'bold',
+                        backgroundColor: '#f8f9fa',
+                        borderTop: '1px solid #dee2e6',
+                        borderBottom: '1px solid #dee2e6'
+                      }}>
+                        雇用率
+                      </th>
+                    </tr>
+                  )}
+                  <tr style={{ 
+                    backgroundColor: 'white',
+                    height: '24px'
+                  }}>
+                    <td style={{ 
+                      textAlign: 'left', 
+                      padding: '0 8px', 
+                      position: 'sticky', 
+                      left: 0, 
+                      backgroundColor: 'white', 
+                      zIndex: 1,
+                      borderRight: '1px solid #f0f0f0'
+                    }}>
+                      {row.item}
+                    </td>
+                    {row.values.slice(0, 12).map((value, colIndex) => {
+                      // 法定雇用率は特別処理
+                      const isLegalRate = row.id === 11;
+                      const isFirstColumn = colIndex === 0;
+                      
+                      return (
+                        <td 
+                          key={`value-${row.id}-${colIndex}`} 
+                          style={{ 
+                            padding: '0', 
+                            textAlign: 'center',
+                            backgroundColor: activeCell.row === row.id && activeCell.col === colIndex ? '#e9f2ff' : 'white'
+                          }}
+                          onClick={() => handleCellClick(row.id, colIndex)}
+                        >
+                          {(editingDetailRow === row.id && editingDetailCol === colIndex && !isConfirmed) || 
+                           (isLegalRate && isFirstColumn && !isConfirmed) ? (
+                            <input
+                              ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
+                              type="text"
+                              style={cellStyle}
+                              value={value}
+                              onChange={(e) => handleLocalCellChange(row.id, colIndex, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => handleKeyDown(e, row.id, colIndex)}
+                              disabled={isCalculatedField(row.id) || isConfirmed}
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              style={isCalculatedField(row.id) ? readonlyCellStyle : cellStyle}
+                              value={row.suffix ? `${value}${row.suffix}` : value}
+                              readOnly
+                              disabled={isConfirmed}
+                            />
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      
+      {/* 独立ページモードの場合のみ表示 */}
+      {!isEmbedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+          <button
+            onClick={handlePrint}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            印刷
+          </button>
+          <button
+            onClick={exportToCSV}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            CSVエクスポート
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MonthlyReportDetail;

@@ -35,24 +35,44 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     setEditingSummary(!editingSummary);
   };
 
+  // 保存ボタンのハンドラー（実際の実装では保存APIを呼び出す）
+  const handleSave = () => {
+    console.log('データを保存しました');
+    setEditingSummary(false);
+  };
+
   return (
     <div className="summary-tab-container">
       <div className="data-container">
-        <div className="data-header">
-          <h3 className="data-title">障害者雇用者詳細</h3>
+        <div className="data-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 className="data-title" style={{ margin: 0 }}>障害者雇用者詳細</h3>
           <div className="header-actions">
             {editingSummary ? (
               <button 
-                className="btn primary-btn" 
-                onClick={toggleEditMode}
+                onClick={handleSave}
+                style={{ 
+                  padding: '8px 16px',
+                  backgroundColor: '#3a66d4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
                 disabled={summaryData.status === '確定済'}
               >
                 保存
               </button>
             ) : (
               <button 
-                className="btn action-btn" 
                 onClick={toggleEditMode}
+                style={{ 
+                  padding: '8px 16px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
                 disabled={summaryData.status === '確定済'}
               >
                 編集
@@ -60,36 +80,49 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
             )}
           </div>
         </div>
-        <div className="data-table-wrapper">
-          <table className="data-table">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ 
+            width: '100%', 
+            borderCollapse: 'collapse',
+            fontSize: '13px',
+            whiteSpace: 'nowrap'
+          }}>
             <thead>
-              <tr>
-                <th>No.</th>
-                <th>社員ID</th>
-                <th>氏名</th>
-                <th>障害区分</th>
-                <th>障害</th>
-                <th>等級</th>
-                <th>採用日</th>
-                <th>状態</th>
-                <th>カウント</th>
-                <th>備考</th>
+              <tr style={{ borderBottom: '2px solid #dee2e6' }}>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>No.</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>社員ID</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>氏名</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>障害区分</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>障害</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>等級</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>採用日</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>状態</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>カウント</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>備考</th>
               </tr>
             </thead>
             <tbody>
               {employees.map((employee) => (
-                <tr key={employee.id}>
-                  <td>{employee.no}</td>
-                  <td>{employee.employee_id}</td>
-                  <td>{employee.name}</td>
-                  <td>{employee.disability_type}</td>
-                  <td>{employee.disability}</td>
-                  <td>{employee.grade}</td>
-                  <td>{employee.hire_date}</td>
-                  <td>
-                    <span className="status-badge active">{employee.status}</span>
+                <tr key={employee.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '8px 12px' }}>{employee.no}</td>
+                  <td style={{ padding: '8px 12px' }}>{employee.employee_id}</td>
+                  <td style={{ padding: '8px 12px' }}>{employee.name}</td>
+                  <td style={{ padding: '8px 12px' }}>{employee.disability_type}</td>
+                  <td style={{ padding: '8px 12px' }}>{employee.disability}</td>
+                  <td style={{ padding: '8px 12px' }}>{employee.grade}</td>
+                  <td style={{ padding: '8px 12px' }}>{employee.hire_date}</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <span style={{ 
+                      backgroundColor: '#4caf50', 
+                      color: 'white', 
+                      padding: '2px 6px', 
+                      borderRadius: '4px', 
+                      fontSize: '12px' 
+                    }}>
+                      {employee.status}
+                    </span>
                   </td>
-                  <td>
+                  <td style={{ padding: '8px 12px' }}>
                     {editingSummary ? (
                       <input 
                         type="number" 
@@ -98,20 +131,32 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
                         max="2" 
                         value={employee.count} 
                         onChange={(e) => handleCountChange(employee.id, e.target.value)}
-                        className="editable-input small-input"
+                        style={{ 
+                          width: '60px',
+                          padding: '4px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          textAlign: 'center'
+                        }}
                         disabled={summaryData.status === '確定済'}
                       />
                     ) : (
                       employee.count
                     )}
                   </td>
-                  <td>
+                  <td style={{ padding: '8px 12px' }}>
                     {editingSummary ? (
                       <input 
                         type="text" 
                         value={employee.memo || ''} 
                         onChange={(e) => handleMemoChange(employee.id, e.target.value)}
-                        className="editable-input"
+                        style={{ 
+                          width: '100%',
+                          minWidth: '150px',
+                          padding: '4px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px'
+                        }}
                         disabled={summaryData.status === '確定済'}
                       />
                     ) : (
@@ -125,43 +170,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
         </div>
       </div>
       
-      <div className="data-container">
-        <h3 className="data-title">月別実績履歴</h3>
-        <div className="data-table-wrapper">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>年月</th>
-                <th>常用労働者数</th>
-                <th>障害者数</th>
-                <th>身体障害</th>
-                <th>知的障害</th>
-                <th>精神障害</th>
-                <th>雇用カウント</th>
-                <th>実雇用率</th>
-                <th>状態</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyData.map((record, index) => (
-                <tr key={index}>
-                  <td>{record.yearMonth}</td>
-                  <td>{record.totalEmployees}</td>
-                  <td>{record.disabledCount}</td>
-                  <td>{record.physical}</td>
-                  <td>{record.intellectual}</td>
-                  <td>{record.mental}</td>
-                  <td>{record.employmentCount}</td>
-                  <td>{record.actualRate}%</td>
-                  <td>
-                    <span className="status-badge confirmed">{record.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* 月別実績履歴を非表示に設定 */}
     </div>
   );
 };

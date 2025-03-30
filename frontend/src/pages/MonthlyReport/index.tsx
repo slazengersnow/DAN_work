@@ -1,4 +1,3 @@
-// src/pages/MonthlyReport/index.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -9,7 +8,7 @@ import ErrorMessage from '../../components/common/ErrorMessage';
 // 各タブのインポート
 import SummaryTab from './SummaryTab';
 import EmployeesTab from './EmployeesTab';
-import MonthlyTab from './MonthlyTab';
+import MonthlyReportDetail from './MonthlyReportDetail';
 
 // 型と関数のインポート
 import { 
@@ -125,7 +124,20 @@ const MonthlyReport: React.FC = () => {
   // データ状態
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
   const [monthlyDetailData, setMonthlyDetailData] = useState<MonthlyDetailData>(initialMonthlyDetailData);
-  const [summaryData, setSummaryData] = useState<MonthlyTotal>(mockSummary);
+  const [summaryData, setSummaryData] = useState<MonthlyTotal>({
+    ...mockSummary,
+    year: selectedYear,
+    month: selectedMonth
+  });
+
+  // サマリーデータを選択された年月で更新
+  useEffect(() => {
+    setSummaryData(prev => ({
+      ...prev,
+      year: selectedYear,
+      month: selectedMonth
+    }));
+  }, [selectedYear, selectedMonth]);
 
   // Query Client
   const queryClient = useQueryClient();
@@ -137,20 +149,63 @@ const MonthlyReport: React.FC = () => {
     { id: 'monthly', label: '月次詳細' }
   ];
 
-  // タブが変更されたらURLも更新
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    params.set('tab', activeTab);
-    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-  }, [activeTab, location.pathname, location.search, navigate]);
+  // タブ切り替えハンドラー (修正済み)
+  const handleTabChange = (tabId: string) => {
+    console.log('タブ変更:', tabId); // デバッグ用
+    if (tabId !== activeTab) {
+      setActiveTab(tabId);
+      // URLパラメータも更新
+      const params = new URLSearchParams(location.search);
+      params.set('tab', tabId);
+      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+    }
+  };
 
-  // URLからタブパラメータが変更された場合、状態を更新
+  // URLから直接タブが変更された場合の処理
   useEffect(() => {
     const tabParam = queryParams.get('tab');
     if (tabParam && tabParam !== activeTab) {
       setActiveTab(tabParam);
     }
-  }, [location.search, activeTab, queryParams]);
+  }, [location.search]);
+
+  // 月次詳細データからサマリーデータを更新する関数
+  const updateSummaryFromMonthlyData = () => {
+    // 選択した月のインデックスを取得 (4月始まり会計年度を考慮)
+    const monthIndex = selectedMonth >= 4 ? selectedMonth - 4 : selectedMonth + 8;
+    
+    // 必要なデータの行インデックスを取得
+    const totalEmployeesRowIndex = monthlyDetailData.data.findIndex(row => row.id === 4);
+    const totalDisabledRowIndex = monthlyDetailData.data.findIndex(row => row.id === 9);
+    const actualRateRowIndex = monthlyDetailData.data.findIndex(row => row.id === 10);
+    const legalRateRowIndex = monthlyDetailData.data.findIndex(row => row.id === 11);
+    
+    if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && 
+        actualRateRowIndex !== -1 && legalRateRowIndex !== -1) {
+      
+      // 選択した月のデータを取得
+      const totalEmployees = monthlyDetailData.data[totalEmployeesRowIndex].values[monthIndex];
+      const disabledEmployees = monthlyDetailData.data[totalDisabledRowIndex].values[monthIndex];
+      const actualRate = monthlyDetailData.data[actualRateRowIndex].values[monthIndex];
+      const legalRate = monthlyDetailData.data[legalRateRowIndex].values[monthIndex];
+      
+      // サマリーデータを更新
+      setSummaryData(prev => ({
+        ...prev,
+        total_employees: totalEmployees,
+        disabled_employees: disabledEmployees,
+        actual_rate: actualRate,
+        legal_rate: legalRate,
+        year: selectedYear,
+        month: selectedMonth
+      }));
+    }
+  };
+
+  // 月次詳細データが変更されたときにサマリーを更新
+  useEffect(() => {
+    updateSummaryFromMonthlyData();
+  }, [monthlyDetailData, selectedYear, selectedMonth]);
 
   // データ取得用クエリ
   const { 
@@ -246,6 +301,9 @@ const MonthlyReport: React.FC = () => {
       
       return newData;
     });
+    
+    // 月次詳細データが変更されたらサマリーも更新
+    updateSummaryFromMonthlyData();
   };
 
   // 表示ボタンのハンドラー
@@ -254,6 +312,9 @@ const MonthlyReport: React.FC = () => {
     queryClient.invalidateQueries(['monthlyEmployees', selectedYear, selectedMonth]);
     queryClient.invalidateQueries(['yearlyData', selectedYear]);
     console.log(`${selectedYear}年${selectedMonth}月のデータを取得`);
+    
+    // 選択した年月でサマリーデータを更新
+    updateSummaryFromMonthlyData();
   };
 
   // レンダリング前のローディングとエラー処理
@@ -271,6 +332,7 @@ const MonthlyReport: React.FC = () => {
 
       {/* 年月選択 */}
       <div className="filter-container" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <label style={{ fontWeight: 'bold' }}>対象月:</label>
         <select 
           value={selectedYear}
           onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -327,7 +389,7 @@ const MonthlyReport: React.FC = () => {
         </button>
       </div>
       
-      {/* サマリーボックス */}
+      {/* サマリーボックス - フォントサイズを修正 */}
       <div style={{ 
         backgroundColor: '#e9f2ff', 
         padding: '15px 20px', 
@@ -335,8 +397,8 @@ const MonthlyReport: React.FC = () => {
         marginBottom: '20px',
         borderLeft: '4px solid #3a66d4'
       }}>
-        <h2>{summaryData.year}年{summaryData.month}月集計サマリー</h2>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '10px' }}>
+        <h3 style={{ fontSize: '1.1rem', margin: '0 0 10px 0' }}>集計サマリー</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
           <span>常用労働者数: {summaryData.total_employees}名</span>
           <span>|</span>
           <span>障害者数: {summaryData.disabled_employees}名</span>
@@ -347,7 +409,7 @@ const MonthlyReport: React.FC = () => {
         </div>
       </div>
 
-      {/* タブナビゲーション */}
+      {/* タブナビゲーション - クリックハンドラーを修正 */}
       <div style={{ 
         display: 'flex', 
         borderBottom: '1px solid #ddd', 
@@ -356,7 +418,7 @@ const MonthlyReport: React.FC = () => {
         {tabItems.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             style={{
               padding: '10px 20px',
               background: 'none',
@@ -392,10 +454,11 @@ const MonthlyReport: React.FC = () => {
         )}
 
         {activeTab === 'monthly' && (
-          <MonthlyTab 
+          <MonthlyReportDetail 
             monthlyDetailData={monthlyDetailData}
             onDetailCellChange={handleDetailCellChange}
             summaryData={summaryData}
+            isEmbedded={true} // 埋め込みモードを示すプロパティ追加
           />
         )}
       </div>
