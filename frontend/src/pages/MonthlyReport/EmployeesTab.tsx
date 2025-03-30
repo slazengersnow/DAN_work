@@ -32,9 +32,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   // 保存ボタンのハンドラー（実際の実装では保存APIを呼び出す）
   const handleSave = () => {
-    console.log('従業員データを保存しました');
+    alert('従業員データを保存しました');
+    console.log('従業員データを保存');
     setEditMode(false);
   };
+
+  // 月名の配列
+  const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
 
   return (
     <div className="employees-tab-container">
@@ -94,18 +98,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 <th style={{ padding: '8px', textAlign: 'left' }}>等級</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>採用日</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>状態</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>4月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>5月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>6月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>7月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>8月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>9月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>10月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>11月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>12月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>1月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>2月</th>
-                <th style={{ padding: '8px', textAlign: 'center' }}>3月</th>
+                {months.map((month, index) => (
+                  <th key={`month-${index}`} style={{ padding: '8px', textAlign: 'center' }}>{month}</th>
+                ))}
                 <th style={{ padding: '8px', textAlign: 'left' }}>備考</th>
               </tr>
             </thead>

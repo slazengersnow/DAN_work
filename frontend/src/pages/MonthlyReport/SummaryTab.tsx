@@ -37,7 +37,8 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
 
   // 保存ボタンのハンドラー（実際の実装では保存APIを呼び出す）
   const handleSave = () => {
-    console.log('データを保存しました');
+    alert('データを保存しました');
+    console.log('サマリーデータを保存');
     setEditingSummary(false);
   };
 
@@ -169,8 +170,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
           </table>
         </div>
       </div>
-      
-      {/* 月別実績履歴を非表示に設定 */}
     </div>
   );
 };

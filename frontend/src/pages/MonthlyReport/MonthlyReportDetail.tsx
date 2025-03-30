@@ -24,12 +24,22 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       { id: 1, item: '従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
       { id: 2, item: 'フルタイム従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
       { id: 3, item: 'パートタイム従業員数', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-      { id: 4, item: 'トータル従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
+      { 
+        id: 4, 
+        item: 'トータル従業員数', 
+        values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822],
+        isCalculated: true 
+      },
       { id: 5, item: 'Level 1 & 2', values: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 24] },
       { id: 6, item: 'その他', values: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 33] },
       { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       { id: 8, item: 'その他 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-      { id: 9, item: 'トータル障がい者数', values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57] },
+      { 
+        id: 9, 
+        item: 'トータル障がい者数', 
+        values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57],
+        isCalculated: true
+      },
       { 
         id: 10, 
         item: '実雇用率', 
@@ -63,6 +73,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
   // 年度表示用（独立ページモードで使用）
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+  
+  // 編集モード
+  const [isEditing, setIsEditing] = useState<boolean>(false);
   
   // IDが与えられている場合、そこから年度を取得
   useEffect(() => {
@@ -101,7 +114,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
   // 自動計算対象のフィールドかをチェック
   const isCalculatedField = (rowId: number): boolean => {
-    return [10, 12, 13].includes(rowId);
+    const row = localData.data.find(r => r.id === rowId);
+    return row?.isCalculated || false;
   };
 
   // 法定雇用率フィールドかをチェック
@@ -109,6 +123,11 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     return rowId === 11;
   };
 
+  // 編集モード切り替え
+  const toggleEditMode = () => {
+    setIsEditing(!isEditing);
+  };
+  
   // 戻るボタンのハンドラー
   const handleBack = () => {
     navigate('/monthly-report?tab=monthly');
@@ -128,11 +147,14 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   const handleSave = () => {
     alert('データを保存しました');
     console.log('月次詳細データを保存');
+    setIsEditing(false);
   };
   
   // セルクリック時のハンドラー
   const handleCellClick = (rowId: number, colIndex: number) => {
     if (colIndex >= 12) return; // 合計列はクリック不可
+    if (!isEditing) return; // 編集モード時のみ処理
+    
     setActiveCell({row: rowId, col: colIndex});
     
     if (!isCalculatedField(rowId)) {
@@ -143,6 +165,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   // セル編集開始ハンドラー
   const handleDetailCellEdit = (rowId: number, colIndex: number) => {
     if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
+    if (!isEditing) return; // 編集モード時のみ処理
     
     setEditingDetailRow(rowId);
     setEditingDetailCol(colIndex);
@@ -283,17 +306,17 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         const updatedValues = [...newData.data[rowIndex].values];
         updatedValues[colIndex] = numValue;
         
+        // 法定雇用率の場合、全ての月に同じ値を設定
+        if (isLegalRateField(rowId)) {
+          for (let i = 0; i < 12; i++) {
+            updatedValues[i] = numValue;
+          }
+        }
+        
         // 合計の再計算
         updatedValues[12] = updatedValues.slice(0, 12).reduce((a, b) => a + b, 0);
         
         newData.data[rowIndex].values = updatedValues;
-        
-        // 法定雇用率の場合、全ての月に同じ値を設定
-        if (isLegalRateField(rowId)) {
-          newData.data[rowIndex].values = newData.data[rowIndex].values.map((_, idx) => 
-            idx < 12 ? numValue : newData.data[rowIndex].values[idx]
-          );
-        }
         
         // 自動計算を実行
         return recalculateData(newData);
@@ -312,47 +335,105 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   const recalculateData = (data: MonthlyDetailData): MonthlyDetailData => {
     const newData = {...data};
     
+    // フルタイム従業員数の行
+    const fullTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 2);
+    // パートタイム従業員数の行
+    const partTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 3);
     // トータル従業員数の行
     const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === 4);
+    
+    // Level 1 & 2 の行
+    const level1And2RowIndex = newData.data.findIndex(row => row.id === 5);
+    // その他の行
+    const otherRowIndex = newData.data.findIndex(row => row.id === 6);
+    // Level 1 & 2 (パートタイム)の行
+    const level1And2PartTimeRowIndex = newData.data.findIndex(row => row.id === 7);
+    // その他 (パートタイム)の行
+    const otherPartTimeRowIndex = newData.data.findIndex(row => row.id === 8);
     // トータル障がい者数の行
     const totalDisabledRowIndex = newData.data.findIndex(row => row.id === 9);
+    
     // 法定雇用率の行
     const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+    
+    // トータル従業員数の計算（フルタイム + パートタイム×0.5）
+    if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
+      const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
+      const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
+      
+      for (let i = 0; i < 13; i++) {
+        // 各月のデータを計算
+        if (i < 12) {
+          newData.data[totalEmployeesRowIndex].values[i] = 
+            fullTimeValues[i] + (partTimeValues[i] * 0.5);
+        } else {
+          // 合計値は各月の合計として再計算
+          newData.data[totalEmployeesRowIndex].values[i] = 
+            newData.data[totalEmployeesRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
+        }
+      }
+    }
+    
+    // トータル障がい者数の計算（各障がい者カテゴリの合計）
+    if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
+        level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
+        totalDisabledRowIndex !== -1) {
+        
+      const level1And2Values = newData.data[level1And2RowIndex].values;
+      const otherValues = newData.data[otherRowIndex].values;
+      const level1And2PartTimeValues = newData.data[level1And2PartTimeRowIndex].values;
+      const otherPartTimeValues = newData.data[otherPartTimeRowIndex].values;
+      
+      for (let i = 0; i < 13; i++) {
+        // 各月または合計の障がい者数を計算
+        newData.data[totalDisabledRowIndex].values[i] = 
+          level1And2Values[i] + otherValues[i] + 
+          level1And2PartTimeValues[i] + otherPartTimeValues[i];
+      }
+    }
     
     if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
       const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
       const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
       const legalRateValues = newData.data[legalRateRowIndex].values;
       
-      // 実雇用率の計算 (障がい者数/従業員数)
+      // 実雇用率の計算 (障がい者数/従業員数 * 100)
       const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
       if (actualRateRowIndex !== -1) {
-        newData.data[actualRateRowIndex].values = totalEmployeeValues.map((employees, index) => {
-          if (index < 12 && employees > 0) {
-            return Number(((totalDisabledValues[index] / employees) * 100).toFixed(2));
+        for (let i = 0; i < 13; i++) {
+          if (totalEmployeeValues[i] > 0) {
+            newData.data[actualRateRowIndex].values[i] = 
+              Number(((totalDisabledValues[i] / totalEmployeeValues[i]) * 100).toFixed(2));
+          } else {
+            newData.data[actualRateRowIndex].values[i] = 0;
           }
-          return index === 12 ? Number(((totalDisabledValues[12] / employees) * 100).toFixed(2)) : 0;
-        });
+        }
       }
       
       // 法定雇用者数の計算 (法定雇用率 * 従業員数 / 100)
       const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
       if (legalCountRowIndex !== -1) {
-        newData.data[legalCountRowIndex].values = totalEmployeeValues.map((employees, index) => {
-          if (index < 12) {
-            return Math.floor((legalRateValues[0] * employees) / 100);
+        for (let i = 0; i < 13; i++) {
+          if (i < 12) {
+            // 各月の法定雇用者数を計算（小数点以下切り捨て）
+            newData.data[legalCountRowIndex].values[i] = 
+              Math.floor((legalRateValues[i] * totalEmployeeValues[i]) / 100);
+          } else {
+            // 合計は各月の合計として再計算
+            newData.data[legalCountRowIndex].values[i] = 
+              newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
           }
-          return newData.data[legalCountRowIndex].values[12]; // 合計列はそのまま
-        });
+        }
       }
       
       // 超過・未達の計算 (障がい者数 - 法定雇用者数)
       const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
       if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
         const legalCountValues = newData.data[legalCountRowIndex].values;
-        newData.data[overUnderRowIndex].values = totalDisabledValues.map((disabled, index) => {
-          return disabled - legalCountValues[index];
-        });
+        for (let i = 0; i < 13; i++) {
+          newData.data[overUnderRowIndex].values[i] = 
+            totalDisabledValues[i] - legalCountValues[i];
+        }
       }
     }
     
@@ -362,11 +443,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   // スタイル定義
   const cellStyle = {
     width: '100%',
-    height: '24px',
+    height: '22px',
     border: 'none',
     textAlign: 'center' as const,
     background: 'transparent',
-    fontSize: '13px'
+    fontSize: '12px',
+    padding: '0'
   };
 
   const readonlyCellStyle = {
@@ -423,25 +505,45 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       )}
       
       {/* アクションボタン */}
-      <div style={{ marginBottom: '15px' }}>
-        <button 
-          onClick={handleSave}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#3a66d4',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginRight: '10px'
-          }}
-          disabled={isConfirmed}
-        >
-          保存
-        </button>
+      <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          {!isEditing ? (
+            <button 
+              onClick={toggleEditMode}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+              disabled={isConfirmed}
+            >
+              編集
+            </button>
+          ) : (
+            <button 
+              onClick={handleSave}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#3a66d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+              disabled={isConfirmed}
+            >
+              保存
+            </button>
+          )}
+        </div>
         
         {!isEmbedded && (
-          <>
+          <div>
             <button
               onClick={handlePrint}
               style={{
@@ -470,7 +572,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             >
               CSVエクスポート
             </button>
-          </>
+          </div>
         )}
       </div>
       
@@ -484,13 +586,13 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         <table style={{ 
           width: '100%', 
           borderCollapse: 'collapse',
-          fontSize: '13px'
+          fontSize: '12px'
         }}>
           <thead>
-            <tr style={{ height: '32px', backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+            <tr style={{ height: '28px', backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
               <th style={{ 
                 textAlign: 'left', 
-                padding: '8px', 
+                padding: '4px 6px', 
                 position: 'sticky', 
                 left: 0, 
                 backgroundColor: '#f8f9fa', 
@@ -498,7 +600,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                 width: '180px'
               }}></th>
               {localData.months.slice(0, 12).map((month, index) => (
-                <th key={`month-${index}`} style={{ padding: '4px', textAlign: 'center', fontWeight: 'normal' }}>
+                <th key={`month-${index}`} style={{ padding: '2px', textAlign: 'center', fontWeight: 'normal' }}>
                   {month}
                 </th>
               ))}
@@ -509,11 +611,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             <tr>
               <td colSpan={13} style={{ 
                 textAlign: 'left', 
-                padding: '8px', 
+                padding: '4px 6px', 
                 fontWeight: 'bold',
                 backgroundColor: '#f8f9fa',
                 borderTop: '1px solid #dee2e6',
-                borderBottom: '1px solid #dee2e6'
+                borderBottom: '1px solid #dee2e6',
+                fontSize: '12px'
               }}>
                 従業員数
               </td>
@@ -529,18 +632,19 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                 <React.Fragment key={`row-${row.id}`}>
                   {needsSpacerBefore && (
                     <tr className="spacer-row">
-                      <td colSpan={13} style={{ padding: '5px', backgroundColor: '#f8f9fa' }}></td>
+                      <td colSpan={13} style={{ padding: '3px', backgroundColor: '#f8f9fa' }}></td>
                     </tr>
                   )}
                   {isHeaderRow && (
                     <tr className="header-row">
                       <th colSpan={13} style={{ 
                         textAlign: 'left', 
-                        padding: '8px',
+                        padding: '4px 6px',
                         fontWeight: 'bold',
                         backgroundColor: '#f8f9fa',
                         borderTop: '1px solid #dee2e6',
-                        borderBottom: '1px solid #dee2e6'
+                        borderBottom: '1px solid #dee2e6',
+                        fontSize: '12px'
                       }}>
                         障がい者
                       </th>
@@ -550,11 +654,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                     <tr className="header-row">
                       <th colSpan={13} style={{ 
                         textAlign: 'left', 
-                        padding: '8px',
+                        padding: '4px 6px',
                         fontWeight: 'bold',
                         backgroundColor: '#f8f9fa',
                         borderTop: '1px solid #dee2e6',
-                        borderBottom: '1px solid #dee2e6'
+                        borderBottom: '1px solid #dee2e6',
+                        fontSize: '12px'
                       }}>
                         雇用率
                       </th>
@@ -562,16 +667,18 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                   )}
                   <tr style={{ 
                     backgroundColor: 'white',
-                    height: '24px'
+                    height: '22px'
                   }}>
                     <td style={{ 
                       textAlign: 'left', 
-                      padding: '0 8px', 
+                      padding: '0 6px', 
                       position: 'sticky', 
                       left: 0, 
                       backgroundColor: 'white', 
                       zIndex: 1,
-                      borderRight: '1px solid #f0f0f0'
+                      borderRight: '1px solid #f0f0f0',
+                      whiteSpace: 'nowrap',
+                      fontSize: '12px'
                     }}>
                       {row.item}
                     </td>
@@ -579,6 +686,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                       // 法定雇用率は特別処理
                       const isLegalRate = row.id === 11;
                       const isFirstColumn = colIndex === 0;
+                      const isNegativeValue = row.isNegative && value < 0;
                       
                       return (
                         <td 
@@ -590,8 +698,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                           }}
                           onClick={() => handleCellClick(row.id, colIndex)}
                         >
-                          {(editingDetailRow === row.id && editingDetailCol === colIndex && !isConfirmed) || 
-                           (isLegalRate && isFirstColumn && !isConfirmed) ? (
+                          {(editingDetailRow === row.id && editingDetailCol === colIndex && !isConfirmed && isEditing) || 
+                           (isLegalRate && isFirstColumn && !isConfirmed && isEditing) ? (
                             <input
                               ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
                               type="text"
@@ -605,10 +713,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                           ) : (
                             <input
                               type="text"
-                              style={isCalculatedField(row.id) ? readonlyCellStyle : cellStyle}
+                              style={{
+                                ...isCalculatedField(row.id) ? readonlyCellStyle : cellStyle,
+                                color: isNegativeValue ? 'red' : 'inherit'
+                              }}
                               value={row.suffix ? `${value}${row.suffix}` : value}
                               readOnly
-                              disabled={isConfirmed}
                             />
                           )}
                         </td>
