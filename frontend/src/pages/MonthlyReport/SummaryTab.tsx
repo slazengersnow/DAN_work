@@ -89,9 +89,11 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
           <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
             <button 
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 console.log('編集ボタンがクリックされました');
-                toggleEditMode();
+                setEditingSummary(prev => !prev);
               }}
               style={{ 
                 padding: '8px 16px',

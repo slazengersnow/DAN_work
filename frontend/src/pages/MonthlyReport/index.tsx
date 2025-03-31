@@ -153,13 +153,16 @@ const MonthlyReport: React.FC = () => {
   // タブ切り替えハンドラー (修正済み)
   const handleTabChange = (tabId: string) => {
     console.log('タブ変更:', tabId); // デバッグ用
-    if (tabId !== activeTab) {
-      setActiveTab(tabId);
-      // URLパラメータも更新
-      const params = new URLSearchParams(location.search);
-      params.set('tab', tabId);
-      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
-    }
+    // 無条件で状態を更新
+    setActiveTab(tabId);
+    // URLパラメータも更新
+    const params = new URLSearchParams(location.search);
+    params.set('tab', tabId);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+    // 強制的にコンポーネントの再レンダリングを促す
+    setTimeout(() => {
+      console.log('タブ変更完了:', tabId);
+    }, 0);
   };
 
   // URLから直接タブが変更された場合の処理
@@ -440,7 +443,7 @@ const MonthlyReport: React.FC = () => {
         {activeTab === 'summary' && (
           <SummaryTab 
             employees={employees}
-            historyData={[]} // 履歴データの実装が必要
+            historyData={[]} 
             onEmployeeChange={handleEmployeeDataChange}
             summaryData={summaryData}
           />

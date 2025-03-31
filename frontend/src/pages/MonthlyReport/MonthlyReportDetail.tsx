@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MonthlyDetailData, MonthlyTotal } from './types';
 
+console.log('MonthlyReportDetail.tsx loaded at:', new Date().toISOString());
+
 interface MonthlyReportDetailProps {
   // タブ内に埋め込む場合に必要なprops
   monthlyDetailData?: MonthlyDetailData;
@@ -12,72 +14,103 @@ interface MonthlyReportDetailProps {
 }
 
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
-  const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded } = props;
-  
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  
-  // 編集モード状態
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  
-  // 初期データ（独立ページモードで使用）
-  const initialData: MonthlyDetailData = {
-    months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
-    data: [
-      { id: 1, item: '従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
-      { id: 2, item: 'フルタイム従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
-      { id: 3, item: 'パートタイム従業員数', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-      { 
-        id: 4, 
-        item: 'トータル従業員数', 
-        values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822],
-        isCalculated: true 
-      },
-      { id: 5, item: 'Level 1 & 2', values: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 24] },
-      { id: 6, item: 'その他', values: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 33] },
-      { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-      { id: 8, item: 'その他 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-      { 
-        id: 9, 
-        item: 'トータル障がい者数', 
-        values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57],
-        isCalculated: true
-      },
-      { 
-        id: 10, 
-        item: '実雇用率', 
-        values: [0.67, 0.66, 0.63, 0.78, 0.77, 0.77, 0.76, 0.75, 0.75, 0.75, 0.74, 0.72, 0.73], 
-        suffix: '%', 
-        isRatio: true, 
-        isCalculated: true 
-      },
-      { 
-        id: 11, 
-        item: '法定雇用率', 
-        values: [2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3], 
-        suffix: '%', 
-        isRatio: true 
-      },
-      { 
-        id: 12, 
-        item: '法定雇用者数', 
-        values: [13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 15, 15, 172], 
-        isCalculated: true 
-      },
-      { 
-        id: 13, 
-        item: '超過・未達', 
-        values: [-9, -9, -10, -9, -9, -9, -10, -10, -10, -10, -10, -10, -115], 
-        isNegative: true, 
-        isCalculated: true 
-      }
-    ]
-  };
+    const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded } = props;
+    // Debug logs
+    console.log('MonthlyReportDetail props:', {
+      isEmbedded,
+      hasSummaryData: !!summaryData,
+      hasMonthlyDetailData: !!monthlyDetailData,
+      detailDataItemCount: monthlyDetailData?.data?.length
+    });
 
-  // 年度表示用（独立ページモードで使用）
-  const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    
+    // 編集モード状態 - 明示的に初期値を設定
+    const [isEditing, setIsEditing] = useState<boolean>(false);
+    console.log("MonthlyReportDetail コンポーネントがマウントされました。isEditing初期値:", false);
+    
+    // 初期データ（独立ページモードで使用）
+    const initialData: MonthlyDetailData = {
+      months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
+      data: [
+        // 従業員数セクション
+        { id: 1, item: '従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
+        { id: 2, item: 'フルタイム従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
+        { id: 3, item: 'パートタイム従業員数', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        { 
+          id: 4, 
+          item: 'トータル従業員数', 
+          values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822],
+          isCalculated: true 
+        },
+        
+        // 障がい者セクション - 順番を調整
+        { id: 5, item: 'Level 1 & 2', values: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 24] },
+        { id: 6, item: 'その他', values: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 33] },
+        { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        { id: 8, item: 'その他 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        { 
+          id: 9, 
+          item: 'トータル障がい者数', 
+          values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57],
+          isCalculated: true
+        },
+        
+        // 雇用率セクション
+        { 
+          id: 10, 
+          item: '実雇用率', 
+          values: [0.67, 0.66, 0.63, 0.78, 0.77, 0.77, 0.76, 0.75, 0.75, 0.75, 0.74, 0.72, 0.73], 
+          suffix: '%', 
+          isRatio: true, 
+          isCalculated: true 
+        },
+        { 
+          id: 11, 
+          item: '法定雇用率', 
+          values: [2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3], 
+          suffix: '%', 
+          isRatio: true 
+        },
+        { 
+          id: 12, 
+          item: '法定雇用者数', 
+          values: [13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 15, 15, 172], 
+          isCalculated: true 
+        },
+        { 
+          id: 13, 
+          item: '超過・未達', 
+          values: [-9, -9, -10, -9, -9, -9, -10, -10, -10, -10, -10, -10, -115], 
+          isNegative: true, 
+          isCalculated: true 
+        }
+      ]
+    };
   
-  // IDが与えられている場合、そこから年度を取得
+    // 年度表示用（独立ページモードで使用）
+    const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+    
+    // セル編集用の状態
+    const [activeCell, setActiveCell] = useState<{row: number | null, col: number | null}>({row: null, col: null});
+    const [editingDetailRow, setEditingDetailRow] = useState<number | null>(null);
+    const [editingDetailCol, setEditingDetailCol] = useState<number | null>(null);
+  
+    // ローカルデータ（埋め込みモードではpropsから、独立モードでは初期データから）
+    const [localData, setLocalData] = useState<MonthlyDetailData>(
+      isEmbedded && monthlyDetailData ? monthlyDetailData : initialData
+    );
+    
+    // 入力参照用
+    const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+    const setInputRef = useCallback((element: HTMLInputElement | null, key: string) => {
+      if (element) {
+        inputRefs.current[key] = element;
+      }
+    }, []);
+
+    // IDが与えられている場合、そこから年度を取得
   useEffect(() => {
     if (id && id.includes('-')) {
       const [year] = id.split('-');
@@ -87,30 +120,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     }
   }, [id]);
 
-  // セル編集用の状態
-  const [activeCell, setActiveCell] = useState<{row: number | null, col: number | null}>({row: null, col: null});
-  const [editingDetailRow, setEditingDetailRow] = useState<number | null>(null);
-  const [editingDetailCol, setEditingDetailCol] = useState<number | null>(null);
-
-  // ローカルデータ（埋め込みモードではpropsから、独立モードでは初期データから）
-  const [localData, setLocalData] = useState<MonthlyDetailData>(
-    isEmbedded && monthlyDetailData ? monthlyDetailData : initialData
-  );
-  
   // props変更に応じてローカルデータを更新
   useEffect(() => {
     if (isEmbedded && monthlyDetailData) {
       setLocalData(monthlyDetailData);
     }
   }, [monthlyDetailData, isEmbedded]);
-
-  // 入力参照用
-  const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
-  const setInputRef = useCallback((element: HTMLInputElement | null, key: string) => {
-    if (element) {
-      inputRefs.current[key] = element;
-    }
-  }, []);
 
   // 自動計算対象のフィールドかをチェック
   const isCalculatedField = (rowId: number): boolean => {
@@ -529,9 +544,16 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
             type="button"
+            id="editButton"
             onClick={() => {
-              console.log('編集ボタンがクリックされました');
-              toggleEditMode();
+              // 直接状態を強制的に変更
+              const newEditingState = !isEditing;
+              console.log(`編集状態を強制的に${newEditingState ? '有効' : '無効'}にします`);
+              setIsEditing(newEditingState);
+              // デバッグ用の遅延処理
+              setTimeout(() => {
+                console.log('現在の編集状態:', isEditing);
+              }, 100);
             }}
             style={{
               padding: '8px 16px',
@@ -546,27 +568,23 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             {isEditing ? '編集中止' : '編集'}
           </button>
           
-          {/* 編集モード時のみ保存ボタンを表示 */}
-          {isEditing && (
-            <button 
-              type="button"
-              onClick={() => {
-                console.log('保存ボタンがクリックされました');
-                handleSave();
-              }}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#3a66d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-              disabled={isConfirmed}
-            >
-              保存
-            </button>
-          )}
+          {/* 強制的に保存ボタンを表示 */}
+          <button 
+            type="button"
+            onClick={handleSave}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#3a66d4',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              display: isEditing ? 'block' : 'none' // これで条件表示
+            }}
+            disabled={isConfirmed}
+          >
+            保存
+          </button>
         </div>
         
         {/* 独立モードの場合のみ印刷とCSVエクスポートボタンを表示 */}
@@ -605,7 +623,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           </div>
         )}
       </div>
-      
+
       {/* 月次詳細テーブル */}
       <div style={{ 
         backgroundColor: 'white', 
@@ -761,8 +779,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           </tbody>
         </table>
       </div>
-      
-      {/* 独立ページモードの場合のみ表示 */}
+
+      {/* 独立ページモードの場合のフッターボタン */}
       {!isEmbedded && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
           <button

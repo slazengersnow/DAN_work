@@ -1,4 +1,4 @@
-// App.jsx
+// App.tsx
 import React from 'react';
 import {
    BrowserRouter as Router,
@@ -12,7 +12,8 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import EmployeeList from './pages/EmployeeList';
 import EmployeeDetailPage from './pages/EmployeeDetailPage';
-import MonthlyReport from './pages/MonthlyReport'; // index.tsxを暗黙的にインポート
+// 明示的なパスでインポート
+import MonthlyReport from './pages/MonthlyReport/index';
 import MonthlyReportDetail from './pages/MonthlyReport/MonthlyReportDetail';
 import PaymentReport from './pages/PaymentReport';
 import Settings from './pages/Settings';
@@ -21,7 +22,8 @@ import './App.css';
 // 環境変数を設定
 window.process = window.process || {};
 window.process.env = window.process.env || {};
-window.process.env.REACT_APP_USE_MOCK = 'true';
+window.process.env.REACT_APP_USE_MOCK = 'false'; // APIと連携するためモックモードを無効化
+
 
 // 新しいQueryClientを作成
 const queryClient = new QueryClient({
@@ -34,7 +36,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// シンプルなルーティング構造
 const App: React.FC = () => {
+  // デバッグ用に読み込み時にログ出力
+  console.log('App.tsx loaded');
+  
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
