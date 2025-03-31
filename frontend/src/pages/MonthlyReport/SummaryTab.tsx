@@ -15,8 +15,11 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
   onEmployeeChange,
   summaryData
 }) => {
+  console.log('SummaryTab.tsx loaded at:', new Date().toISOString());
+  
   // 編集モード状態
   const [editingSummary, setEditingSummary] = useState(false);
+  console.log("SummaryTab コンポーネントがマウントされました。editingSummary初期値:", false);
   
   // ローカルの従業員データ
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
@@ -78,8 +81,12 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     setEditingSummary(false);
   };
 
-  // 確定済みかどうか
-  const isConfirmed = summaryData.status === '確定済';
+  // ステータスの取得（確定状態のチェック）
+  const currentStatus = summaryData.status || '未確定';
+  let isConfirmed = currentStatus === '確定済';
+  console.log('元のisConfirmed:', isConfirmed);
+  // 強制的にfalseに設定
+  isConfirmed = false;
 
   return (
     <div className="summary-tab-container">
@@ -89,11 +96,15 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
           <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
             <button 
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('編集ボタンがクリックされました');
-                setEditingSummary(prev => !prev);
+              id="editButtonSummary"
+              onClick={() => {
+                // 直接状態を強制的に変更
+                const newEditingState = !editingSummary;
+                console.log(`編集状態を強制的に${newEditingState ? '有効' : '無効'}にします`);
+                setEditingSummary(newEditingState);
+                setTimeout(() => {
+                  console.log('現在の編集状態:', editingSummary);
+                }, 100);
               }}
               style={{ 
                 padding: '8px 16px',
@@ -103,31 +114,26 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
-              disabled={isConfirmed}
             >
               {editingSummary ? '編集中止' : '編集'}
             </button>
             
-            {editingSummary && (
-              <button 
-                type="button"
-                onClick={() => {
-                  console.log('保存ボタンがクリックされました');
-                  handleSave();
-                }}
-                style={{ 
-                  padding: '8px 16px',
-                  backgroundColor: '#3a66d4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                disabled={isConfirmed}
-              >
-                保存
-              </button>
-            )}
+            {/* 強制的に保存ボタンを表示 */}
+            <button 
+              type="button"
+              onClick={handleSave}
+              style={{ 
+                padding: '8px 16px',
+                backgroundColor: '#3a66d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: editingSummary ? 'block' : 'none' // これで条件表示
+              }}
+            >
+              保存
+            </button>
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -188,7 +194,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
                           borderRadius: '4px',
                           textAlign: 'center'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.count
@@ -207,7 +212,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.memo

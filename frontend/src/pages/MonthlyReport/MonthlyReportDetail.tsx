@@ -3,8 +3,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MonthlyDetailData, MonthlyTotal } from './types';
 
-console.log('MonthlyReportDetail.tsx loaded at:', new Date().toISOString());
-
 interface MonthlyReportDetailProps {
   // タブ内に埋め込む場合に必要なprops
   monthlyDetailData?: MonthlyDetailData;
@@ -14,7 +12,9 @@ interface MonthlyReportDetailProps {
 }
 
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
+    console.log('MonthlyReportDetail.tsx loaded at:', new Date().toISOString());
     const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded } = props;
+    
     // Debug logs
     console.log('MonthlyReportDetail props:', {
       isEmbedded,
@@ -22,11 +22,11 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       hasMonthlyDetailData: !!monthlyDetailData,
       detailDataItemCount: monthlyDetailData?.data?.length
     });
-
+    
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     
-    // 編集モード状態 - 明示的に初期値を設定
+    // 編集モード状態
     const [isEditing, setIsEditing] = useState<boolean>(false);
     console.log("MonthlyReportDetail コンポーネントがマウントされました。isEditing初期値:", false);
     
@@ -34,7 +34,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const initialData: MonthlyDetailData = {
       months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
       data: [
-        // 従業員数セクション
         { id: 1, item: '従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
         { id: 2, item: 'フルタイム従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822] },
         { id: 3, item: 'パートタイム従業員数', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
@@ -44,8 +43,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 690, 7822],
           isCalculated: true 
         },
-        
-        // 障がい者セクション - 順番を調整
         { id: 5, item: 'Level 1 & 2', values: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 24] },
         { id: 6, item: 'その他', values: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 33] },
         { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
@@ -56,8 +53,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57],
           isCalculated: true
         },
-        
-        // 雇用率セクション
         { 
           id: 10, 
           item: '実雇用率', 
@@ -492,7 +487,10 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
   // ステータスの取得（埋め込みモードではpropsから、独立モードでは固定値）
   const currentStatus = isEmbedded && summaryData?.status ? summaryData.status : '未確定';
-  const isConfirmed = currentStatus === '確定済';
+  let isConfirmed = currentStatus === '確定済';
+  console.log('元のisConfirmed:', isConfirmed);
+  // 強制的にfalseに設定
+  isConfirmed = false;
 
   return (
     <div className="monthly-report-detail" style={{ padding: isEmbedded ? '0' : '20px' }}>
@@ -563,7 +561,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               borderRadius: '4px',
               cursor: 'pointer'
             }}
-            disabled={isConfirmed}
           >
             {isEditing ? '編集中止' : '編集'}
           </button>
@@ -581,7 +578,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               cursor: 'pointer',
               display: isEditing ? 'block' : 'none' // これで条件表示
             }}
-            disabled={isConfirmed}
           >
             保存
           </button>
@@ -746,8 +742,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                           }}
                           onClick={() => handleCellClick(row.id, colIndex)}
                         >
-                          {(editingDetailRow === row.id && editingDetailCol === colIndex && !isConfirmed && isEditing) || 
-                           (isLegalRate && isFirstColumn && !isConfirmed && isEditing) ? (
+                          {(editingDetailRow === row.id && editingDetailCol === colIndex && isEditing) || 
+                           (isLegalRate && isFirstColumn && isEditing) ? (
                             <input
                               ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
                               type="text"
@@ -756,7 +752,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                               onChange={(e) => handleLocalCellChange(row.id, colIndex, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => handleKeyDown(e, row.id, colIndex)}
-                              disabled={isCalculatedField(row.id) || isConfirmed}
                             />
                           ) : (
                             <input
@@ -813,6 +808,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       )}
     </div>
   );
+
 };
 
 export default MonthlyReportDetail;

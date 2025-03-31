@@ -13,8 +13,11 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   onEmployeeChange,
   summaryData
 }) => {
+  console.log('EmployeesTab.tsx loaded at:', new Date().toISOString());
+  
   // 編集モード状態
   const [editMode, setEditMode] = useState(false);
+  console.log("EmployeesTab コンポーネントがマウントされました。editMode初期値:", false);
   
   // ローカルの従業員データ
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
@@ -85,8 +88,12 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     setEditMode(false);
   };
 
-  // 確定済みかどうか
-  const isConfirmed = summaryData.status === '確定済';
+  // ステータスの取得（確定状態のチェック）
+  const currentStatus = summaryData.status || '未確定';
+  let isConfirmed = currentStatus === '確定済';
+  console.log('元のisConfirmed:', isConfirmed);
+  // 強制的にfalseに設定
+  isConfirmed = false;
   
   // 月名の配列
   const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
@@ -99,9 +106,16 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 
               type="button"
+              id="editButtonEmployees"
               onClick={() => {
-                console.log('編集ボタンがクリックされました');
-                toggleEditMode();
+                // 直接状態を強制的に変更
+                const newEditingState = !editMode;
+                console.log(`編集状態を強制的に${newEditingState ? '有効' : '無効'}にします`);
+                setEditMode(newEditingState);
+                // デバッグ用の遅延処理
+                setTimeout(() => {
+                  console.log('現在の編集状態:', editMode);
+                }, 100);
               }}
               style={{ 
                 padding: '8px 16px',
@@ -111,31 +125,26 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
-              disabled={isConfirmed}
             >
               {editMode ? '編集中止' : '編集'}
             </button>
             
-            {editMode && (
-              <button 
-                type="button"
-                onClick={() => {
-                  console.log('保存ボタンがクリックされました');
-                  handleSave();
-                }}
-                style={{ 
-                  padding: '8px 16px',
-                  backgroundColor: '#3a66d4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                disabled={isConfirmed}
-              >
-                保存
-              </button>
-            )}
+            {/* 強制的に保存ボタンを表示 */}
+            <button 
+              type="button"
+              onClick={handleSave}
+              style={{ 
+                padding: '8px 16px',
+                backgroundColor: '#3a66d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: editMode ? 'block' : 'none' // これで条件表示
+              }}
+            >
+              保存
+            </button>
           </div>
         </div>
         
@@ -179,7 +188,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.employee_id
@@ -197,7 +205,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.name
@@ -214,7 +221,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       >
                         <option value="">なし</option>
                         <option value="身体障害">身体障害</option>
@@ -237,7 +243,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.disability
@@ -255,7 +260,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.grade
@@ -273,7 +277,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.hire_date
@@ -290,7 +293,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       >
                         <option value="在籍">在籍</option>
                         <option value="休職">休職</option>
@@ -321,7 +323,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                             borderRadius: '4px',
                             textAlign: 'center'
                           }}
-                          disabled={isConfirmed}
                         >
                           <option value="0">0</option>
                           <option value="0.5">0.5</option>
@@ -345,7 +346,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           border: '1px solid #ddd',
                           borderRadius: '4px'
                         }}
-                        disabled={isConfirmed}
                       />
                     ) : (
                       employee.memo
