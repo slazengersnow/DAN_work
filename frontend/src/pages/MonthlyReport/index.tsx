@@ -19,9 +19,84 @@ import {
   HistoryItem 
 } from './types';
 import { 
-  formatYearlyDataForUI, 
+  safeNumber,
   processEmployeeData
 } from './utils';
+
+// formatYearlyDataForUI関数を修正して直接インポートする代わりにここで定義
+export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetailData => {
+  // 月別に並べ替え（4月始まり）
+  const orderedData = [
+    ...yearlyData.filter(d => d.month >= 4).sort((a, b) => a.month - b.month),
+    ...yearlyData.filter(d => d.month <= 3).sort((a, b) => a.month - b.month)
+  ];
+  
+  // 各値の合計を計算
+  const sumTotalEmployees = orderedData.reduce((sum, d) => sum + d.total_employees, 0);
+  const sumFullTimeEmployees = orderedData.reduce((sum, d) => sum + safeNumber(d.full_time_employees), 0);
+  const sumPartTimeEmployees = orderedData.reduce((sum, d) => sum + safeNumber(d.part_time_employees), 0);
+  const sumDisabledEmployees = orderedData.reduce((sum, d) => sum + Number(d.disabled_employees), 0);
+  const avgActualRate = orderedData.reduce((sum, d) => sum + Number(d.actual_rate), 0) / orderedData.length;
+  const avgLegalRate = orderedData.reduce((sum, d) => sum + Number(d.legal_rate), 0) / orderedData.length;
+  const sumLegalCount = orderedData.reduce((sum, d) => sum + Number(d.legal_count || 0), 0);
+  const sumShortage = orderedData.reduce((sum, d) => sum + Number(d.shortage || 0), 0);
+  
+  // 障がい者詳細データの設定（APIからデータが取得できるようになったら、この部分は実際のデータで置き換える）
+  // 現状は固定値だが、将来的にはAPIから取得する
+  const level1Values = Array(12).fill(2); // 全月2人と仮定
+  const otherValues = [...Array(6).fill(2), ...Array(6).fill(3)]; // 前半2人、後半3人と仮定
+  const level1PartTimeValues = Array(12).fill(0); // 全月0人と仮定
+  const otherPartTimeValues = Array(12).fill(0); // 全月0人と仮定
+  
+  const sumLevel1 = level1Values.reduce((a, b) => a + b, 0);
+  const sumOther = otherValues.reduce((a, b) => a + b, 0);
+  const sumLevel1PartTime = level1PartTimeValues.reduce((a, b) => a + b, 0);
+  const sumOtherPartTime = otherPartTimeValues.reduce((a, b) => a + b, 0);
+  
+  // UI表示用のデータ形式に変換
+  return {
+    months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
+    data: [
+      { id: 1, item: '従業員数', values: [...orderedData.map(d => d.total_employees), sumTotalEmployees] },
+      { id: 2, item: 'フルタイム従業員数', values: [...orderedData.map(d => safeNumber(d.full_time_employees)), sumFullTimeEmployees] },
+      { id: 3, item: 'パートタイム従業員数', values: [...orderedData.map(d => safeNumber(d.part_time_employees)), sumPartTimeEmployees] },
+      { id: 4, item: 'トータル従業員数', values: [...orderedData.map(d => d.total_employees), sumTotalEmployees] },
+      { id: 5, item: 'Level 1 & 2', values: [...level1Values, sumLevel1] },
+      { id: 6, item: 'その他', values: [...otherValues, sumOther] },
+      { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [...level1PartTimeValues, sumLevel1PartTime] },
+      { id: 8, item: 'その他 (パートタイム)', values: [...otherPartTimeValues, sumOtherPartTime] },
+      { id: 9, item: 'トータル障がい者数', values: [...orderedData.map(d => Number(d.disabled_employees)), sumDisabledEmployees], isDisability: true },
+      { 
+        id: 10, 
+        item: '実雇用率', 
+        values: [...orderedData.map(d => Number(d.actual_rate)), avgActualRate], 
+        suffix: '%', 
+        isRatio: true, 
+        isCalculated: true 
+      },
+      { 
+        id: 11, 
+        item: '法定雇用率', 
+        values: [...orderedData.map(d => Number(d.legal_rate)), avgLegalRate], 
+        suffix: '%', 
+        isRatio: true 
+      },
+      { 
+        id: 12, 
+        item: '法定雇用者数', 
+        values: [...orderedData.map(d => Number(d.legal_count || 0)), sumLegalCount], 
+        isCalculated: true 
+      },
+      { 
+        id: 13, 
+        item: '超過・未達', 
+        values: [...orderedData.map(d => Number(d.shortage || 0)), sumShortage], 
+        isNegative: true, 
+        isCalculated: true 
+      }
+    ]
+  };
+};
 
 // モックデータ（型に厳密に合わせる）
 const mockSummary: MonthlyTotal = {
@@ -76,6 +151,10 @@ const initialMonthlyDetailData: MonthlyDetailData = {
     { id: 2, item: 'フルタイム従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 700, 7822] },
     { id: 3, item: 'パートタイム従業員数', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     { id: 4, item: 'トータル従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 700, 7822] },
+    { id: 5, item: 'Level 1 & 2', values: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 24] },
+    { id: 6, item: 'その他', values: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 33] },
+    { id: 7, item: 'Level 1 & 2 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { id: 8, item: 'その他 (パートタイム)', values: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     { id: 9, item: 'トータル障がい者数', values: [4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 57], isDisability: true },
     { 
       id: 10, 
@@ -459,6 +538,7 @@ const MonthlyReport: React.FC = () => {
 
         {activeTab === 'monthly' && (
           <MonthlyReportDetail 
+            key="monthlyDetail" // keyを追加して再マウントを防止
             monthlyDetailData={monthlyDetailData}
             onDetailCellChange={handleDetailCellChange}
             summaryData={summaryData}

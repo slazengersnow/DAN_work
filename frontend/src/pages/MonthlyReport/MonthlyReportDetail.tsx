@@ -122,6 +122,18 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     }
   }, [monthlyDetailData, isEmbedded]);
 
+  // 親から渡されるデータのデバッグ
+  useEffect(() => {
+    if (monthlyDetailData) {
+      console.log("親から渡されたデータ:", monthlyDetailData.data.map(row => ({ id: row.id, item: row.item })));
+    }
+  }, [monthlyDetailData]);
+
+  // 現在表示されているデータの確認
+  useEffect(() => {
+    console.log("表示されているデータ:", localData.data.map(row => ({ id: row.id, item: row.item })));
+  }, [localData.data]);
+
   // 自動計算対象のフィールドかをチェック
   const isCalculatedField = (rowId: number): boolean => {
     const row = localData.data.find(r => r.id === rowId);
@@ -743,15 +755,18 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                           onClick={() => handleCellClick(row.id, colIndex)}
                         >
                           {(editingDetailRow === row.id && editingDetailCol === colIndex && isEditing) || 
-                           (isLegalRate && isFirstColumn && isEditing) ? (
+                            (isLegalRate && isFirstColumn && isEditing) ? (
                             <input
-                              ref={(el) => setInputRef(el, `input-${row.id}-${colIndex}`)}
+                              ref={(el: HTMLInputElement | null) => {
+                                inputRefs.current[`input-${row.id}-${colIndex}`] = el;
+                              }}
                               type="text"
                               style={cellStyle}
                               value={value}
                               onChange={(e) => handleLocalCellChange(row.id, colIndex, e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => handleKeyDown(e, row.id, colIndex)}
+                              onFocus={() => setActiveCell({row: row.id, col: colIndex})}
                             />
                           ) : (
                             <input
@@ -771,6 +786,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                 </React.Fragment>
               );
             })}
+
           </tbody>
         </table>
       </div>

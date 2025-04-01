@@ -1,5 +1,5 @@
 // src/pages/MonthlyReport/EmployeesTab.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Employee, MonthlyTotal } from './types';
 
 interface EmployeesTabProps {
@@ -22,6 +22,15 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // ローカルの従業員データ
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
   
+  // エラーメッセージ状態
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 編集中のセル
+  const [activeCell, setActiveCell] = useState<{empId: number, monthIndex: number} | null>(null);
+  
+  // 入力参照
+  const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+  
   // props変更時にローカルデータを更新
   useEffect(() => {
     setLocalEmployees(employees);
@@ -40,16 +49,41 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // 月次ステータス更新ハンドラー
   const handleMonthlyStatusChange = (id: number, monthIndex: number, value: string) => {
     console.log(`月次ステータス変更: id=${id}, month=${monthIndex}, value=${value}`); // デバッグ用
-    setLocalEmployees(prev => 
-      prev.map(emp => {
-        if (emp.id === id) {
-          const newMonthlyStatus = [...(emp.monthlyStatus || Array(12).fill(1))];
-          newMonthlyStatus[monthIndex] = Number(value);
-          return { ...emp, monthlyStatus: newMonthlyStatus };
-        }
-        return emp;
-      })
-    );
+    
+    // 値の検証 (0, 0.5, 1, 2のみ許可)
+    const numValue = parseFloat(value);
+    const validValues = [0, 0.5, 1, 2];
+    
+    if (value === "") {
+      // 空の入力は許可（ユーザーが削除している場合）
+      setLocalEmployees(prev => 
+        prev.map(emp => {
+          if (emp.id === id) {
+            const newMonthlyStatus = [...(emp.monthlyStatus || Array(12).fill(1))];
+            newMonthlyStatus[monthIndex] = 0; // 空の入力は0として扱う
+            return { ...emp, monthlyStatus: newMonthlyStatus };
+          }
+          return emp;
+        })
+      );
+      setErrorMessage(null);
+    } else if (!isNaN(numValue) && validValues.includes(numValue)) {
+      // 有効な値の場合、状態を更新
+      setLocalEmployees(prev => 
+        prev.map(emp => {
+          if (emp.id === id) {
+            const newMonthlyStatus = [...(emp.monthlyStatus || Array(12).fill(1))];
+            newMonthlyStatus[monthIndex] = numValue;
+            return { ...emp, monthlyStatus: newMonthlyStatus };
+          }
+          return emp;
+        })
+      );
+      setErrorMessage(null);
+    } else {
+      // 無効な値の場合、エラーメッセージを表示
+      setErrorMessage("月次ステータスには 0, 0.5, 1, 2 のいずれかを入力してください");
+    }
   };
 
   // 編集モード切り替え
@@ -58,6 +92,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     if (editMode) {
       // 編集モードを終了する場合、ローカルデータを元に戻す
       setLocalEmployees(employees);
+      setErrorMessage(null);
     }
     setEditMode(!editMode);
   };
@@ -65,6 +100,25 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // 保存ボタンのハンドラー
   const handleSave = () => {
     console.log('保存ボタンクリック'); // デバッグ用
+    
+    // 値の検証
+    let hasError = false;
+    
+    // すべての月次ステータスをチェック
+    localEmployees.forEach(emp => {
+      const monthlyStatus = emp.monthlyStatus || Array(12).fill(1);
+      monthlyStatus.forEach((status) => {
+        const validValues = [0, 0.5, 1, 2];
+        if (!validValues.includes(status)) {
+          hasError = true;
+        }
+      });
+    });
+    
+    if (hasError) {
+      setErrorMessage("月次ステータスには 0, 0.5, 1, 2 のいずれかを入力してください");
+      return;
+    }
     
     // 変更をparentに通知
     localEmployees.forEach(emp => {
@@ -85,7 +139,107 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     });
     
     alert('従業員データを保存しました');
+    setErrorMessage(null);
     setEditMode(false);
+  };
+
+  // セル編集の開始
+  const handleCellFocus = (empId: number, monthIndex: number) => {
+    setActiveCell({ empId, monthIndex });
+  };
+
+  // キーボード操作ハンドラー
+  const handleKeyDown = (e: React.KeyboardEvent, empId: number, monthIndex: number) => {
+    const currentEmpIndex = localEmployees.findIndex(emp => emp.id === empId);
+    
+    // 矢印キーによるナビゲーション
+    if (editMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      
+      let nextEmpIndex = currentEmpIndex;
+      let nextMonthIndex = monthIndex;
+      
+      if (e.key === 'ArrowUp' && currentEmpIndex > 0) {
+        nextEmpIndex = currentEmpIndex - 1;
+      } else if (e.key === 'ArrowDown' && currentEmpIndex < localEmployees.length - 1) {
+        nextEmpIndex = currentEmpIndex + 1;
+      } else if (e.key === 'ArrowLeft' && monthIndex > 0) {
+        nextMonthIndex = monthIndex - 1;
+      } else if (e.key === 'ArrowRight' && monthIndex < 11) {
+        nextMonthIndex = monthIndex + 1;
+      }
+      
+      if (nextEmpIndex !== currentEmpIndex || nextMonthIndex !== monthIndex) {
+        const nextEmpId = localEmployees[nextEmpIndex].id;
+        const inputKey = `input-${nextEmpId}-${nextMonthIndex}`;
+        
+        // フォーカスを次のセルに移動
+        setTimeout(() => {
+          const inputElement = inputRefs.current[inputKey];
+          if (inputElement) {
+            inputElement.focus();
+            inputElement.select(); // テキストを選択状態にする
+          }
+        }, 0);
+      }
+    }
+    
+    // Enterキーでも次の行に移動
+    if (editMode && e.key === 'Enter') {
+      e.preventDefault();
+      
+      if (currentEmpIndex < localEmployees.length - 1) {
+        const nextEmpId = localEmployees[currentEmpIndex + 1].id;
+        const inputKey = `input-${nextEmpId}-${monthIndex}`;
+        
+        setTimeout(() => {
+          const inputElement = inputRefs.current[inputKey];
+          if (inputElement) {
+            inputElement.focus();
+            inputElement.select();
+          }
+        }, 0);
+      }
+    }
+    
+    // Tabキーで右に移動、Shift+Tabで左に移動
+    if (editMode && e.key === 'Tab') {
+      e.preventDefault();
+      
+      let nextEmpIndex = currentEmpIndex;
+      let nextMonthIndex = monthIndex;
+      
+      if (e.shiftKey) {
+        // 前のセルに移動
+        if (monthIndex > 0) {
+          nextMonthIndex = monthIndex - 1;
+        } else if (currentEmpIndex > 0) {
+          nextEmpIndex = currentEmpIndex - 1;
+          nextMonthIndex = 11; // 前の行の最後のセルへ
+        }
+      } else {
+        // 次のセルに移動
+        if (monthIndex < 11) {
+          nextMonthIndex = monthIndex + 1;
+        } else if (currentEmpIndex < localEmployees.length - 1) {
+          nextEmpIndex = currentEmpIndex + 1;
+          nextMonthIndex = 0; // 次の行の最初のセルへ
+        }
+      }
+      
+      if (nextEmpIndex !== currentEmpIndex || nextMonthIndex !== monthIndex) {
+        const nextEmpId = localEmployees[nextEmpIndex].id;
+        const inputKey = `input-${nextEmpId}-${nextMonthIndex}`;
+        
+        setTimeout(() => {
+          const inputElement = inputRefs.current[inputKey];
+          if (inputElement) {
+            inputElement.focus();
+            inputElement.select();
+          }
+        }, 0);
+      }
+    }
   };
 
   // ステータスの取得（確定状態のチェック）
@@ -147,6 +301,19 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </button>
           </div>
         </div>
+        
+        {/* エラーメッセージ表示エリア */}
+        {errorMessage && (
+          <div style={{ 
+            backgroundColor: '#f8d7da', 
+            color: '#721c24', 
+            padding: '10px', 
+            borderRadius: '4px', 
+            marginBottom: '15px' 
+          }}>
+            {errorMessage}
+          </div>
+        )}
         
         {/* 横スクロール可能なテーブルコンテナ */}
         <div style={{ overflowX: 'auto' }}>
@@ -310,25 +477,31 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                       </span>
                     )}
                   </td>
+                  {/* 月次ステータス入力欄 - 直接入力式に変更 */}
                   {(employee.monthlyStatus || Array(12).fill(1)).map((status, monthIndex) => (
-                    <td key={`${employee.id}-month-${monthIndex}`} style={{ padding: '4px', textAlign: 'center' }}>
+                    <td key={`${employee.id}-month-${monthIndex}`} style={{ 
+                      padding: '4px', 
+                      textAlign: 'center',
+                      backgroundColor: activeCell?.empId === employee.id && activeCell?.monthIndex === monthIndex ? '#e9f2ff' : 'white'
+                    }}>
                       {editMode ? (
-                        <select 
+                        <input 
+                          ref={(el: HTMLInputElement | null) => {
+                            inputRefs.current[`input-${employee.id}-${monthIndex}`] = el;
+                          }}
+                          type="text" 
                           value={status}
                           onChange={(e) => handleMonthlyStatusChange(employee.id, monthIndex, e.target.value)}
+                          onFocus={() => handleCellFocus(employee.id, monthIndex)}
+                          onKeyDown={(e) => handleKeyDown(e, employee.id, monthIndex)}
                           style={{ 
-                            width: '45px',
+                            width: '40px',
                             padding: '2px',
                             border: '1px solid #ddd',
                             borderRadius: '4px',
                             textAlign: 'center'
                           }}
-                        >
-                          <option value="0">0</option>
-                          <option value="0.5">0.5</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                        </select>
+                        />
                       ) : (
                         status
                       )}
@@ -356,6 +529,19 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </tbody>
           </table>
         </div>
+        
+        {/* 入力方法のガイド表示 - 編集モード時のみ表示 */}
+        {editMode && (
+          <div style={{ marginTop: '15px', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '4px' }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>月次入力の操作方法</h4>
+            <ul style={{ margin: '0', paddingLeft: '20px', fontSize: '13px' }}>
+              <li>入力できる値: 0, 0.5, 1, 2</li>
+              <li>矢印キー: セル間の移動</li>
+              <li>Tab: 右のセルへ移動、Shift+Tab: 左のセルへ移動</li>
+              <li>Enter: 下のセルへ移動</li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
