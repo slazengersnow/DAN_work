@@ -14,6 +14,7 @@ const prefectures = [
 ];
 
 const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState<boolean>(false);
   const [disabilityType, setDisabilityType] = useState(employeeData.disabilityType || '身体障害');
   const [formData, setFormData] = useState({
     // 身体障害情報
@@ -67,10 +68,47 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     workplaceConsiderations: employeeData.workplaceConsiderations || '画面拡大ソフトの使用、照明の調整が必要'
   });
 
+  // 編集モード切り替え
+  const toggleEditMode = () => {
+    setIsEditing(prev => !prev);
+  };
+
+  // 保存ボタンのハンドラー
+  const handleSave = () => {
+    // 親コンポーネントにデータ更新を通知
+    onUpdate({
+      disabilityType,
+      ...formData,
+      // 日付関連のフィールドを平坦化
+      physicalCertDateEra: formData.physicalCertDate.era,
+      physicalCertDateYear: formData.physicalCertDate.year,
+      physicalCertDateMonth: formData.physicalCertDate.month,
+      physicalCertDateDay: formData.physicalCertDate.day,
+      intellectualCertDateEra: formData.intellectualCertDate.era,
+      intellectualCertDateYear: formData.intellectualCertDate.year,
+      intellectualCertDateMonth: formData.intellectualCertDate.month,
+      intellectualCertDateDay: formData.intellectualCertDate.day,
+      mentalCertDateEra: formData.mentalCertDate.era,
+      mentalCertDateYear: formData.mentalCertDate.year,
+      mentalCertDateMonth: formData.mentalCertDate.month,
+      mentalCertDateDay: formData.mentalCertDate.day,
+      certificateExpiryEra: formData.certificateExpiry.era,
+      certificateExpiryYear: formData.certificateExpiry.year,
+      certificateExpiryMonth: formData.certificateExpiry.month,
+      certificateExpiryDay: formData.certificateExpiry.day,
+      certificateRenewalEra: formData.certificateRenewal.era,
+      certificateRenewalYear: formData.certificateRenewal.year,
+      certificateRenewalMonth: formData.certificateRenewal.month,
+      certificateRenewalDay: formData.certificateRenewal.day,
+    });
+    
+    setIsEditing(false);
+    alert('データを保存しました');
+  };
+
   // 障害種別の変更処理
   const handleDisabilityTypeChange = (value: string): void => {
     setDisabilityType(value);
-    onUpdate({ disabilityType: value });
   };
 
   // フォーム入力の変更処理
@@ -80,9 +118,6 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
       ...prev,
       [name]: value
     }));
-    
-    // 親コンポーネントにデータ更新を通知
-    onUpdate({ [name]: value });
   };
 
   // 日付入力の変更処理
@@ -94,45 +129,112 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         [field]: value
       }
     }));
-    
-    // 親コンポーネントにデータ更新を通知
-    onUpdate({ 
-      [`${dateType}${field.charAt(0).toUpperCase() + field.slice(1)}`]: value 
-    });
+  };
+
+  // 入力フィールドの共通スタイル - セレクトスタイルを削除
+  const inputStyle = {
+    padding: '6px 8px',
+    borderRadius: '4px',
+    border: isEditing ? '1px solid #ddd' : '1px solid transparent',
+    backgroundColor: isEditing ? 'white' : '#f8f9fa',
+    width: '100%'
+  };
+
+  // テキストエリアの共通スタイル
+  const textareaStyle = {
+    ...inputStyle,
+    minHeight: '80px',
+    resize: 'vertical' as const
+  };
+
+  // ラジオボタンスタイル
+  const radioStyle = {
+    marginRight: '5px',
+    cursor: isEditing ? 'pointer' : 'default',
+    opacity: isEditing ? 1 : 0.8
+  };
+
+  // ラジオラベルスタイル
+  const radioLabelStyle = {
+    marginRight: '15px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    cursor: isEditing ? 'pointer' : 'default',
+    opacity: isEditing ? 1 : 0.8
   };
 
   return (
     <div className="disability-info-tab">
+      {/* 編集ボタンと保存ボタン */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
+        <button 
+          type="button"
+          onClick={toggleEditMode}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          {isEditing ? '編集中止' : '編集'}
+        </button>
+        
+        <button 
+          type="button"
+          onClick={handleSave}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#3a66d4',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: isEditing ? 'block' : 'none'
+          }}
+        >
+          保存
+        </button>
+      </div>
+
       <div className="disability-type-selection">
         <h3 className="section-title">障害種別選択</h3>
         <div className="radio-group">
-          <label className="radio-label">
+          <label className="radio-label" style={radioLabelStyle}>
             <input
               type="radio"
               name="disabilityType"
               value="身体障害"
               checked={disabilityType === '身体障害'}
               onChange={() => handleDisabilityTypeChange('身体障害')}
+              disabled={!isEditing}
+              style={radioStyle}
             />
             身体障害
           </label>
-          <label className="radio-label">
+          <label className="radio-label" style={radioLabelStyle}>
             <input
               type="radio"
               name="disabilityType"
               value="知的障害"
               checked={disabilityType === '知的障害'}
               onChange={() => handleDisabilityTypeChange('知的障害')}
+              disabled={!isEditing}
+              style={radioStyle}
             />
             知的障害
           </label>
-          <label className="radio-label">
+          <label className="radio-label" style={radioLabelStyle}>
             <input
               type="radio"
               name="disabilityType"
               value="精神障害"
               checked={disabilityType === '精神障害'}
               onChange={() => handleDisabilityTypeChange('精神障害')}
+              disabled={!isEditing}
+              style={radioStyle}
             />
             精神障害
           </label>
@@ -151,6 +253,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.physicalGrade} 
                 onChange={handleChange}
                 className="form-control"
+                style={inputStyle}
+                disabled={!isEditing}
               >
                 <option value="1級">1級</option>
                 <option value="2級">2級</option>
@@ -170,18 +274,21 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 onChange={handleChange}
                 className="form-control"
                 placeholder="例: 視覚、聴覚、肢体不自由など"
+                style={inputStyle}
+                readOnly={!isEditing}
               />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>確認日</label>
-              <div className="date-inputs">
+              <div className="date-inputs" style={{ opacity: isEditing ? 1 : 0.9 }}>
                 <select 
                   value={formData.physicalCertDate.era} 
                   onChange={(e) => handleDateChange('physicalCertDate', 'era', e.target.value)}
                   className="form-control era-select"
-                  style={{ width: '33%' }}
+                  style={{ ...inputStyle, width: '33%' }}
+                  disabled={!isEditing}
                 >
                   <option value="平成">平成</option>
                   <option value="令和">令和</option>
@@ -191,7 +298,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.physicalCertDate.year} 
                   onChange={(e) => handleDateChange('physicalCertDate', 'year', e.target.value)}
                   className="form-control year-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>年</span>
                 <input 
@@ -199,7 +307,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.physicalCertDate.month} 
                   onChange={(e) => handleDateChange('physicalCertDate', 'month', e.target.value)}
                   className="form-control month-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>月</span>
                 <input 
@@ -207,7 +316,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.physicalCertDate.day} 
                   onChange={(e) => handleDateChange('physicalCertDate', 'day', e.target.value)}
                   className="form-control day-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>日</span>
               </div>
@@ -228,6 +338,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.intellectualGrade} 
                 onChange={handleChange}
                 className="form-control"
+                style={inputStyle}
+                disabled={!isEditing}
               >
                 <option value="A">A</option>
                 <option value="B">B</option>
@@ -243,18 +355,21 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 onChange={handleChange}
                 className="form-control"
                 placeholder="必要に応じて入力"
+                style={inputStyle}
+                readOnly={!isEditing}
               />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>確認日</label>
-              <div className="date-inputs">
+              <div className="date-inputs" style={{ opacity: isEditing ? 1 : 0.9 }}>
                 <select 
                   value={formData.intellectualCertDate.era} 
                   onChange={(e) => handleDateChange('intellectualCertDate', 'era', e.target.value)}
                   className="form-control era-select"
-                  style={{ width: '33%' }}
+                  style={{ ...inputStyle, width: '33%' }}
+                  disabled={!isEditing}
                 >
                   <option value="平成">平成</option>
                   <option value="令和">令和</option>
@@ -264,7 +379,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.intellectualCertDate.year} 
                   onChange={(e) => handleDateChange('intellectualCertDate', 'year', e.target.value)}
                   className="form-control year-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>年</span>
                 <input 
@@ -272,7 +388,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.intellectualCertDate.month} 
                   onChange={(e) => handleDateChange('intellectualCertDate', 'month', e.target.value)}
                   className="form-control month-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>月</span>
                 <input 
@@ -280,7 +397,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.intellectualCertDate.day} 
                   onChange={(e) => handleDateChange('intellectualCertDate', 'day', e.target.value)}
                   className="form-control day-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>日</span>
               </div>
@@ -301,6 +419,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.mentalGrade} 
                 onChange={handleChange}
                 className="form-control"
+                style={inputStyle}
+                disabled={!isEditing}
               >
                 <option value="1級">1級</option>
                 <option value="2級">2級</option>
@@ -316,18 +436,21 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 onChange={handleChange}
                 className="form-control"
                 placeholder="必要に応じて入力"
+                style={inputStyle}
+                readOnly={!isEditing}
               />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>確認日</label>
-              <div className="date-inputs">
+              <div className="date-inputs" style={{ opacity: isEditing ? 1 : 0.9 }}>
                 <select 
                   value={formData.mentalCertDate.era} 
                   onChange={(e) => handleDateChange('mentalCertDate', 'era', e.target.value)}
                   className="form-control era-select"
-                  style={{ width: '33%' }}
+                  style={{ ...inputStyle, width: '33%' }}
+                  disabled={!isEditing}
                 >
                   <option value="平成">平成</option>
                   <option value="令和">令和</option>
@@ -337,7 +460,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.mentalCertDate.year} 
                   onChange={(e) => handleDateChange('mentalCertDate', 'year', e.target.value)}
                   className="form-control year-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>年</span>
                 <input 
@@ -345,7 +469,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.mentalCertDate.month} 
                   onChange={(e) => handleDateChange('mentalCertDate', 'month', e.target.value)}
                   className="form-control month-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>月</span>
                 <input 
@@ -353,7 +478,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                   value={formData.mentalCertDate.day} 
                   onChange={(e) => handleDateChange('mentalCertDate', 'day', e.target.value)}
                   className="form-control day-input"
-                  style={{ width: '40px' }}
+                  style={{ ...inputStyle, width: '40px' }}
+                  readOnly={!isEditing}
                 />
                 <span>日</span>
               </div>
@@ -374,6 +500,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               value={formData.certificateNumber} 
               onChange={handleChange}
               className="form-control"
+              style={inputStyle}
+              readOnly={!isEditing}
             />
           </div>
           <div className="form-group" style={{ width: '66.7%' }}>
@@ -383,6 +511,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
               value={formData.certificateIssuer} 
               onChange={handleChange}
               className="form-control"
+              style={inputStyle}
+              disabled={!isEditing}
             >
               {prefectures.map(prefecture => (
                 <option key={prefecture} value={prefecture}>{prefecture}</option>
@@ -393,12 +523,13 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         <div className="form-row">
           <div className="form-group">
             <label>有効期限</label>
-            <div className="date-inputs">
+            <div className="date-inputs" style={{ opacity: isEditing ? 1 : 0.9 }}>
               <select 
                 value={formData.certificateExpiry.era} 
                 onChange={(e) => handleDateChange('certificateExpiry', 'era', e.target.value)}
                 className="form-control era-select"
-                style={{ width: '33%' }}
+                style={{ ...inputStyle, width: '33%' }}
+                disabled={!isEditing}
               >
                 <option value="平成">平成</option>
                 <option value="令和">令和</option>
@@ -408,7 +539,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.certificateExpiry.year} 
                 onChange={(e) => handleDateChange('certificateExpiry', 'year', e.target.value)}
                 className="form-control year-input"
-                style={{ width: '40px' }}
+                style={{ ...inputStyle, width: '40px' }}
+                readOnly={!isEditing}
               />
               <span>年</span>
               <input 
@@ -416,7 +548,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.certificateExpiry.month} 
                 onChange={(e) => handleDateChange('certificateExpiry', 'month', e.target.value)}
                 className="form-control month-input"
-                style={{ width: '40px' }}
+                style={{ ...inputStyle, width: '40px' }}
+                readOnly={!isEditing}
               />
               <span>月</span>
               <input 
@@ -424,7 +557,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.certificateExpiry.day} 
                 onChange={(e) => handleDateChange('certificateExpiry', 'day', e.target.value)}
                 className="form-control day-input"
-                style={{ width: '40px' }}
+                style={{ ...inputStyle, width: '40px' }}
+                readOnly={!isEditing}
               />
               <span>日</span>
             </div>
@@ -433,12 +567,13 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         <div className="form-row">
           <div className="form-group">
             <label>等級等変更年月日</label>
-            <div className="date-inputs">
+            <div className="date-inputs" style={{ opacity: isEditing ? 1 : 0.9 }}>
               <select 
                 value={formData.certificateRenewal.era} 
                 onChange={(e) => handleDateChange('certificateRenewal', 'era', e.target.value)}
                 className="form-control era-select"
-                style={{ width: '33%' }}
+                style={{ ...inputStyle, width: '33%' }}
+                disabled={!isEditing}
               >
                 <option value="平成">平成</option>
                 <option value="令和">令和</option>
@@ -448,7 +583,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.certificateRenewal.year} 
                 onChange={(e) => handleDateChange('certificateRenewal', 'year', e.target.value)}
                 className="form-control year-input"
-                style={{ width: '40px' }}
+                style={{ ...inputStyle, width: '40px' }}
+                readOnly={!isEditing}
               />
               <span>年</span>
               <input 
@@ -456,7 +592,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.certificateRenewal.month} 
                 onChange={(e) => handleDateChange('certificateRenewal', 'month', e.target.value)}
                 className="form-control month-input"
-                style={{ width: '40px' }}
+                style={{ ...inputStyle, width: '40px' }}
+                readOnly={!isEditing}
               />
               <span>月</span>
               <input 
@@ -464,7 +601,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
                 value={formData.certificateRenewal.day} 
                 onChange={(e) => handleDateChange('certificateRenewal', 'day', e.target.value)}
                 className="form-control day-input"
-                style={{ width: '40px' }}
+                style={{ ...inputStyle, width: '40px' }}
+                readOnly={!isEditing}
               />
               <span>日</span>
             </div>
@@ -483,6 +621,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             onChange={handleChange}
             className="form-control textarea-field"
             rows={3}
+            style={textareaStyle}
+            readOnly={!isEditing}
           />
         </div>
         <div className="form-group">
@@ -493,6 +633,8 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             onChange={handleChange}
             className="form-control textarea-field"
             rows={3}
+            style={textareaStyle}
+            readOnly={!isEditing}
           />
         </div>
       </div>
