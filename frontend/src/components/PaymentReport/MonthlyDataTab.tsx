@@ -31,7 +31,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
       const employmentRate = (item.disabledEmployees / item.employees) * 100;
       
       // 必要雇用数 = 常用労働者数 * 法定雇用率 / 100
-      const requiredEmployees = (item.employees * LEGAL_EMPLOYMENT_RATE) / 100;
+      const requiredEmployees = Math.floor(item.employees * LEGAL_EMPLOYMENT_RATE / 100);
       
       // 超過・未達 = 障害者雇用数 - 必要雇用数
       const difference = item.disabledEmployees - requiredEmployees;
@@ -45,7 +45,6 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
       return {
         ...item,
         employmentRate,
-        legalRate: LEGAL_EMPLOYMENT_RATE,
         requiredEmployees,
         difference,
         payment
@@ -57,158 +56,220 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
   const totals = useMemo(() => {
     const totalEmployees = monthlyData.reduce((sum, item) => sum + item.employees, 0);
     const totalDisabled = monthlyData.reduce((sum, item) => sum + item.disabledEmployees, 0);
-    const avgEmployees = totalEmployees / monthlyData.length;
-    const avgDisabled = totalDisabled / monthlyData.length;
     
-    // 年間平均の実雇用率
-    const avgEmploymentRate = (avgDisabled / avgEmployees) * 100;
-    
-    // 年間平均の必要雇用数
-    const avgRequiredEmployees = (avgEmployees * LEGAL_EMPLOYMENT_RATE) / 100;
-    
-    // 超過・未達
-    const avgDifference = avgDisabled - avgRequiredEmployees;
-    
-    // 年間の調整金・納付金
+    const totalRequiredEmployees = calculatedData.reduce((sum, item) => sum + item.requiredEmployees, 0);
+    const totalDifference = totalDisabled - totalRequiredEmployees;
     const totalPayment = calculatedData.reduce((sum, item) => sum + item.payment, 0);
     
     return {
-      avgEmployees,
-      avgDisabled,
-      avgEmploymentRate,
-      legalRate: LEGAL_EMPLOYMENT_RATE,
-      avgRequiredEmployees,
-      avgDifference,
+      totalEmployees,
+      totalDisabled,
+      totalRequiredEmployees,
+      totalDifference,
       totalPayment
     };
   }, [calculatedData, monthlyData]);
   
-  // 金額の表示フォーマット（単位なし）
-  const formatNumber = (num: number, decimals = 0) => {
-    return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  };
-  
-  // 調整金・納付金の表示色
-  const getPaymentColor = (amount: number) => {
-    return amount >= 0 ? '#28a745' : '#dc3545';
+  // 金額の表示フォーマット
+  const formatNumber = (num: number) => {
+    return num.toLocaleString();
   };
 
   return (
-    <div className="table-container" style={{ overflowX: 'auto' }}>
-      <h3 className="tab-title">月別データ ({fiscalYear})</h3>
-      <table className="data-table" style={{ minWidth: '1200px' }}>
-        <thead>
-          <tr>
-            <th>項目</th>
-            {monthlyData.map((item, index) => (
-              <th key={index}>{item.month}</th>
-            ))}
-            <th>年間平均</th>
-          </tr>
-        </thead>
-        <tbody>
-          {/* 常用労働者数 */}
-          <tr>
-            <td>常用労働者数(人)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index}>{formatNumber(item.employees)}</td>
-            ))}
-            <td><strong>{formatNumber(totals.avgEmployees, 1)}</strong></td>
-          </tr>
-          
-          {/* 障害者雇用数 */}
-          <tr>
-            <td>障害者雇用数(人)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index}>{formatNumber(item.disabledEmployees)}</td>
-            ))}
-            <td><strong>{formatNumber(totals.avgDisabled, 1)}</strong></td>
-          </tr>
-          
-          {/* 実雇用率 */}
-          <tr>
-            <td>実雇用率(%)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index}>{formatNumber(item.employmentRate, 2)}</td>
-            ))}
-            <td><strong>{formatNumber(totals.avgEmploymentRate, 2)}</strong></td>
-          </tr>
-          
-          {/* 法定雇用率 */}
-          <tr>
-            <td>法定雇用率(%)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index}>{LEGAL_EMPLOYMENT_RATE.toFixed(1)}</td>
-            ))}
-            <td><strong>{LEGAL_EMPLOYMENT_RATE.toFixed(1)}</strong></td>
-          </tr>
-          
-          {/* 必要雇用数 */}
-          <tr>
-            <td>必要雇用数(人)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index}>{formatNumber(item.requiredEmployees, 1)}</td>
-            ))}
-            <td><strong>{formatNumber(totals.avgRequiredEmployees, 1)}</strong></td>
-          </tr>
-          
-          {/* 超過・未達 */}
-          <tr>
-            <td>超過・未達(人)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index}>{item.difference >= 0 ? '+' : ''}{formatNumber(item.difference, 1)}</td>
-            ))}
-            <td><strong>{totals.avgDifference >= 0 ? '+' : ''}{formatNumber(totals.avgDifference, 1)}</strong></td>
-          </tr>
-          
-          {/* 調整金・納付金 */}
-          <tr>
-            <td>調整金・納付金(円)</td>
-            {calculatedData.map((item, index) => (
-              <td key={index} style={{ color: getPaymentColor(item.payment) }}>
-                {item.payment < 0 ? '-' : ''}{formatNumber(Math.abs(item.payment))}
-              </td>
-            ))}
-            <td style={{ color: getPaymentColor(totals.totalPayment) }}>
-              <strong>
-                {totals.totalPayment < 0 ? '-' : ''}{formatNumber(Math.abs(totals.totalPayment))}
-              </strong>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      
-      {/* 分析またはグラフセクション */}
-      <div className="analysis-section" style={{ marginTop: '30px' }}>
-        <h4>分析</h4>
-        <div className="analysis-card" style={{ 
-          backgroundColor: '#f8f9fa', 
-          padding: '15px', 
-          borderRadius: '5px',
-          border: '1px solid #dee2e6'
-        }}>
-          <p>
-            <strong>年間平均実雇用率: </strong> 
-            {formatNumber(totals.avgEmploymentRate, 2)}%
-            {totals.avgEmploymentRate >= LEGAL_EMPLOYMENT_RATE 
-              ? ' (法定雇用率達成)' 
-              : ' (法定雇用率未達成)'
-            }
-          </p>
-          <p>
-            <strong>年間平均超過・未達: </strong>
-            {totals.avgDifference >= 0 ? '+' : ''}{formatNumber(totals.avgDifference, 1)}人
-          </p>
-          <p>
-            <strong>年間推定調整金・納付金額: </strong>
-            <span style={{ color: getPaymentColor(totals.totalPayment) }}>
-              {totals.totalPayment < 0 ? '-' : ''}{formatNumber(Math.abs(totals.totalPayment))}円
-            </span>
-          </p>
-          <div style={{ marginTop: '10px', fontSize: '14px', color: '#6c757d' }}>
-            注: この分析は概算であり、実際の申告額とは異なる場合があります。
-          </div>
+    <div style={{ padding: '0', marginTop: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <div>
+          <label style={{ marginRight: '6px', fontSize: '14px' }}>対象月:</label>
+          <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '14px' }}>
+            <option value="2024年">2024年</option>
+            <option value="2025年">2025年</option>
+          </select>
+          <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '14px' }}>
+            <option value="4月">4月</option>
+            <option value="5月">5月</option>
+            <option value="6月">6月</option>
+            <option value="7月">7月</option>
+            <option value="8月">8月</option>
+            <option value="9月">9月</option>
+            <option value="10月">10月</option>
+            <option value="11月">11月</option>
+            <option value="12月">12月</option>
+            <option value="1月">1月</option>
+            <option value="2月">2月</option>
+            <option value="3月">3月</option>
+          </select>
+          <button style={{ 
+            backgroundColor: '#4a77e5', 
+            color: 'white', 
+            padding: '4px 16px', 
+            border: 'none', 
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}>
+            表示
+          </button>
         </div>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #dee2e6' }}>
+              <th style={{ 
+                padding: '6px 4px', 
+                textAlign: 'left', 
+                fontWeight: 'normal', 
+                backgroundColor: '#f8f9fa', 
+                borderBottom: '1px solid #dee2e6', 
+                whiteSpace: 'nowrap',
+                width: '150px'
+              }}>項目</th>
+              {monthlyData.map((item) => (
+                <th key={item.month} style={{ 
+                  padding: '6px 4px', 
+                  textAlign: 'center', 
+                  fontWeight: 'normal', 
+                  backgroundColor: '#f8f9fa', 
+                  borderBottom: '1px solid #dee2e6', 
+                  whiteSpace: 'nowrap' 
+                }}>
+                  {item.month}
+                </th>
+              ))}
+              <th style={{ 
+                padding: '6px 4px', 
+                textAlign: 'center', 
+                fontWeight: 'normal', 
+                backgroundColor: '#f8f9fa', 
+                borderBottom: '1px solid #dee2e6', 
+                whiteSpace: 'nowrap' 
+              }}>
+                合計
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'left', 
+                fontWeight: 'normal', 
+                backgroundColor: '#f8f9fa', 
+                borderBottom: '1px solid #dee2e6' 
+              }}>
+                常用労働者数(人)
+              </td>
+              {calculatedData.map((item, index) => (
+                <td key={index} style={{ 
+                  padding: '6px 4px', 
+                  textAlign: 'center', 
+                  borderBottom: '1px solid #dee2e6' 
+                }}>
+                  {formatNumber(item.employees)}
+                </td>
+              ))}
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'center', 
+                borderBottom: '1px solid #dee2e6', 
+                fontWeight: 'bold' 
+              }}>
+                {formatNumber(totals.totalEmployees)}
+              </td>
+            </tr>
+            
+            <tr>
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'left', 
+                fontWeight: 'normal', 
+                backgroundColor: '#f8f9fa', 
+                borderBottom: '1px solid #dee2e6' 
+              }}>
+                障がい者雇用者数(人)
+              </td>
+              {calculatedData.map((item, index) => (
+                <td key={index} style={{ 
+                  padding: '6px 4px', 
+                  textAlign: 'center', 
+                  borderBottom: '1px solid #dee2e6' 
+                }}>
+                  {item.disabledEmployees}
+                </td>
+              ))}
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'center', 
+                borderBottom: '1px solid #dee2e6', 
+                fontWeight: 'bold' 
+              }}>
+                {totals.totalDisabled}
+              </td>
+            </tr>
+            
+            <tr>
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'left', 
+                fontWeight: 'normal', 
+                backgroundColor: '#f8f9fa', 
+                borderBottom: '1px solid #dee2e6' 
+              }}>
+                超過・未達(人)
+              </td>
+              {calculatedData.map((item, index) => (
+                <td key={index} style={{ 
+                  padding: '6px 4px', 
+                  textAlign: 'center', 
+                  borderBottom: '1px solid #dee2e6',
+                  color: item.difference < 0 ? '#dc3545' : 'inherit'
+                }}>
+                  {item.difference > 0 ? '+' + item.difference : item.difference}
+                </td>
+              ))}
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'center', 
+                borderBottom: '1px solid #dee2e6', 
+                fontWeight: 'bold',
+                color: totals.totalDifference < 0 ? '#dc3545' : 'inherit'
+              }}>
+                {totals.totalDifference > 0 ? '+' + totals.totalDifference : totals.totalDifference}
+              </td>
+            </tr>
+            
+            <tr>
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'left', 
+                fontWeight: 'normal', 
+                backgroundColor: '#f8f9fa', 
+                borderBottom: '1px solid #dee2e6' 
+              }}>
+                調整金・納付金(円)
+              </td>
+              {calculatedData.map((item, index) => (
+                <td key={index} style={{ 
+                  padding: '6px 4px', 
+                  textAlign: 'center', 
+                  borderBottom: '1px solid #dee2e6',
+                  color: item.payment < 0 ? '#dc3545' : '#28a745'
+                }}>
+                  {formatNumber(item.payment)}
+                </td>
+              ))}
+              <td style={{ 
+                padding: '6px 4px', 
+                textAlign: 'center', 
+                borderBottom: '1px solid #dee2e6', 
+                fontWeight: 'bold',
+                color: totals.totalPayment < 0 ? '#dc3545' : '#28a745'
+              }}>
+                {formatNumber(totals.totalPayment)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
