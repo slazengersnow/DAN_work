@@ -1,5 +1,3 @@
-// PaymentCalculation.tsx
-
 import React, { useMemo } from 'react';
 
 interface PaymentCalculationProps {

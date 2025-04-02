@@ -1,5 +1,3 @@
-// PaymentInfoForm.tsx
-
 import React from 'react';
 
 interface PaymentInfoFormProps {

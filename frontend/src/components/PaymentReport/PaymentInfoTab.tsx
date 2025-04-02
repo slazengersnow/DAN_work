@@ -1,5 +1,3 @@
-//PaymentInfoTab.tsx 
-
 import React, { useState } from 'react';
 import PaymentInfoForm from './PaymentInfoForm';
 import PaymentCalculation from './PaymentCalculation';

@@ -1,5 +1,3 @@
-//MonthlyDataTab.tsx
-
 import React, { useState, useMemo } from 'react';
 
 interface MonthlyDataTabProps {

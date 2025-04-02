@@ -1,4 +1,3 @@
-// App.tsx
 import React from 'react';
 import {
    BrowserRouter as Router,
@@ -64,7 +63,9 @@ const App: React.FC = () => {
             <Route path="/monthly-report/:id" element={<MonthlyReportDetail />} />
             <Route path="/monthly-report" element={<MonthlyReport />} />
             
-            <Route path="/payment-report" element={<PaymentReport />} />
+            {/* 納付金報告書 - シンプルに単一のルートとして定義 */}
+            <Route path="/payment-report/*" element={<PaymentReport />} />
+            
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Route>
