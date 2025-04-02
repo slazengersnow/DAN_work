@@ -77,42 +77,40 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
 
   return (
     <div style={{ padding: '0', marginTop: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <div>
-          <label style={{ marginRight: '6px', fontSize: '14px' }}>対象月:</label>
-          <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '14px' }}>
-            <option value="2024年">2024年</option>
-            <option value="2025年">2025年</option>
-          </select>
-          <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '14px' }}>
-            <option value="4月">4月</option>
-            <option value="5月">5月</option>
-            <option value="6月">6月</option>
-            <option value="7月">7月</option>
-            <option value="8月">8月</option>
-            <option value="9月">9月</option>
-            <option value="10月">10月</option>
-            <option value="11月">11月</option>
-            <option value="12月">12月</option>
-            <option value="1月">1月</option>
-            <option value="2月">2月</option>
-            <option value="3月">3月</option>
-          </select>
-          <button style={{ 
-            backgroundColor: '#4a77e5', 
-            color: 'white', 
-            padding: '4px 16px', 
-            border: 'none', 
-            borderRadius: '4px',
-            fontSize: '14px'
-          }}>
-            表示
-          </button>
-        </div>
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ marginRight: '6px', fontSize: '16px' }}>対象月:</label>
+        <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}>
+          <option value="2024年">2024年</option>
+          <option value="2025年">2025年</option>
+        </select>
+        <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}>
+          <option value="4月">4月</option>
+          <option value="5月">5月</option>
+          <option value="6月">6月</option>
+          <option value="7月">7月</option>
+          <option value="8月">8月</option>
+          <option value="9月">9月</option>
+          <option value="10月">10月</option>
+          <option value="11月">11月</option>
+          <option value="12月">12月</option>
+          <option value="1月">1月</option>
+          <option value="2月">2月</option>
+          <option value="3月">3月</option>
+        </select>
+        <button style={{ 
+          backgroundColor: '#4a77e5', 
+          color: 'white', 
+          padding: '4px 16px', 
+          border: 'none', 
+          borderRadius: '4px',
+          fontSize: '16px'
+        }}>
+          表示
+        </button>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #dee2e6' }}>
               <th style={{ 
