@@ -14,7 +14,7 @@ import EmployeeDetailPage from './pages/EmployeeDetailPage';
 // 明示的なパスでインポート
 import MonthlyReport from './pages/MonthlyReport/index';
 import MonthlyReportDetail from './pages/MonthlyReport/MonthlyReportDetail';
-import PaymentReport from './pages/PaymentReport';
+import PaymentReport from './components/PaymentReport/PaymentReport';
 import Settings from './pages/Settings';
 import './App.css';
 
