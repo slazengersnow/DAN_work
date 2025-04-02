@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef, useCallback, ChangeEvent, KeyboardEvent } from 'react';
 import { TabProps } from '../../types/Employee';
 
-const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
+const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate, isEditing = false }) => {
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
   const [laborTimeChange, setLaborTimeChange] = useState<string>('なし');
-  const [isEditing, setIsEditing] = useState<boolean>(false);
+    
   
   // 初期値の設定（実際のデータがない場合はデフォルト値を使用）
   const defaultMonthlyData = {
@@ -47,28 +47,24 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
   };
 
   // 編集モード切り替え
-  const toggleEditMode = () => {
-    setIsEditing(prev => !prev);
-    // 編集モードを解除するときはアクティブセルもリセット
-    if (isEditing) {
+  const prevIsEditingRef = useRef(isEditing);
+  
+  useEffect(() => {
+    // 編集モードが終了した時にデータを保存
+    if (!isEditing && prevIsEditingRef.current) {
+      // 親コンポーネントにデータ更新を通知
+      onUpdate({ monthlyData: monthlyData });
+    }
+    
+    // 編集モードが変更されたときにリセット
+    if (!isEditing && prevIsEditingRef.current) {
       setActiveCell({row: null, col: null});
       setEditingRow(null);
       setEditingCol(null);
     }
-  };
-
-  // 保存ボタンのハンドラー
-  const handleSave = () => {
-    // 親コンポーネントにデータ更新を通知
-    onUpdate({ monthlyData: monthlyData });
-    // 編集モードを解除
-    setIsEditing(false);
-    setActiveCell({row: null, col: null});
-    setEditingRow(null);
-    setEditingCol(null);
     
-    alert('データを保存しました');
-  };
+    prevIsEditingRef.current = isEditing;
+  }, [isEditing, monthlyData, onUpdate]);
 
   // セルクリック時のハンドラー
   const handleCellClick = (rowId: string, colIndex: number) => {
@@ -277,40 +273,6 @@ const MonthlyInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
       <div className="labor-hours-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <h3 className="section-title" style={{ margin: 0 }}>労働時間</h3>
-          
-          {/* 編集ボタンと保存ボタン */}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              type="button"
-              onClick={toggleEditMode}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              {isEditing ? '編集中止' : '編集'}
-            </button>
-            
-            <button 
-              type="button"
-              onClick={handleSave}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: '#3a66d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                display: isEditing ? 'block' : 'none'
-              }}
-            >
-              保存
-            </button>
-          </div>
         </div>
         
         <div className="monthly-table-container" style={{ 

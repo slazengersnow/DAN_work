@@ -1,9 +1,10 @@
 // frontend/src/components/employee-tabs/BasicInfo.tsx
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { TabProps, EraType } from '../../types/Employee';
 
-const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState<boolean>(false);
+// 従業員基本情報コンポーネント
+const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate, isEditing = false }) => {
+  // フォームデータの初期状態を設定
   const [formData, setFormData] = useState({
     // 基本情報
     name: employeeData.name || '',
@@ -39,20 +40,19 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     supervisorPhone: employeeData.supervisorPhone || '',
   });
 
-  // 編集モード切り替え
-  const toggleEditMode = () => {
-    setIsEditing(prev => !prev);
-  };
+  // 編集状態の変更を追跡するための参照
+  const prevIsEditingRef = useRef(isEditing);
+  
+  // 編集モードが変更されたときにデータを更新
+  useEffect(() => {
+    // 編集モードが終了した時にデータを保存
+    if (!isEditing && prevIsEditingRef.current) {
+      onUpdate(formData);
+    }
+    prevIsEditingRef.current = isEditing;
+  }, [isEditing, formData, onUpdate]);
 
-  // 保存ボタンのハンドラー
-  const handleSave = () => {
-    // 親コンポーネントにデータ更新を通知
-    onUpdate(formData);
-    setIsEditing(false);
-    alert('データを保存しました');
-  };
-
-  // フォーム入力の変更処理
+  // 通常の入力フィールド（テキスト、選択）の変更ハンドラ
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -61,7 +61,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     }));
   };
 
-  // 日付入力の変更処理
+  // 日付入力の変更ハンドラ（生年月日など）
   const handleDateChange = (dateType: string, field: string, value: string): void => {
     setFormData(prev => ({
       ...prev,
@@ -70,22 +70,13 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         [field]: value
       }
     }));
-    
-    // 生年月日のフィールド名を変換して親コンポーネントに通知用に準備
-    const fieldMapping: Record<string, string> = {
-      'era': 'eraType',
-      'year': 'birthYear',
-      'month': 'birthMonth',
-      'day': 'birthDay',
-    };
   };
 
-  // 電話番号フィールドスタイル（再利用）
+  // スタイル定義
   const phoneFieldStyle = {
-    width: '50%' // 連絡先情報の電話番号と同じサイズ
+    width: '50%'
   };
 
-  // 入力フィールドの共通スタイル - セレクトスタイルを削除
   const inputStyle = {
     padding: '6px 8px',
     borderRadius: '4px',
@@ -94,52 +85,13 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     width: '100%'
   };
 
-  // テキストエリアの共通スタイル
-  const textareaStyle = {
-    ...inputStyle,
-    minHeight: '80px',
-    resize: 'vertical' as const
-  };
-
   return (
     <div className="basic-info-tab">
-      {/* 編集ボタンと保存ボタン */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
-        <button 
-          type="button"
-          onClick={toggleEditMode}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          {isEditing ? '編集中止' : '編集'}
-        </button>
-        
-        <button 
-          type="button"
-          onClick={handleSave}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#3a66d4',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            display: isEditing ? 'block' : 'none'
-          }}
-        >
-          保存
-        </button>
-      </div>
-
-      {/* 基本情報 */}
+      {/* 基本情報セクション */}
       <div className="form-section">
         <h3 className="section-title">基本情報</h3>
+        
+        {/* 氏名とフリガナ */}
         <div className="form-row">
           <div className="form-group">
             <label>氏名</label>
@@ -166,6 +118,8 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             />
           </div>
         </div>
+
+        {/* 性別と生年月日 */}
         <div className="form-row">
           <div className="form-group" style={{ width: '50%' }}>
             <label>性別</label>
@@ -233,6 +187,8 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             </div>
           </div>
         </div>
+
+        {/* 部署と職位 */}
         <div className="form-row">
           <div className="form-group">
             <label>部署</label>
@@ -261,7 +217,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         </div>
       </div>
 
-      {/* 連絡先情報 */}
+      {/* 連絡先情報セクション */}
       <div className="form-section">
         <h3 className="section-title">連絡先情報</h3>
         <div className="form-group full-width">
@@ -304,7 +260,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         </div>
       </div>
 
-      {/* 緊急連絡先情報 */}
+      {/* 緊急連絡先セクション */}
       <div className="form-section">
         <h3 className="section-title">緊急連絡先</h3>
         <div className="form-row">
@@ -352,7 +308,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         </div>
       </div>
 
-      {/* 責任者情報 */}
+      {/* 責任者情報セクション */}
       <div className="form-section">
         <h3 className="section-title">責任者情報</h3>
         <div className="form-row">
@@ -400,7 +356,7 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
         </div>
       </div>
 
-      {/* 例外事由 */}
+      {/* 例外事由セクション */}
       <div className="form-section">
         <h3 className="section-title">例外事由</h3>
         <div className="form-group full-width">
@@ -410,7 +366,15 @@ const BasicInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             onChange={handleChange}
             className="textarea-field"
             placeholder="例外事由を入力してください"
-            style={textareaStyle}
+            style={{
+              padding: '6px 8px',
+              borderRadius: '4px',
+              border: isEditing ? '1px solid #ddd' : '1px solid transparent',
+              backgroundColor: isEditing ? 'white' : '#f8f9fa',
+              width: '100%',
+              minHeight: '80px',
+              resize: 'vertical'
+            }}
             readOnly={!isEditing}
           />
         </div>

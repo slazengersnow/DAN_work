@@ -1,9 +1,8 @@
 // frontend/src/components/employee-tabs/EmploymentInfo.tsx
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState, ChangeEvent, useRef, useEffect } from 'react';
 import { TabProps, EraType } from '../../types/Employee';
 
-const EmploymentInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState<boolean>(false);
+const EmploymentInfo: React.FC<TabProps> = ({ employeeData, onUpdate, isEditing = false }) => {
   const [formData, setFormData] = useState({
     // 雇用基本情報
     employmentType: employeeData.employmentType || '正社員',
@@ -44,49 +43,47 @@ const EmploymentInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     workDaysPerWeek: employeeData.workDaysPerWeek || '5日'
   });
 
-  // 編集モード切り替え
-  const toggleEditMode = () => {
-    setIsEditing(prev => !prev);
-  };
-
-  // 保存ボタンのハンドラー
-  const handleSave = () => {
-    // 平坦化されたデータオブジェクトを作成
-    const updatedData = {
-      employmentType: formData.employmentType,
-      countValue: formData.countValue,
-      status: formData.status,
-      department: formData.department,
-      position: formData.position,
-      jobDescription: formData.jobDescription,
-      previousWorkplace: formData.previousWorkplace,
-      nextWorkplace: formData.nextWorkplace,
-      workHours: formData.workHours,
-      breakTime: formData.breakTime,
-      workingHours: formData.workingHours,
-      workDaysPerWeek: formData.workDaysPerWeek,
+  // データ変更時に親コンポーネントに通知するための参照
+  const prevIsEditingRef = useRef(isEditing);
+  
+  useEffect(() => {
+    // 編集モードが終了した時にデータを保存
+    if (!isEditing && prevIsEditingRef.current) {
+      // 平坦化されたデータオブジェクトを作成
+      const updatedData = {
+        employmentType: formData.employmentType,
+        countValue: formData.countValue,
+        status: formData.status,
+        department: formData.department,
+        position: formData.position,
+        jobDescription: formData.jobDescription,
+        previousWorkplace: formData.previousWorkplace,
+        nextWorkplace: formData.nextWorkplace,
+        workHours: formData.workHours,
+        breakTime: formData.breakTime,
+        workingHours: formData.workingHours,
+        workDaysPerWeek: formData.workDaysPerWeek,
+        
+        // 日付関連のフィールドを平坦化
+        hireDateEra: formData.hireDate.era,
+        hireDateYear: formData.hireDate.year,
+        hireDateMonth: formData.hireDate.month,
+        hireDateDay: formData.hireDate.day,
+        transferInDateEra: formData.transferInDate.era,
+        transferInDateYear: formData.transferInDate.year,
+        transferInDateMonth: formData.transferInDate.month,
+        transferInDateDay: formData.transferInDate.day,
+        transferOutDateEra: formData.transferOutDate.era,
+        transferOutDateYear: formData.transferOutDate.year,
+        transferOutDateMonth: formData.transferOutDate.month,
+        transferOutDateDay: formData.transferOutDate.day
+      };
       
-      // 日付関連のフィールドを平坦化
-      hireDateEra: formData.hireDate.era,
-      hireDateYear: formData.hireDate.year,
-      hireDateMonth: formData.hireDate.month,
-      hireDateDay: formData.hireDate.day,
-      transferInDateEra: formData.transferInDate.era,
-      transferInDateYear: formData.transferInDate.year,
-      transferInDateMonth: formData.transferInDate.month,
-      transferInDateDay: formData.transferInDate.day,
-      transferOutDateEra: formData.transferOutDate.era,
-      transferOutDateYear: formData.transferOutDate.year,
-      transferOutDateMonth: formData.transferOutDate.month,
-      transferOutDateDay: formData.transferOutDate.day
-    };
-    
-    // 親コンポーネントにデータ更新を通知
-    onUpdate(updatedData);
-    
-    setIsEditing(false);
-    alert('データを保存しました');
-  };
+      // 親コンポーネントにデータ更新を通知
+      onUpdate(updatedData);
+    }
+    prevIsEditingRef.current = isEditing;
+  }, [isEditing, formData, onUpdate]);
 
   // フォーム入力の変更処理
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
@@ -119,40 +116,6 @@ const EmploymentInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
 
   return (
     <div className="employment-info-tab">
-      {/* 編集ボタンと保存ボタン */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
-        <button 
-          type="button"
-          onClick={toggleEditMode}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          {isEditing ? '編集中止' : '編集'}
-        </button>
-        
-        <button 
-          type="button"
-          onClick={handleSave}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#3a66d4',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            display: isEditing ? 'block' : 'none'
-          }}
-        >
-          保存
-        </button>
-      </div>
-
       {/* 雇用基本情報 */}
       <div className="employment-basic-info">
         <h3 className="section-title">雇用基本情報</h3>

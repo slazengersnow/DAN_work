@@ -1,5 +1,5 @@
 // frontend/src/components/employee-tabs/DisabilityInfo.tsx
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState, ChangeEvent, useRef, useEffect } from 'react';
 import { TabProps, EraType } from '../../types/Employee';
 
 // 47都道府県リスト
@@ -13,8 +13,7 @@ const prefectures = [
   '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
 ];
 
-const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState<boolean>(false);
+const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate, isEditing = false }) => {
   const [disabilityType, setDisabilityType] = useState(employeeData.disabilityType || '身体障害');
   const [formData, setFormData] = useState({
     // 身体障害情報
@@ -68,43 +67,41 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     workplaceConsiderations: employeeData.workplaceConsiderations || '画面拡大ソフトの使用、照明の調整が必要'
   });
 
-  // 編集モード切り替え
-  const toggleEditMode = () => {
-    setIsEditing(prev => !prev);
-  };
-
-  // 保存ボタンのハンドラー
-  const handleSave = () => {
-    // 親コンポーネントにデータ更新を通知
-    onUpdate({
-      disabilityType,
-      ...formData,
-      // 日付関連のフィールドを平坦化
-      physicalCertDateEra: formData.physicalCertDate.era,
-      physicalCertDateYear: formData.physicalCertDate.year,
-      physicalCertDateMonth: formData.physicalCertDate.month,
-      physicalCertDateDay: formData.physicalCertDate.day,
-      intellectualCertDateEra: formData.intellectualCertDate.era,
-      intellectualCertDateYear: formData.intellectualCertDate.year,
-      intellectualCertDateMonth: formData.intellectualCertDate.month,
-      intellectualCertDateDay: formData.intellectualCertDate.day,
-      mentalCertDateEra: formData.mentalCertDate.era,
-      mentalCertDateYear: formData.mentalCertDate.year,
-      mentalCertDateMonth: formData.mentalCertDate.month,
-      mentalCertDateDay: formData.mentalCertDate.day,
-      certificateExpiryEra: formData.certificateExpiry.era,
-      certificateExpiryYear: formData.certificateExpiry.year,
-      certificateExpiryMonth: formData.certificateExpiry.month,
-      certificateExpiryDay: formData.certificateExpiry.day,
-      certificateRenewalEra: formData.certificateRenewal.era,
-      certificateRenewalYear: formData.certificateRenewal.year,
-      certificateRenewalMonth: formData.certificateRenewal.month,
-      certificateRenewalDay: formData.certificateRenewal.day,
-    });
-    
-    setIsEditing(false);
-    alert('データを保存しました');
-  };
+  // データ変更時に親コンポーネントに通知するための参照
+  const prevIsEditingRef = useRef(isEditing);
+  
+  useEffect(() => {
+    // 編集モードが終了した時にデータを保存
+    if (!isEditing && prevIsEditingRef.current) {
+      // 親コンポーネントにデータ更新を通知
+      onUpdate({
+        disabilityType,
+        ...formData,
+        // 日付関連のフィールドを平坦化
+        physicalCertDateEra: formData.physicalCertDate.era,
+        physicalCertDateYear: formData.physicalCertDate.year,
+        physicalCertDateMonth: formData.physicalCertDate.month,
+        physicalCertDateDay: formData.physicalCertDate.day,
+        intellectualCertDateEra: formData.intellectualCertDate.era,
+        intellectualCertDateYear: formData.intellectualCertDate.year,
+        intellectualCertDateMonth: formData.intellectualCertDate.month,
+        intellectualCertDateDay: formData.intellectualCertDate.day,
+        mentalCertDateEra: formData.mentalCertDate.era,
+        mentalCertDateYear: formData.mentalCertDate.year,
+        mentalCertDateMonth: formData.mentalCertDate.month,
+        mentalCertDateDay: formData.mentalCertDate.day,
+        certificateExpiryEra: formData.certificateExpiry.era,
+        certificateExpiryYear: formData.certificateExpiry.year,
+        certificateExpiryMonth: formData.certificateExpiry.month,
+        certificateExpiryDay: formData.certificateExpiry.day,
+        certificateRenewalEra: formData.certificateRenewal.era,
+        certificateRenewalYear: formData.certificateRenewal.year,
+        certificateRenewalMonth: formData.certificateRenewal.month,
+        certificateRenewalDay: formData.certificateRenewal.day,
+      });
+    }
+    prevIsEditingRef.current = isEditing;
+  }, [isEditing, formData, disabilityType, onUpdate]);
 
   // 障害種別の変更処理
   const handleDisabilityTypeChange = (value: string): void => {
@@ -131,20 +128,13 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
     }));
   };
 
-  // 入力フィールドの共通スタイル - セレクトスタイルを削除
+  // 入力フィールドの共通スタイル
   const inputStyle = {
     padding: '6px 8px',
     borderRadius: '4px',
     border: isEditing ? '1px solid #ddd' : '1px solid transparent',
     backgroundColor: isEditing ? 'white' : '#f8f9fa',
     width: '100%'
-  };
-
-  // テキストエリアの共通スタイル
-  const textareaStyle = {
-    ...inputStyle,
-    minHeight: '80px',
-    resize: 'vertical' as const
   };
 
   // ラジオボタンスタイル
@@ -165,40 +155,6 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
 
   return (
     <div className="disability-info-tab">
-      {/* 編集ボタンと保存ボタン */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '20px' }}>
-        <button 
-          type="button"
-          onClick={toggleEditMode}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          {isEditing ? '編集中止' : '編集'}
-        </button>
-        
-        <button 
-          type="button"
-          onClick={handleSave}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#3a66d4',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            display: isEditing ? 'block' : 'none'
-          }}
-        >
-          保存
-        </button>
-      </div>
-
       <div className="disability-type-selection">
         <h3 className="section-title">障害種別選択</h3>
         <div className="radio-group">
@@ -621,7 +577,15 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             onChange={handleChange}
             className="form-control textarea-field"
             rows={3}
-            style={textareaStyle}
+            style={{
+              padding: '6px 8px',
+              borderRadius: '4px',
+              border: isEditing ? '1px solid #ddd' : '1px solid transparent',
+              backgroundColor: isEditing ? 'white' : '#f8f9fa',
+              width: '100%',
+              minHeight: '80px',
+              resize: 'vertical'
+            }}
             readOnly={!isEditing}
           />
         </div>
@@ -633,7 +597,15 @@ const DisabilityInfo: React.FC<TabProps> = ({ employeeData, onUpdate }) => {
             onChange={handleChange}
             className="form-control textarea-field"
             rows={3}
-            style={textareaStyle}
+            style={{
+              padding: '6px 8px',
+              borderRadius: '4px',
+              border: isEditing ? '1px solid #ddd' : '1px solid transparent',
+              backgroundColor: isEditing ? 'white' : '#f8f9fa',
+              width: '100%',
+              minHeight: '80px',
+              resize: 'vertical'
+            }}
             readOnly={!isEditing}
           />
         </div>

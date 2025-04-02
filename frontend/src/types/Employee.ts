@@ -169,5 +169,6 @@ export interface EmployeeDetailProps {
 // 各タブのProps型
 export interface TabProps {
   employeeData: Employee;
-  onUpdate: (data: Partial<Employee>) => void;
+  onUpdate: (updatedData: Partial<Employee>) => void;
+  isEditing?: boolean; // isEditing プロパティを追加
 }
