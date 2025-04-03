@@ -1,4 +1,3 @@
-// pages/PaymentReport.tsx
 import React, { useState, useEffect } from 'react';
 
 // 既存のタブコンポーネントをインポート（同じディレクトリにあると仮定）
@@ -9,10 +8,10 @@ import HistoryTab from './HistoryTab';
 const PaymentReport: React.FC = () => {
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
   
-  // URLからタブを取得する関数
+  // URLからタブを取得する関数（デフォルトを'monthly'に変更）
   const getTabFromUrl = () => {
     const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get('tab') || 'history';
+    return searchParams.get('tab') || 'monthly';
   };
   
   // 現在のタブ状態
