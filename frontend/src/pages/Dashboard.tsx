@@ -91,8 +91,8 @@ const Dashboard: React.FC = () => {
       <div className="chart-container">
         <div className="chart-title">雇用率推移と予測</div>
         <div style={{ display: 'flex', gap: '20px' }}>
-          {/* 左側にグラフ */}
-          <div style={{ flex: '1 1 70%' }}>
+          {/* 左側のボックス（グラフ用） - stats-gridと同様の白いボックス */}
+          <div className="stats-card" style={{ flex: '1 1 75%', padding: '15px' }}>
             <svg width="100%" height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="line-chart">
               {/* グラフ上部のラベル */}
               <g>
@@ -227,22 +227,26 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          {/* 右側に予測データ (白い箱) */}
-          <div className="forecast-box">
-            <h3 className="forecast-title">予測データ (3ヶ月後)</h3>
-            <div className="forecast-content">
-              <p className="forecast-date">3ヶ月後 (2025年6月):</p>
-              <div className="forecast-item">
+          {/* 右側のボックス（予測データ用） - stats-cardと同じスタイル、少し大きめ */}
+          <div className="stats-card" style={{ flex: '0 0 25%', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+            <div className="stat-title" style={{ textAlign: 'center', borderBottom: '1px solid #f0f0f0', paddingBottom: '10px', marginBottom: '15px' }}>
+              予測データ (3ヶ月後)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+              <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '15px' }}>
+                3ヶ月後 (2025年6月):
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '10px', padding: '5px 0', borderBottom: '1px dashed #f0f0f0' }}>
                 <span>雇用率:</span>
-                <span className="forecast-value">2.43%</span>
+                <span style={{ fontWeight: '600' }}>2.43%</span>
               </div>
-              <div className="forecast-item">
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '10px', padding: '5px 0', borderBottom: '1px dashed #f0f0f0' }}>
                 <span>障がい者数:</span>
-                <span className="forecast-value">17名</span>
+                <span style={{ fontWeight: '600' }}>17名</span>
               </div>
-              <div className="forecast-item">
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '10px', padding: '5px 0' }}>
                 <span>不足数:</span>
-                <span className="forecast-value negative">-2名</span>
+                <span style={{ fontWeight: '600', color: '#ea4335' }}>-2名</span>
               </div>
             </div>
           </div>
