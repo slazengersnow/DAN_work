@@ -8,12 +8,12 @@ const Dashboard: React.FC = () => {
   const monthsLabels = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
   const actualRates = [1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.35, 2.38, 2.39, 2.41, 2.41, 2.41];
   const legalRate = 2.5;
-  const forecastRates = [2.43, 2.47]; // 3ヶ月後と6ヶ月後
+  const forecastRates = [2.43]; // 3ヶ月後のみ
   
   // グラフのサイズと余白
   const svgWidth = 600;
   const svgHeight = 240;
-  const marginTop = 20;
+  const marginTop = 30; // 上部にラベルを表示するためマージンを増やす
   const marginRight = 20;
   const marginBottom = 40;
   const marginLeft = 40;
@@ -46,8 +46,7 @@ const Dashboard: React.FC = () => {
   
   // 予測データの折れ線のpath
   const forecastLine = `M${getX(actualRates.length - 1, actualRates.length)} ${getY(actualRates[actualRates.length - 1])} 
-    L${getX(actualRates.length + 2, actualRates.length + 5)} ${getY(forecastRates[0])} 
-    L${getX(actualRates.length + 5, actualRates.length + 5)} ${getY(forecastRates[1])}`;
+    L${getX(actualRates.length + 2, actualRates.length + 3)} ${getY(forecastRates[0])}`;
   
   return (
     <div className="page-container">
@@ -89,12 +88,26 @@ const Dashboard: React.FC = () => {
       </div>
       
       {/* 雇用率推移と予測グラフ エリア */}
-      <div className="chart-container chart-with-forecast">
+      <div className="chart-container">
         <div className="chart-title">雇用率推移と予測</div>
-        <div className="chart-forecast-layout">
-          {/* 雇用率推移グラフ - 折れ線グラフ */}
-          <div className="chart-content">
-            <svg width={svgWidth} height={svgHeight} className="line-chart">
+        <div style={{ display: 'flex', gap: '20px' }}>
+          {/* 左側にグラフ */}
+          <div style={{ flex: '1 1 70%' }}>
+            <svg width="100%" height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="line-chart">
+              {/* グラフ上部のラベル */}
+              <g>
+                <rect x={marginLeft + 5} y={5} width={90} height={20} rx={3} fill="#e8f0ff" />
+                <text x={marginLeft + 50} y={19} textAnchor="middle" fontSize="12" fill="#4285f4" fontWeight="600">
+                  実雇用率
+                </text>
+              </g>
+              <g>
+                <rect x={marginLeft + 105} y={5} width={90} height={20} rx={3} fill="#fff7e6" />
+                <text x={marginLeft + 150} y={19} textAnchor="middle" fontSize="12" fill="#fbbc05" fontWeight="600">
+                  法定雇用率
+                </text>
+              </g>
+              
               {/* Y軸のグリッドライン */}
               {[1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2].map((tick, i) => (
                 <g key={`y-tick-${i}`}>
@@ -143,24 +156,15 @@ const Dashboard: React.FC = () => {
                 </text>
               ))}
               
-              {/* 予測期間のラベル */}
+              {/* 予測期間のラベル - 3ヶ月後のみ */}
               <text 
-                x={getX(actualRates.length + 2, actualRates.length + 5)} 
+                x={getX(actualRates.length + 2, actualRates.length + 3)} 
                 y={svgHeight - 10} 
                 textAnchor="middle" 
                 fontSize="11"
                 fill="#34a853"
               >
                 6月
-              </text>
-              <text 
-                x={getX(actualRates.length + 5, actualRates.length + 5)} 
-                y={svgHeight - 10} 
-                textAnchor="middle" 
-                fontSize="11"
-                fill="#34a853"
-              >
-                9月
               </text>
               
               {/* 法定雇用率ライン */}
@@ -172,14 +176,6 @@ const Dashboard: React.FC = () => {
                 stroke="#fbbc05" 
                 strokeWidth="2"
               />
-              <text 
-                x={marginLeft + 5} 
-                y={legalY - 5} 
-                fontSize="11"
-                fill="#fbbc05"
-              >
-                法定雇用率: 2.5%
-              </text>
               
               {/* 実雇用率の折れ線 */}
               <path 
@@ -202,7 +198,7 @@ const Dashboard: React.FC = () => {
                 </circle>
               ))}
               
-              {/* 予測データの点線 */}
+              {/* 予測データの点線 - 3ヶ月後のみ */}
               <path 
                 d={forecastLine} 
                 fill="none" 
@@ -211,35 +207,19 @@ const Dashboard: React.FC = () => {
                 strokeDasharray="5,5"
               />
               
-              {/* 予測データのポイント */}
+              {/* 予測データのポイント - 3ヶ月後のみ */}
               <circle 
-                cx={getX(actualRates.length + 2, actualRates.length + 5)} 
+                cx={getX(actualRates.length + 2, actualRates.length + 3)} 
                 cy={getY(forecastRates[0])} 
                 r="3" 
                 fill="#34a853"
               >
                 <title>{forecastRates[0]}%</title>
               </circle>
-              <circle 
-                cx={getX(actualRates.length + 5, actualRates.length + 5)} 
-                cy={getY(forecastRates[1])} 
-                r="3" 
-                fill="#34a853"
-              >
-                <title>{forecastRates[1]}%</title>
-              </circle>
             </svg>
             
             {/* 凡例 */}
             <div className="chart-legend">
-              <div className="legend-item">
-                <span className="legend-color blue"></span>
-                <span>実雇用率</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-color yellow"></span>
-                <span>法定雇用率</span>
-              </div>
               <div className="legend-item">
                 <span className="legend-color dashed"></span>
                 <span>予測データ</span>
@@ -247,65 +227,26 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          {/* 予測データ - グラフの右側に配置 */}
-          <div className="forecast-data">
-            <div className="forecast-title">予測データ (3ヶ月/6ヶ月後)</div>
+          {/* 右側に予測データ (白い箱) */}
+          <div className="forecast-box">
+            <h3 className="forecast-title">予測データ (3ヶ月後)</h3>
             <div className="forecast-content">
-              <div className="forecast-section">
-                <h4>3ヶ月後 (2025年6月):</h4>
-                <ul>
-                  <li>雇用率: 2.43%</li>
-                  <li>障がい者数: 17名</li>
-                  <li className="negative">不足数: -2名</li>
-                </ul>
+              <p className="forecast-date">3ヶ月後 (2025年6月):</p>
+              <div className="forecast-item">
+                <span>雇用率:</span>
+                <span className="forecast-value">2.43%</span>
               </div>
-              
-              <div className="forecast-section">
-                <h4>6ヶ月後 (2025年9月):</h4>
-                <ul>
-                  <li>雇用率: 2.47%</li>
-                  <li>障がい者数: 18名</li>
-                  <li className="positive">不足数: -1名</li>
-                </ul>
+              <div className="forecast-item">
+                <span>障がい者数:</span>
+                <span className="forecast-value">17名</span>
+              </div>
+              <div className="forecast-item">
+                <span>不足数:</span>
+                <span className="forecast-value negative">-2名</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* 最近の更新情報 */}
-      <div className="chart-container">
-        <div className="chart-title">最近の更新</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #ddd' }}>
-              <th style={{ textAlign: 'left', padding: '8px' }}>日付</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>社員ID</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>氏名</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>更新内容</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style={{ borderBottom: '1px solid #ddd' }}>
-              <td style={{ padding: '8px' }}>2023/11/15</td>
-              <td style={{ padding: '8px' }}>1005</td>
-              <td style={{ padding: '8px' }}>伊藤 由美</td>
-              <td style={{ padding: '8px' }}>障害等級更新（3級→2級）</td>
-            </tr>
-            <tr style={{ borderBottom: '1px solid #ddd' }}>
-              <td style={{ padding: '8px' }}>2023/11/10</td>
-              <td style={{ padding: '8px' }}>1003</td>
-              <td style={{ padding: '8px' }}>佐藤 一郎</td>
-              <td style={{ padding: '8px' }}>休職開始</td>
-            </tr>
-            <tr style={{ borderBottom: '1px solid #ddd' }}>
-              <td style={{ padding: '8px' }}>2023/11/01</td>
-              <td style={{ padding: '8px' }}>1007</td>
-              <td style={{ padding: '8px' }}>高橋 恵子</td>
-              <td style={{ padding: '8px' }}>新規登録</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
       
       {/* 年次データテーブル */}
@@ -328,7 +269,7 @@ const Dashboard: React.FC = () => {
                 <th>1月</th>
                 <th>2月</th>
                 <th>3月</th>
-                <th className="total-column">Total</th>
+                <th className="total-column">合計</th>
               </tr>
             </thead>
             <tbody>
@@ -395,22 +336,6 @@ const Dashboard: React.FC = () => {
                 <td>635</td>
                 <td>635</td>
                 <td className="total-column">7,445</td>
-              </tr>
-              <tr>
-                <td>障がい者数 (人)</td>
-                <td>4</td>
-                <td>4</td>
-                <td>5</td>
-                <td>5</td>
-                <td>6</td>
-                <td>6</td>
-                <td>7</td>
-                <td>8</td>
-                <td>8</td>
-                <td>8</td>
-                <td>8</td>
-                <td>8</td>
-                <td className="total-column">77</td>
               </tr>
               <tr>
                 <td>実雇用率 (%)</td>
@@ -491,7 +416,7 @@ const Dashboard: React.FC = () => {
 
 export default Dashboard;
 
-// CSSスタイル（これは実際には別のCSSファイルに配置するか、styled-componentsなどで管理すべきです）
+// CSSスタイル
 const styles = `
 .page-container {
   padding: 20px;
@@ -590,39 +515,11 @@ const styles = `
   margin-bottom: 15px;
 }
 
-/* チャートと予測データのレイアウト */
-.chart-forecast-layout {
-  display: flex;
-  gap: 20px;
-}
-
-.chart-content {
-  flex: 3;
-  position: relative;
-}
-
-.forecast-data {
-  flex: 1;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.forecast-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 15px;
-}
-
-.forecast-content {
-  padding: 10px;
-}
-
 .line-chart {
   background-color: #fff;
   display: block;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* グラフ凡例 */
@@ -647,14 +544,6 @@ const styles = `
   margin-right: 5px;
 }
 
-.legend-color.blue {
-  background-color: #4285f4;
-}
-
-.legend-color.yellow {
-  background-color: #fbbc05;
-}
-
 .legend-color.dashed {
   background-color: transparent;
   border-top: 2px dashed #34a853;
@@ -662,39 +551,74 @@ const styles = `
   width: 20px;
 }
 
-/* 予測データ */
-.forecast-section {
-  margin-bottom: 20px;
+/* 予測データ - 白い箱 */
+.forecast-box {
+  flex: 0 0 30%;
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 15px;
+  height: 240px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #f0f0f0;
 }
 
-.forecast-section h4 {
-  margin: 0 0 10px 0;
+.forecast-title {
   font-size: 14px;
   font-weight: 600;
   color: #333;
+  text-align: center;
+  margin: 0 0 15px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.forecast-section ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.forecast-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
 }
 
-.forecast-section li {
+.forecast-date {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 15px 0;
+}
+
+.forecast-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 10px;
   padding: 5px 0;
-  font-size: 14px;
+  border-bottom: 1px dashed #f0f0f0;
+}
+
+.forecast-item:last-child {
+  border-bottom: none;
+}
+
+.forecast-value {
+  font-weight: 600;
+}
+
+.forecast-value.negative {
+  color: #ea4335;
 }
 
 /* データテーブル */
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 12px;
 }
 
 .data-table th, 
 .data-table td {
   border: 1px solid #ddd;
-  padding: 8px 12px;
+  padding: 4px 6px;
   text-align: center;
 }
 
@@ -702,6 +626,7 @@ const styles = `
   background-color: #f5f5f5;
   font-weight: 600;
   color: #333;
+  font-size: 12px;
 }
 
 .data-table td:first-child {
@@ -739,5 +664,12 @@ button.secondary {
 button.primary {
   background-color: #4285f4;
   color: white;
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 `;
