@@ -1,13 +1,17 @@
 // フロントエンドのsrc/utils/apiConfig.ts（なければ作成）
-export const API_BASE_URL = 'http://localhost:5000/api';
+export const API_BASE_URL = 'http://localhost:5001/api';
 
-export const fetchData = async (endpoint: string, options = {}) => {
+interface RequestOptions extends RequestInit {
+  headers?: Record<string, string>;
+}
+
+export const fetchData = async (endpoint: string, options: RequestOptions = {}) => {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...(options.headers || {}),
       },
     });
 

@@ -17,6 +17,48 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 // Express アプリの初期化
 const app = express();
 
+const employeeRoutes = require('./routes/employeeRoutes');
+const monthlyReportRoutes = require('./routes/monthlyReportRoutes');
+const paymentReportRoutes = require('./routes/paymentReportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+
+app.use('/api/employees', employeeRoutes);
+app.use('/api/monthly-reports', monthlyReportRoutes);
+app.use('/api/payment-reports', paymentReportRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// CORS設定を緩和
+app.use(cors({
+  origin: '*', // 開発中は全てのオリジンを許可
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], 
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// 基本ルート（すでにあれば不要）
+app.get('/', (req, res) => {
+  res.send('障害者雇用管理システムAPI');
+});
+
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'API is working without auth' });
+});
+
+app.get('/api/settings/public', (req, res) => {
+  settingsController.getSettings(req, res);
+});
+
+app.get('/api/employees/public', (req, res) => {
+  employeeController.getAllEmployees(req, res);
+});
+
+app.get('/api/test-monthly', (req, res) => {
+  res.json({ message: 'Monthly reports test endpoint' });
+});
+
+app.get('/api/test-payment', (req, res) => {
+  res.json({ message: 'Payment reports test endpoint' });
+});
+
 // ミドルウェアの設定
 app.use(cors());
 app.use(bodyParser.json());
