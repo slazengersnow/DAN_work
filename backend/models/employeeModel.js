@@ -10,7 +10,7 @@ const employeeModel = {
         SELECT 
           e.*, 
           CASE 
-            WHEN d.disability_id IS NOT NULL THEN true 
+            WHEN d.id IS NOT NULL THEN true 
             ELSE false 
           END AS has_disability
         FROM 

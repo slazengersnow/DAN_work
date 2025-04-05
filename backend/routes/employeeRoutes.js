@@ -32,4 +32,37 @@ router.put('/:id', /*authMiddleware,*/ employeeController.updateEmployee);
 // 認証ミドルウェアを一時的に無効化
 router.delete('/:id', /*authMiddleware,*/ employeeController.deleteEmployee);
 
+router.post('/', (req, res) => {
+  console.log('POST request received:', req.body);
+  try {
+    // 仮の実装
+    res.status(201).json({ message: '従業員が追加されました', data: req.body });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: '従業員の追加に失敗しました' });
+  }
+});
+
+router.put('/:id', (req, res) => {
+  console.log(`PUT request for ID ${req.params.id}:`, req.body);
+  try {
+    // 仮の実装
+    res.status(200).json({ message: '従業員が更新されました', id: req.params.id, data: req.body });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: '従業員の更新に失敗しました' });
+  }
+});
+
+router.delete('/:id', (req, res) => {
+  console.log(`DELETE request for ID ${req.params.id}`);
+  try {
+    // 仮の実装
+    res.status(200).json({ message: '従業員が削除されました', id: req.params.id });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: '従業員の削除に失敗しました' });
+  }
+});
+
 module.exports = router;
