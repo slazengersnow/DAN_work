@@ -253,167 +253,369 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
       
-      {/* 年次データテーブル */}
+      {/* 年次データテーブル - MonthlyReportDetailと同様のスタイリング */}
       <div className="chart-container">
         <div className="chart-title">年次データ (2024年度)</div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+        <div style={{ 
+          backgroundColor: 'white', 
+          border: '1px solid #dee2e6', 
+          borderRadius: '4px',
+          overflow: 'auto'
+        }}>
+          <table style={{ 
+            width: '100%', 
+            borderCollapse: 'collapse',
+            fontSize: '12px'
+          }}>
             <thead>
-              <tr>
-                <th>項目</th>
-                <th>4月</th>
-                <th>5月</th>
-                <th>6月</th>
-                <th>7月</th>
-                <th>8月</th>
-                <th>9月</th>
-                <th>10月</th>
-                <th>11月</th>
-                <th>12月</th>
-                <th>1月</th>
-                <th>2月</th>
-                <th>3月</th>
-                <th className="total-column">合計</th>
+              <tr style={{ height: '28px', backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                <th style={{ 
+                  textAlign: 'left', 
+                  padding: '4px 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 1,
+                  width: '180px',
+                  fontSize: '12px'
+                }}>項目</th>
+                {['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'].map((month, index) => (
+                  <th key={`month-${index}`} style={{ 
+                    padding: '2px', 
+                    textAlign: 'center', 
+                    fontWeight: 'normal',
+                    fontSize: '12px'
+                  }}>
+                    {month}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
+              {/* 従業員数セクション */}
               <tr>
-                <td>従業員数 (人)</td>
-                <td>600</td>
-                <td>600</td>
-                <td>610</td>
-                <td>610</td>
-                <td>615</td>
-                <td>620</td>
-                <td>625</td>
-                <td>630</td>
-                <td>630</td>
-                <td>635</td>
-                <td>635</td>
-                <td>635</td>
-                <td className="total-column">7,445</td>
+                <td colSpan={14} style={{ 
+                  textAlign: 'left', 
+                  padding: '4px 6px', 
+                  fontWeight: 'bold',
+                  backgroundColor: '#f8f9fa',
+                  borderTop: '1px solid #dee2e6',
+                  borderBottom: '1px solid #dee2e6',
+                  fontSize: '12px'
+                }}>
+                  従業員数
+                </td>
               </tr>
-              <tr>
-                <td>フルタイム従業員数 (人)</td>
-                <td>600</td>
-                <td>600</td>
-                <td>610</td>
-                <td>610</td>
-                <td>615</td>
-                <td>620</td>
-                <td>625</td>
-                <td>630</td>
-                <td>630</td>
-                <td>635</td>
-                <td>635</td>
-                <td>635</td>
-                <td className="total-column">7,445</td>
+              
+              {/* 従業員関連データ行 */}
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  従業員数 (人)
+                </td>
+                {[600, 600, 610, 610, 615, 620, 625, 630, 630, 635, 635, 635, 7445].map((value, colIndex) => (
+                  <td key={`value-1-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: 'transparent',
+                        fontSize: '12px',
+                        padding: '0'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
               </tr>
-              <tr>
-                <td>パートタイム従業員数 (人)</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td className="total-column">0</td>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  フルタイム従業員数 (人)
+                </td>
+                {[600, 600, 610, 610, 615, 620, 625, 630, 630, 635, 635, 635, 7445].map((value, colIndex) => (
+                  <td key={`value-2-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: 'transparent',
+                        fontSize: '12px',
+                        padding: '0'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
               </tr>
-              <tr>
-                <td>トータル従業員数 (人)</td>
-                <td>600</td>
-                <td>600</td>
-                <td>610</td>
-                <td>610</td>
-                <td>615</td>
-                <td>620</td>
-                <td>625</td>
-                <td>630</td>
-                <td>630</td>
-                <td>635</td>
-                <td>635</td>
-                <td>635</td>
-                <td className="total-column">7,445</td>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  パートタイム従業員数 (人)
+                </td>
+                {[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((value, colIndex) => (
+                  <td key={`value-3-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: 'transparent',
+                        fontSize: '12px',
+                        padding: '0'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
               </tr>
-              <tr>
-                <td>実雇用率 (%)</td>
-                <td>1.8</td>
-                <td>1.9</td>
-                <td>2.0</td>
-                <td>2.1</td>
-                <td>2.2</td>
-                <td>2.3</td>
-                <td>2.35</td>
-                <td>2.38</td>
-                <td>2.39</td>
-                <td>2.41</td>
-                <td>2.41</td>
-                <td>2.41</td>
-                <td className="total-column highlight">2.22</td>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  トータル従業員数 (人)
+                </td>
+                {[600, 600, 610, 610, 615, 620, 625, 630, 630, 635, 635, 635, 7445].map((value, colIndex) => (
+                  <td key={`value-4-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: '#f8f9fa',
+                        fontSize: '12px',
+                        padding: '0'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
               </tr>
-              <tr>
-                <td>法定雇用率 (%)</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td>2.5</td>
-                <td className="total-column">2.5</td>
+              
+              {/* スペーサー行 */}
+              <tr className="spacer-row">
+                <td colSpan={14} style={{ padding: '3px', backgroundColor: '#f8f9fa' }}></td>
               </tr>
-              <tr>
-                <td>法定雇用者数 (人)</td>
-                <td>15</td>
-                <td>15</td>
-                <td>15</td>
-                <td>15</td>
-                <td>15</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td>16</td>
-                <td className="total-column">16</td>
+              
+              {/* 雇用率セクション */}
+              <tr className="header-row">
+                <th colSpan={14} style={{ 
+                  textAlign: 'left', 
+                  padding: '4px 6px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#f8f9fa',
+                  borderTop: '1px solid #dee2e6',
+                  borderBottom: '1px solid #dee2e6',
+                  fontSize: '12px'
+                }}>
+                  雇用率
+                </th>
               </tr>
-              <tr>
-                <td>不足数 (人)</td>
-                <td className="negative">-11</td>
-                <td className="negative">-11</td>
-                <td className="negative">-10</td>
-                <td className="negative">-10</td>
-                <td className="negative">-9</td>
-                <td className="negative">-10</td>
-                <td className="negative">-9</td>
-                <td className="negative">-8</td>
-                <td className="negative">-8</td>
-                <td className="negative">-8</td>
-                <td className="negative">-8</td>
-                <td className="negative">-8</td>
-                <td className="negative total-column">-8</td>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  実雇用率 (%)
+                </td>
+                {[1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.35, 2.38, 2.39, 2.41, 2.41, 2.41, 2.22].map((value, colIndex) => (
+                  <td key={`value-5-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: '#f8f9fa',
+                        fontSize: '12px',
+                        padding: '0',
+                        fontWeight: colIndex === 12 ? '700' : 'normal',
+                        backgroundColor: colIndex === 12 ? '#e8f0fe' : '#f8f9fa',
+                        color: colIndex === 12 ? '#4285f4' : 'inherit'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
+              </tr>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  法定雇用率 (%)
+                </td>
+                {[2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5].map((value, colIndex) => (
+                  <td key={`value-6-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: 'transparent',
+                        fontSize: '12px',
+                        padding: '0',
+                        backgroundColor: colIndex === 12 ? '#e8f0fe' : 'transparent',
+                        color: colIndex === 12 ? '#4285f4' : 'inherit',
+                        fontWeight: colIndex === 12 ? '600' : 'normal'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
+              </tr>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  法定雇用者数 (人)
+                </td>
+                {[15, 15, 15, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16].map((value, colIndex) => (
+                  <td key={`value-7-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: '#f8f9fa',
+                        fontSize: '12px',
+                        padding: '0',
+                        backgroundColor: colIndex === 12 ? '#e8f0fe' : '#f8f9fa',
+                        color: colIndex === 12 ? '#4285f4' : 'inherit',
+                        fontWeight: colIndex === 12 ? '600' : 'normal'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
+              </tr>
+              
+              <tr style={{ backgroundColor: 'white', height: '22px' }}>
+                <td style={{ 
+                  textAlign: 'left', 
+                  padding: '0 6px', 
+                  position: 'sticky', 
+                  left: 0, 
+                  backgroundColor: 'white', 
+                  zIndex: 1,
+                  borderRight: '1px solid #f0f0f0',
+                  whiteSpace: 'nowrap',
+                  fontSize: '12px'
+                }}>
+                  不足数 (人)
+                </td>
+                {[-11, -11, -10, -10, -9, -10, -9, -8, -8, -8, -8, -8, -8].map((value, colIndex) => (
+                  <td key={`value-8-${colIndex}`} style={{ padding: '0', textAlign: 'center' }}>
+                    <input
+                      type="text"
+                      style={{
+                        width: '100%',
+                        height: '22px',
+                        border: 'none',
+                        textAlign: 'center',
+                        background: '#f8f9fa',
+                        fontSize: '12px',
+                        padding: '0',
+                        color: '#ea4335',
+                        backgroundColor: colIndex === 12 ? '#e8f0fe' : '#f8f9fa',
+                        fontWeight: colIndex === 12 ? '600' : 'normal'
+                      }}
+                      value={value}
+                      readOnly
+                    />
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
         </div>
-        
-        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button className="secondary">帳票出力</button>
-          <button className="primary" style={{ marginLeft: '10px' }}>CSVエクスポート</button>
-        </div>
       </div>
+
     </div>
   );
 };
