@@ -70,10 +70,13 @@ const employeeController = {
 
   // 従業員情報の更新
   updateEmployee: async (req, res) => {
-    const { id } = req.params;
-    const employeeData = req.body;
-    
     try {
+      const { id } = req.params;
+      console.log('更新リクエスト - ID:', id);
+      console.log('更新データ:', req.body);
+      
+      const employeeData = req.body;
+      
       // 従業員の存在確認
       const employee = await employeeModel.getEmployeeById(id);
       
@@ -90,7 +93,12 @@ const employeeController = {
       res.status(200).json(updatedEmployee);
     } catch (error) {
       console.error('従業員情報の更新中にエラーが発生しました:', error);
-      res.status(500).json({ error: '従業員情報の更新に失敗しました' });
+      // エラーの詳細を返す
+      res.status(500).json({ 
+        error: '従業員情報の更新に失敗しました', 
+        details: error.message,
+        code: error.code
+      });
     }
   },
 

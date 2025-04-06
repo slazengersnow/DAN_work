@@ -17,52 +17,26 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 // Express アプリの初期化
 const app = express();
 
-const employeeRoutes = require('./routes/employeeRoutes');
-const monthlyReportRoutes = require('./routes/monthlyReportRoutes');
-const paymentReportRoutes = require('./routes/paymentReportRoutes');
-const settingsRoutes = require('./routes/settingsRoutes');
-
-app.use('/api/employees', employeeRoutes);
-app.use('/api/monthly-reports', monthlyReportRoutes);
-app.use('/api/payment-reports', paymentReportRoutes);
-app.use('/api/settings', settingsRoutes);
-
-// CORS設定を緩和
+// ミドルウェアの設定 (ルートより前に配置)
 app.use(cors({
-  origin: '*', // 開発中は全てのオリジンを許可
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], 
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
-// 基本ルート（すでにあれば不要）
-app.get('/', (req, res) => {
-  res.send('障害者雇用管理システムAPI');
-});
-
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API is working without auth' });
-});
-
-app.get('/api/settings/public', (req, res) => {
-  settingsController.getSettings(req, res);
-});
-
-app.get('/api/employees/public', (req, res) => {
-  employeeController.getAllEmployees(req, res);
-});
-
-app.get('/api/test-monthly', (req, res) => {
-  res.json({ message: 'Monthly reports test endpoint' });
-});
-
-app.get('/api/test-payment', (req, res) => {
-  res.json({ message: 'Payment reports test endpoint' });
-});
-
-// ミドルウェアの設定
-app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// デバッグ用ミドルウェア
+app.use((req, res, next) => {
+  console.log('Request Headers:', req.headers);
+  console.log('Request Method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Content-Type:', req.headers['content-type']);
+  console.log('Request Body:', req.body);
+  next();
+});
 
 // PostgreSQL 接続設定
 const pool = new Pool({
@@ -112,12 +86,128 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// コントローラーのインポート
+const employeeController = require('./controllers/employeeController');
+const settingsController = require('./controllers/settingsController');
+
+// ルーターのインポート
+const employeeRoutes = require('./routes/employeeRoutes');
+const monthlyReportRoutes = require('./routes/monthlyReportRoutes');
+const paymentReportRoutes = require('./routes/paymentReportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+
+// テスト用の直接エンドポイント
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'API is working without auth' });
+});
+
+app.post('/api/direct-test', (req, res) => {
+  console.log('直接テスト - ボディ:', req.body);
+  res.json({ 
+    message: 'テスト成功',
+    receivedData: req.body
+  });
+});
+
+app.post('/api/test-employee', (req, res) => {
+  console.log('テスト従業員作成リクエスト:', req.body);
+  res.status(201).json({ 
+    message: 'テスト従業員作成完了', 
+    receivedData: req.body 
+  });
+});
+
+app.put('/api/test-settings', (req, res) => {
+  console.log('テスト設定更新リクエスト:', req.body);
+  res.status(200).json({ 
+    message: 'テスト設定更新完了', 
+    receivedData: req.body 
+  });
+});
+
+app.put('/api/test-update/:id', (req, res) => {
+  console.log(`テスト更新リクエスト ID: ${req.params.id}`, req.body);
+  res.status(200).json({ 
+    message: 'テスト更新完了', 
+    id: req.params.id,
+    receivedData: req.body 
+  });
+});
+
+app.put('/api/test-employee/:id', (req, res) => {
+  console.log(`テスト従業員更新 ID: ${req.params.id}`, req.body);
+  res.status(200).json({
+    message: 'テスト更新成功',
+    id: req.params.id,
+    data: req.body
+  });
+});
+
+// server.jsに追加
+app.put('/api/simple-update/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    
+    console.log(`従業員ID ${id} の簡易更新:`, req.body);
+    
+    // 単純な更新操作（nameのみ）
+    const result = await pool.query(
+      `UPDATE employees 
+       SET name = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING *`,
+      [name, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '従業員が見つかりません' });
+    }
+    
+    res.status(200).json({
+      message: '従業員情報を更新しました',
+      employee: result.rows[0]
+    });
+  } catch (error) {
+    console.error('従業員情報の更新中にエラーが発生しました:', error);
+    res.status(500).json({ error: '従業員情報の更新に失敗しました' });
+  }
+});
+
+// 基本ルート
+app.get('/', (req, res) => {
+  res.send('障害者雇用管理システムAPI');
+});
+
 // ルート: ヘルスチェック
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'サーバーは正常に動作しています' });
 });
 
-// ルート: ユーザー登録
+// server.jsに追加
+app.get('/api/test-get/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM employees WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: '従業員が見つかりません', id });
+    }
+    
+    res.json({ message: 'テスト取得成功', employee: result.rows[0] });
+  } catch (error) {
+    console.error('テスト取得エラー:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// APIルートの設定
+app.use('/api/employees', employeeRoutes);
+app.use('/api/monthly-reports', monthlyReportRoutes);
+app.use('/api/payment-reports', paymentReportRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// 認証関連のルート
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password, email, role } = req.body;
@@ -151,7 +241,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// ルート: ログイン
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -198,186 +287,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// ルート: 障害者従業員の取得
-app.get('/api/employees', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM employees ORDER BY id ASC'
-    );
-    
-    res.json(result.rows);
-  } catch (error) {
-    console.error('従業員取得エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: 障害者従業員の追加
-app.post('/api/employees', authenticateToken, async (req, res) => {
-  try {
-    const {
-      employee_id,
-      full_name,
-      disability_type,
-      disability_level,
-      start_date,
-      department,
-      position,
-      contact_info,
-      notes
-    } = req.body;
-    
-    const result = await pool.query(
-      `INSERT INTO employees 
-       (employee_id, full_name, disability_type, disability_level, start_date, department, position, contact_info, notes) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-       RETURNING *`,
-      [employee_id, full_name, disability_type, disability_level, start_date, department, position, contact_info, notes]
-    );
-    
-    res.status(201).json({
-      message: '従業員が正常に追加されました',
-      employee: result.rows[0]
-    });
-  } catch (error) {
-    console.error('従業員追加エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: 特定の障害者従業員の取得
-app.get('/api/employees/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const result = await pool.query(
-      'SELECT * FROM employees WHERE id = $1',
-      [id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: '従業員が見つかりません' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('従業員取得エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: 障害者従業員の更新
-app.put('/api/employees/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      employee_id,
-      full_name,
-      disability_type,
-      disability_level,
-      start_date,
-      department,
-      position,
-      contact_info,
-      notes
-    } = req.body;
-    
-    const result = await pool.query(
-      `UPDATE employees 
-       SET employee_id = $1, full_name = $2, disability_type = $3, disability_level = $4, 
-           start_date = $5, department = $6, position = $7, contact_info = $8, notes = $9, 
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
-       RETURNING *`,
-      [employee_id, full_name, disability_type, disability_level, start_date, department, position, 
-       contact_info, notes, id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: '従業員が見つかりません' });
-    }
-    
-    res.json({
-      message: '従業員が正常に更新されました',
-      employee: result.rows[0]
-    });
-  } catch (error) {
-    console.error('従業員更新エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: 障害者従業員の削除
-app.delete('/api/employees/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const result = await pool.query(
-      'DELETE FROM employees WHERE id = $1 RETURNING *',
-      [id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: '従業員が見つかりません' });
-    }
-    
-    res.json({
-      message: '従業員が正常に削除されました',
-      employee: result.rows[0]
-    });
-  } catch (error) {
-    console.error('従業員削除エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: 雇用率の計算
-app.get('/api/employment-rate', authenticateToken, async (req, res) => {
-  try {
-    // 障害者従業員数を取得
-    const disabilityEmployeesResult = await pool.query(
-      'SELECT COUNT(*) as count, SUM(CASE WHEN disability_level = \'重度\' THEN 2 ELSE 1 END) as weighted_count FROM employees'
-    );
-    
-    // 全従業員数を取得（別のテーブルから、または設定から）
-    const totalEmployeesResult = await pool.query(
-      'SELECT value FROM settings WHERE key = \'total_employees\''
-    );
-    
-    const disabilityCount = parseInt(disabilityEmployeesResult.rows[0].count);
-    const weightedCount = parseFloat(disabilityEmployeesResult.rows[0].weighted_count);
-    const totalEmployees = parseInt(totalEmployeesResult.rows[0].value);
-    
-    // 法定雇用率（設定から取得または固定値）
-    const legalRateResult = await pool.query(
-      'SELECT value FROM settings WHERE key = \'legal_employment_rate\''
-    );
-    const legalRate = parseFloat(legalRateResult.rows[0].value);
-    
-    // 現在の雇用率を計算
-    const currentRate = (weightedCount / totalEmployees) * 100;
-    
-    // 法定雇用率を満たすために必要な従業員数を計算
-    const requiredCount = Math.ceil((totalEmployees * legalRate / 100) - weightedCount);
-    
-    res.json({
-      total_employees: totalEmployees,
-      disability_employees: {
-        count: disabilityCount,
-        weighted_count: weightedCount
-      },
-      legal_rate: legalRate,
-      current_rate: currentRate.toFixed(2),
-      required_additional: requiredCount > 0 ? requiredCount : 0,
-      status: currentRate >= legalRate ? '達成' : '未達成'
-    });
-  } catch (error) {
-    console.error('雇用率計算エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: CSVインポート
+// CSVインポート/エクスポート
 app.post('/api/import/employees', authenticateToken, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'ファイルがアップロードされていません' });
@@ -390,7 +300,6 @@ app.post('/api/import/employees', authenticateToken, upload.single('file'), (req
     .pipe(csvParser())
     .on('data', async (data) => {
       try {
-        // CSVデータの処理
         results.push(data);
       } catch (error) {
         errors.push({ row: data, error: error.message });
@@ -398,25 +307,21 @@ app.post('/api/import/employees', authenticateToken, upload.single('file'), (req
     })
     .on('end', async () => {
       try {
-        // インポートされたデータをデータベースに一括挿入
         let successCount = 0;
         
         for (const employee of results) {
           try {
             await pool.query(
               `INSERT INTO employees 
-               (employee_id, full_name, disability_type, disability_level, start_date, department, position, contact_info, notes) 
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+               (employee_id, name, gender, birth_date, department, position) 
+               VALUES ($1, $2, $3, $4, $5, $6)`,
               [
                 employee.employee_id,
-                employee.full_name,
-                employee.disability_type,
-                employee.disability_level,
-                employee.start_date,
+                employee.name,
+                employee.gender,
+                employee.birth_date,
                 employee.department,
-                employee.position,
-                employee.contact_info,
-                employee.notes
+                employee.position
               ]
             );
             successCount++;
@@ -425,7 +330,6 @@ app.post('/api/import/employees', authenticateToken, upload.single('file'), (req
           }
         }
         
-        // 一時ファイルの削除
         fs.unlinkSync(req.file.path);
         
         res.json({
@@ -441,20 +345,82 @@ app.post('/api/import/employees', authenticateToken, upload.single('file'), (req
     });
 });
 
-// ルート: CSVエクスポート
+// server.jsに追加
+app.post('/api/db-test', async (req, res) => {
+  try {
+    const { name, employee_id, department, position } = req.body;
+    console.log('DB挿入テスト:', req.body);
+    
+    // データベース挿入
+    const result = await pool.query(
+      `INSERT INTO employees (
+        employee_id, name, name_kana, gender, birth_date, hire_date, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [employee_id, name, 'テスト', '男', '2000-01-01', '2020-04-01', '在籍中']
+    );
+    
+    res.status(201).json({
+      message: 'DB挿入成功',
+      employee: result.rows[0]
+    });
+  } catch (error) {
+    console.error('DB挿入エラー:', error);
+    res.status(500).json({
+      error: 'DB挿入失敗',
+      details: error.message,
+      code: error.code
+    });
+  }
+});
+
+// server.js に追加
+app.post('/api/direct-insert', async (req, res) => {
+  try {
+    const { employee_id, name, name_kana, gender, birth_date, hire_date, status } = req.body;
+    console.log('直接挿入テスト:', req.body);
+    
+    // 直接SQLクエリを実行
+    const result = await pool.query(`
+      INSERT INTO employees (
+        employee_id, name, name_kana, gender, birth_date, hire_date, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) 
+      RETURNING *
+    `, [
+      employee_id,
+      name,
+      name_kana || 'テスト',
+      gender || '男',
+      birth_date || '2000-01-01',
+      hire_date || '2020-01-01',
+      status || '在籍中'
+    ]);
+    
+    res.status(201).json({
+      message: '直接挿入成功',
+      employee: result.rows[0]
+    });
+  } catch (error) {
+    console.error('直接挿入エラー:', error);
+    res.status(500).json({
+      error: '直接挿入失敗',
+      details: error.message,
+      code: error.code
+    });
+  }
+});
+
 app.get('/api/export/employees', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM employees');
     
     const csvData = [];
-    const headers = ['employee_id', 'full_name', 'disability_type', 'disability_level', 'start_date', 'department', 'position', 'contact_info', 'notes'];
+    const headers = ['employee_id', 'name', 'gender', 'birth_date', 'department', 'position'];
     
     csvData.push(headers.join(','));
     
     result.rows.forEach(row => {
       const values = headers.map(header => {
         const value = row[header] ? row[header].toString() : '';
-        // カンマやダブルクォートをエスケープ
         if (value.includes(',') || value.includes('"')) {
           return `"${value.replace(/"/g, '""')}"`;
         }
@@ -476,45 +442,29 @@ app.get('/api/export/employees', authenticateToken, async (req, res) => {
   }
 });
 
-// ルート: 設定の取得
-app.get('/api/settings', authenticateToken, async (req, res) => {
+// server.js の適切な場所に追加
+app.get('/api/db-test', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM settings');
-    
-    const settings = {};
-    result.rows.forEach(row => {
-      settings[row.key] = row.value;
+    const testResult = await pool.query('SELECT NOW() as time');
+    res.json({ 
+      message: 'データベース接続正常', 
+      time: testResult.rows[0].time,
+      connectionInfo: {
+        database: process.env.DB_NAME || 'disability_employment',
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost'
+      }
     });
-    
-    res.json(settings);
   } catch (error) {
-    console.error('設定取得エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
-  }
-});
-
-// ルート: 設定の更新
-app.put('/api/settings', authenticateToken, async (req, res) => {
-  try {
-    const settings = req.body;
-    
-    for (const [key, value] of Object.entries(settings)) {
-      await pool.query(
-        'UPDATE settings SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE key = $2',
-        [value, key]
-      );
-    }
-    
-    res.json({ message: '設定が正常に更新されました' });
-  } catch (error) {
-    console.error('設定更新エラー:', error);
-    res.status(500).json({ message: '内部サーバーエラー' });
+    console.error('DB接続テストエラー:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 // サーバーの起動
 app.listen(PORT, () => {
   console.log(`サーバーが起動しました: http://localhost:${PORT}`);
+  console.log('データベースに接続しました');
 });
 
 module.exports = app;
