@@ -1,19 +1,26 @@
 // src/pages/MonthlyReport/EmployeesTab.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Employee, MonthlyTotal } from './types';
+import { updateEmployeeData, handleApiError } from '../../api/reportApi';
+import { YearMonthContext } from './YearMonthContext'; // YearMonthContextのインポート方法を変更
 
 interface EmployeesTabProps {
   employees: Employee[];
   onEmployeeChange: (id: number, field: string, value: string) => void;
   summaryData: MonthlyTotal;
+  onRefreshData?: () => void; // データ更新後にリフレッシュを親コンポーネントに通知
 }
 
 const EmployeesTab: React.FC<EmployeesTabProps> = ({
   employees,
   onEmployeeChange,
-  summaryData
+  summaryData,
+  onRefreshData
 }) => {
   console.log('EmployeesTab.tsx loaded at:', new Date().toISOString());
+  
+  // 年月コンテキストから現在の年月を取得
+  const { fiscalYear, month } = useContext(YearMonthContext);
   
   // 編集モード状態
   const [editMode, setEditMode] = useState(false);
@@ -24,6 +31,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // ローディング状態
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // 編集中のセル
   const [activeCell, setActiveCell] = useState<{empId: number, monthIndex: number} | null>(null);
@@ -98,7 +108,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   };
 
   // 保存ボタンのハンドラー
-  const handleSave = () => {
+  const handleSave = async () => {
     console.log('保存ボタンクリック'); // デバッグ用
     
     // 値の検証
@@ -119,28 +129,55 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       setErrorMessage("月次ステータスには 0, 0.5, 1, 2 のいずれかを入力してください");
       return;
     }
+
+    setIsLoading(true);
     
-    // 変更をparentに通知
-    localEmployees.forEach(emp => {
-      const originalEmp = employees.find(e => e.id === emp.id);
-      if (originalEmp) {
-        // 各フィールドの変更を確認して通知
-        ['employee_id', 'name', 'disability_type', 'disability', 'grade', 'hire_date', 'status', 'memo'].forEach(field => {
-          if (originalEmp[field as keyof Employee] !== emp[field as keyof Employee]) {
-            onEmployeeChange(emp.id, field, String(emp[field as keyof Employee] || ''));
+    try {
+      // 変更をAPIに送信
+      for (const emp of localEmployees) {
+        const originalEmp = employees.find(e => e.id === emp.id);
+        if (originalEmp) {
+          const changedFields: Record<string, string> = {};
+          
+          // 各フィールドの変更を確認
+          ['employee_id', 'name', 'disability_type', 'disability', 'grade', 'hire_date', 'status', 'memo'].forEach(field => {
+            if (originalEmp[field as keyof Employee] !== emp[field as keyof Employee]) {
+              changedFields[field] = String(emp[field as keyof Employee] || '');
+            }
+          });
+          
+          // 月次ステータスの変更を確認
+          if (JSON.stringify(originalEmp.monthlyStatus) !== JSON.stringify(emp.monthlyStatus)) {
+            changedFields['monthlyStatus'] = JSON.stringify(emp.monthlyStatus);
           }
-        });
-        
-        // 月次ステータスの変更を確認
-        if (JSON.stringify(originalEmp.monthlyStatus) !== JSON.stringify(emp.monthlyStatus)) {
-          onEmployeeChange(emp.id, 'monthlyStatus', JSON.stringify(emp.monthlyStatus));
+          
+          // 変更があればAPIに送信
+          if (Object.keys(changedFields).length > 0) {
+            await updateEmployeeData(fiscalYear, month, emp.id, changedFields);
+            
+            // 親コンポーネントにも変更を通知（ローカル更新用）
+            Object.entries(changedFields).forEach(([field, value]) => {
+              onEmployeeChange(emp.id, field, value);
+            });
+          }
         }
       }
-    });
-    
-    alert('従業員データを保存しました');
-    setErrorMessage(null);
-    setEditMode(false);
+      
+      setErrorMessage(null);
+      setEditMode(false);
+      
+      // データ更新後に親コンポーネントに通知
+      if (onRefreshData) {
+        onRefreshData();
+      }
+      
+      alert('従業員データを保存しました');
+    } catch (error) {
+      console.error('従業員データ保存エラー:', error);
+      setErrorMessage(handleApiError(error));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // セル編集の開始
@@ -279,6 +316,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
+              disabled={isLoading}
             >
               {editMode ? '編集中止' : '編集'}
             </button>
@@ -296,8 +334,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 cursor: 'pointer',
                 display: editMode ? 'block' : 'none' // これで条件表示
               }}
+              disabled={isLoading}
             >
-              保存
+              {isLoading ? '保存中...' : '保存'}
             </button>
           </div>
         </div>
@@ -312,6 +351,19 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             marginBottom: '15px' 
           }}>
             {errorMessage}
+          </div>
+        )}
+        
+        {/* ローディングインジケーター */}
+        {isLoading && (
+          <div style={{ 
+            backgroundColor: '#e9ecef', 
+            padding: '10px', 
+            borderRadius: '4px', 
+            marginBottom: '15px',
+            textAlign: 'center'
+          }}>
+            データを処理中...
           </div>
         )}
         

@@ -1,7 +1,9 @@
 // src/pages/MonthlyReport/MonthlyReportDetail.tsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MonthlyDetailData, MonthlyTotal } from './types';
+import { updateDetailCell, handleApiError } from '../../api/reportApi';
+import { YearMonthContext } from './YearMonthContext';
 
 interface MonthlyReportDetailProps {
   // タブ内に埋め込む場合に必要なprops
@@ -9,11 +11,12 @@ interface MonthlyReportDetailProps {
   onDetailCellChange?: (rowId: number, colIndex: number, value: string) => void;
   summaryData?: MonthlyTotal;
   isEmbedded?: boolean;
+  onRefreshData?: () => void; // データ更新後にリフレッシュを親コンポーネントに通知
 }
 
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     console.log('MonthlyReportDetail.tsx loaded at:', new Date().toISOString());
-    const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded } = props;
+    const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded, onRefreshData } = props;
     
     // Debug logs
     console.log('MonthlyReportDetail props:', {
@@ -23,6 +26,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       detailDataItemCount: monthlyDetailData?.data?.length
     });
     
+    // 年月コンテキストから現在の年月を取得
+    const { fiscalYear, month } = useContext(YearMonthContext);
+    
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     
@@ -30,6 +36,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const [isEditing, setIsEditing] = useState<boolean>(false);
     console.log("MonthlyReportDetail コンポーネントがマウントされました。isEditing初期値:", false);
     
+    // ローディング状態
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    
+    // エラーメッセージ状態
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
     // 初期データ（独立ページモードで使用）
     const initialData: MonthlyDetailData = {
       months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
@@ -85,7 +97,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     };
   
     // 年度表示用（独立ページモードで使用）
-    const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+    const [displayFiscalYear, setDisplayFiscalYear] = useState<string>('2024年度');
     
     // セル編集用の状態
     const [activeCell, setActiveCell] = useState<{row: number | null, col: number | null}>({row: null, col: null});
@@ -106,35 +118,35 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     }, []);
 
     // IDが与えられている場合、そこから年度を取得
-  useEffect(() => {
-    if (id && id.includes('-')) {
-      const [year] = id.split('-');
-      if (!isNaN(Number(year))) {
-        setFiscalYear(`${year}年度`);
+    useEffect(() => {
+      if (id && id.includes('-')) {
+        const [year] = id.split('-');
+        if (!isNaN(Number(year))) {
+          setDisplayFiscalYear(`${year}年度`);
+        }
       }
-    }
-  }, [id]);
+    }, [id]);
 
-  // props変更に応じてローカルデータを更新
-  useEffect(() => {
-    if (isEmbedded && monthlyDetailData) {
-      setLocalData(monthlyDetailData);
-    }
-  }, [monthlyDetailData, isEmbedded]);
+    // props変更に応じてローカルデータを更新
+    useEffect(() => {
+      if (isEmbedded && monthlyDetailData) {
+        setLocalData(monthlyDetailData);
+      }
+    }, [monthlyDetailData, isEmbedded]);
 
-  // 親から渡されるデータのデバッグ
-  useEffect(() => {
-    if (monthlyDetailData) {
-      console.log("親から渡されたデータ:", monthlyDetailData.data.map(row => ({ id: row.id, item: row.item })));
-    }
-  }, [monthlyDetailData]);
+    // 親から渡されるデータのデバッグ
+    useEffect(() => {
+      if (monthlyDetailData) {
+        console.log("親から渡されたデータ:", monthlyDetailData.data.map(row => ({ id: row.id, item: row.item })));
+      }
+    }, [monthlyDetailData]);
 
-  // 現在表示されているデータの確認
-  useEffect(() => {
-    console.log("表示されているデータ:", localData.data.map(row => ({ id: row.id, item: row.item })));
-  }, [localData.data]);
+    // 現在表示されているデータの確認
+    useEffect(() => {
+      console.log("表示されているデータ:", localData.data.map(row => ({ id: row.id, item: row.item })));
+    }, [localData.data]);
 
-  // 自動計算対象のフィールドかをチェック
+    // 自動計算対象のフィールドかをチェック
   const isCalculatedField = (rowId: number): boolean => {
     const row = localData.data.find(r => r.id === rowId);
     return row?.isCalculated || false;
@@ -167,26 +179,55 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   };
 
   // 保存ボタンのハンドラー
-  const handleSave = () => {
+  const handleSave = async () => {
     console.log('保存ボタンクリック'); 
     
-    // 実際の実装では、ここでAPIを呼び出すなどのデータ保存処理を行う
-    if (isEmbedded && onDetailCellChange) {
+    setIsLoading(true);
+    setErrorMessage(null);
+    
+    try {
       // 埋め込みモードの場合、親コンポーネントに変更を通知
-      localData.data.forEach((row, rowIndex) => {
-        row.values.forEach((value, colIndex) => {
-          if (colIndex < 12) { // 合計列は除外
-            onDetailCellChange(row.id, colIndex, value.toString());
+      if (isEmbedded && onDetailCellChange) {
+        // 変更されたセルをAPIに送信
+        const updatePromises = localData.data.map(async (row) => {
+          // 自動計算フィールドでなければ更新
+          if (!isCalculatedField(row.id)) {
+            // 各月の値を更新
+            for (let colIndex = 0; colIndex < 12; colIndex++) {
+              // APIを呼び出して更新
+              await updateDetailCell(
+                year,
+                month,
+                row.id,
+                colIndex.toString(),  // 数値を文字列に変換
+                row.values[colIndex].toString()
+              );
+              
+              // 親コンポーネントにも変更を通知（ローカル更新用）
+              onDetailCellChange(row.id, colIndex, row.values[colIndex].toString());
+            }
           }
         });
-      });
-    } else {
-      // 独立モードの場合、ここでAPI呼び出しを行う
-      // 例: api.saveMonthlyDetail(localData);
+        
+        await Promise.all(updatePromises);
+      } else {
+        // 独立モードの場合、ここでAPI呼び出しを行う
+        // 例: api.saveMonthlyDetail(localData);
+      }
+      
+      // データ更新後に親コンポーネントに通知
+      if (onRefreshData) {
+        onRefreshData();
+      }
+      
+      setIsEditing(false);
+      alert('データを保存しました');
+    } catch (error) {
+      console.error('月次詳細データ保存エラー:', error);
+      setErrorMessage(handleApiError(error));
+    } finally {
+      setIsLoading(false);
     }
-    
-    alert('データを保存しました');
-    setIsEditing(false);
   };
   
   // セルクリック時のハンドラー
@@ -532,7 +573,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             borderRadius: '4px', 
             marginBottom: '20px' 
           }}>
-            <h2 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px' }}>{fiscalYear}集計サマリー</h2>
+            <h2 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px' }}>{displayFiscalYear}集計サマリー</h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
               <span>常用労働者数: 525名</span>
               <span>|</span>
@@ -546,6 +587,32 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             </div>
           </div>
         </>
+      )}
+
+      {/* エラーメッセージ表示エリア */}
+      {errorMessage && (
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '10px', 
+          borderRadius: '4px', 
+          marginBottom: '15px' 
+        }}>
+          {errorMessage}
+        </div>
+      )}
+        
+      {/* ローディングインジケーター */}
+      {isLoading && (
+        <div style={{ 
+          backgroundColor: '#e9ecef', 
+          padding: '10px', 
+          borderRadius: '4px', 
+          marginBottom: '15px',
+          textAlign: 'center'
+        }}>
+          データを処理中...
+        </div>
       )}
 
       {/* アクションボタン */}
@@ -573,6 +640,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               borderRadius: '4px',
               cursor: 'pointer'
             }}
+            disabled={isLoading}
           >
             {isEditing ? '編集中止' : '編集'}
           </button>
@@ -590,8 +658,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               cursor: 'pointer',
               display: isEditing ? 'block' : 'none' // これで条件表示
             }}
+            disabled={isLoading}
           >
-            保存
+            {isLoading ? '保存中...' : '保存'}
           </button>
         </div>
         
@@ -631,7 +700,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           </div>
         )}
       </div>
-
       {/* 月次詳細テーブル */}
       <div style={{ 
         backgroundColor: 'white', 
@@ -824,7 +892,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       )}
     </div>
   );
-
 };
 
 export default MonthlyReportDetail;

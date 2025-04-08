@@ -1,124 +1,169 @@
 // src/pages/MonthlyReport/SummaryTab.tsx
-import React, { useState, useEffect } from 'react';
-import { Employee, HistoryItem, MonthlyTotal } from './types';
+import React, { useState, useEffect, useContext } from 'react';
+import { MonthlyTotal } from './types';
+import { YearMonthContext } from './YearMonthContext';
+import { 
+  updateMonthlySummary, 
+  confirmMonthlyReport, 
+  handleApiError 
+} from '../../api/reportApi';
 
 interface SummaryTabProps {
-  employees: Employee[];
-  historyData: HistoryItem[];
-  onEmployeeChange: (id: number, field: string, value: string) => void;
   summaryData: MonthlyTotal;
+  onSummaryChange: (data: MonthlyTotal) => void;
+  onRefreshData?: () => void;
 }
 
-const SummaryTab: React.FC<SummaryTabProps> = ({
-  employees,
-  historyData,
-  onEmployeeChange,
-  summaryData
-}) => {
+const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, onRefreshData }) => {
   console.log('SummaryTab.tsx loaded at:', new Date().toISOString());
   
+  // 年月コンテキストから現在の年月を取得
+  const { fiscalYear, month } = useContext(YearMonthContext);
+  
   // 編集モード状態
-  const [editingSummary, setEditingSummary] = useState(false);
-  console.log("SummaryTab コンポーネントがマウントされました。editingSummary初期値:", false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  console.log("SummaryTab コンポーネントがマウントされました。isEditing初期値:", false);
   
-  // ローカルの従業員データ
-  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+  // ローディング状態
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   
+  // エラーメッセージ状態
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // 確定処理中状態
+  const [isConfirming, setIsConfirming] = useState<boolean>(false);
+
+  // ローカルデータ
+  const [localData, setLocalData] = useState<MonthlyTotal>(summaryData);
+
   // props変更時にローカルデータを更新
   useEffect(() => {
-    setLocalEmployees(employees);
-  }, [employees]);
+    setLocalData(summaryData);
+  }, [summaryData]);
 
-  // カウント更新ハンドラー
-  const handleCountChange = (id: number, value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue)) {
-      setLocalEmployees(prev => 
-        prev.map(emp => 
-          emp.id === id ? { ...emp, count: numValue } : emp
-        )
-      );
-    }
-  };
-
-  // メモ更新ハンドラー
-  const handleMemoChange = (id: number, value: string) => {
-    setLocalEmployees(prev => 
-      prev.map(emp => 
-        emp.id === id ? { ...emp, memo: value } : emp
-      )
-    );
+  // フィールド更新ハンドラー
+  const handleFieldChange = (field: keyof MonthlyTotal, value: string | number) => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    
+    setLocalData(prev => ({
+      ...prev,
+      [field]: typeof value === 'string' && field !== 'status' ? 
+        (isNaN(numValue) ? 0 : numValue) : value
+    }));
   };
 
   // 編集モード切り替え
   const toggleEditMode = () => {
-    console.log('編集モード切り替え'); // デバッグ用
-    if (editingSummary) {
+    if (isEditing) {
       // 編集モードを終了する場合、ローカルデータを元に戻す
-      setLocalEmployees(employees);
+      setLocalData(summaryData);
+      setErrorMessage(null);
     }
-    setEditingSummary(!editingSummary);
+    setIsEditing(!isEditing);
   };
 
   // 保存ボタンのハンドラー
-  const handleSave = () => {
-    console.log('保存ボタンクリック'); // デバッグ用
+  const handleSave = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
     
-    // 変更をparentに通知
-    localEmployees.forEach(emp => {
-      const originalEmp = employees.find(e => e.id === emp.id);
-      if (originalEmp) {
-        if (originalEmp.count !== emp.count) {
-          onEmployeeChange(emp.id, 'count', emp.count.toString());
-        }
-        if (originalEmp.memo !== emp.memo) {
-          onEmployeeChange(emp.id, 'memo', emp.memo || '');
-        }
+    try {
+      // フォームデータの検証
+      if (localData.legal_employment_rate <= 0) {
+        throw new Error('法定雇用率は0より大きい値を入力してください');
       }
-    });
-    
-    alert('データを保存しました');
-    setEditingSummary(false);
+      
+      // API呼び出し
+      const updatedData = await updateMonthlySummary(fiscalYear, month, {
+        employees_count: localData.employees_count,
+        fulltime_count: localData.fulltime_count,
+        parttime_count: localData.parttime_count,
+        level1_2_count: localData.level1_2_count,
+        other_disability_count: localData.other_disability_count,
+        level1_2_parttime_count: localData.level1_2_parttime_count,
+        other_parttime_count: localData.other_parttime_count,
+        legal_employment_rate: localData.legal_employment_rate
+      });
+      
+      // 更新されたデータを親コンポーネントに通知
+      onSummaryChange(updatedData);
+      
+      // データ更新後に親コンポーネントに通知
+      if (onRefreshData) {
+        onRefreshData();
+      }
+      
+      setIsEditing(false);
+      alert('サマリーデータを保存しました');
+    } catch (error) {
+      console.error('サマリーデータ保存エラー:', error);
+      setErrorMessage(handleApiError(error));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // ステータスの取得（確定状態のチェック）
-  const currentStatus = summaryData.status || '未確定';
-  let isConfirmed = currentStatus === '確定済';
-  console.log('元のisConfirmed:', isConfirmed);
-  // 強制的にfalseに設定
-  isConfirmed = false;
+  // 確定ボタンのハンドラー
+  const handleConfirm = async () => {
+    if (window.confirm('このレポートを確定しますか？確定後は編集できなくなります。')) {
+      setIsConfirming(true);
+      setErrorMessage(null);
+      
+      try {
+        // API呼び出し
+        const confirmedData = await confirmMonthlyReport(fiscalYear, month);
+        
+        // 更新されたデータを親コンポーネントに通知
+        onSummaryChange(confirmedData);
+        
+        // データ更新後に親コンポーネントに通知
+        if (onRefreshData) {
+          onRefreshData();
+        }
+        
+        alert('レポートを確定しました');
+      } catch (error) {
+        console.error('レポート確定エラー:', error);
+        setErrorMessage(handleApiError(error));
+      } finally {
+        setIsConfirming(false);
+      }
+    }
+  };
+
+  // 状態の取得
+  const { status } = localData;
+  const isConfirmed = status === '確定済';
+
+  // 日付フォーマット
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
 
   return (
     <div className="summary-tab-container">
-      <div className="data-container">
-        <div className="data-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 className="data-title" style={{ margin: 0 }}>障害者雇用者詳細</h3>
-          <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              type="button"
-              id="editButtonSummary"
-              onClick={() => {
-                // 直接状態を強制的に変更
-                const newEditingState = !editingSummary;
-                console.log(`編集状態を強制的に${newEditingState ? '有効' : '無効'}にします`);
-                setEditingSummary(newEditingState);
-                setTimeout(() => {
-                  console.log('現在の編集状態:', editingSummary);
-                }, 100);
-              }}
-              style={{ 
-                padding: '8px 16px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              {editingSummary ? '編集中止' : '編集'}
-            </button>
-            
-            {/* 強制的に保存ボタンを表示 */}
+      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>月次レポートサマリー</h3>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            type="button"
+            onClick={toggleEditMode}
+            style={{ 
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+            disabled={isLoading || isConfirming || isConfirmed}
+          >
+            {isEditing ? '編集中止' : '編集'}
+          </button>
+          
+          {isEditing && (
             <button 
               type="button"
               onClick={handleSave}
@@ -128,130 +173,375 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer',
-                display: editingSummary ? 'block' : 'none' // これで条件表示
+                cursor: 'pointer'
               }}
+              disabled={isLoading}
             >
-              保存
+              {isLoading ? '保存中...' : '保存'}
             </button>
-          </div>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse',
-            fontSize: '13px',
-            whiteSpace: 'nowrap'
-          }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #dee2e6' }}>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>No.</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>社員ID</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>氏名</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>障害区分</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>障害</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>等級</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>採用日</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>状態</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>カウント</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>備考</th>
-              </tr>
-            </thead>
-            <tbody>
-              {localEmployees.map((employee) => (
-                <tr key={employee.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '8px 12px' }}>{employee.no}</td>
-                  <td style={{ padding: '8px 12px' }}>{employee.employee_id}</td>
-                  <td style={{ padding: '8px 12px' }}>{employee.name}</td>
-                  <td style={{ padding: '8px 12px' }}>{employee.disability_type}</td>
-                  <td style={{ padding: '8px 12px' }}>{employee.disability}</td>
-                  <td style={{ padding: '8px 12px' }}>{employee.grade}</td>
-                  <td style={{ padding: '8px 12px' }}>{employee.hire_date}</td>
-                  <td style={{ padding: '8px 12px' }}>
-                    <span style={{ 
-                      backgroundColor: '#4caf50', 
-                      color: 'white', 
-                      padding: '2px 6px', 
-                      borderRadius: '4px', 
-                      fontSize: '12px' 
-                    }}>
-                      {employee.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px' }}>
-                    {editingSummary ? (
-                      <input 
-                        type="number" 
-                        step="0.5" 
-                        min="0" 
-                        max="2" 
-                        value={employee.count} 
-                        onChange={(e) => handleCountChange(employee.id, e.target.value)}
-                        style={{ 
-                          width: '60px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          textAlign: 'center'
-                        }}
-                      />
-                    ) : (
-                      employee.count
-                    )}
-                  </td>
-                  <td style={{ padding: '8px 12px' }}>
-                    {editingSummary ? (
-                      <input 
-                        type="text" 
-                        value={employee.memo || ''} 
-                        onChange={(e) => handleMemoChange(employee.id, e.target.value)}
-                        style={{ 
-                          width: '100%',
-                          minWidth: '150px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.memo
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          )}
+          
+          {!isEditing && !isConfirmed && (
+            <button 
+              type="button"
+              onClick={handleConfirm}
+              style={{ 
+                padding: '8px 16px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+              disabled={isConfirming}
+            >
+              {isConfirming ? '確定中...' : '確定する'}
+            </button>
+          )}
         </div>
       </div>
       
-      {/* 月別実績履歴セクション - 必要に応じて表示 */}
-      {historyData.length > 0 && (
-        <div className="history-container" style={{ marginTop: '30px' }}>
-          <h3 style={{ margin: '0 0 15px 0' }}>月別実績履歴</h3>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse',
-            fontSize: '13px'
-          }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #dee2e6' }}>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>月</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>雇用数</th>
-                <th style={{ padding: '8px 12px', textAlign: 'left' }}>雇用率</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyData.map((item, index) => (
-                <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '8px 12px' }}>{item.month}</td>
-                  <td style={{ padding: '8px 12px' }}>{item.count}</td>
-                  <td style={{ padding: '8px 12px' }}>{item.rate}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* エラーメッセージ */}
+      {errorMessage && (
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '10px', 
+          borderRadius: '4px', 
+          marginBottom: '15px' 
+        }}>
+          {errorMessage}
         </div>
       )}
+      
+      {/* ローディングインジケーター */}
+      {(isLoading || isConfirming) && (
+        <div style={{ 
+          backgroundColor: '#e9ecef', 
+          padding: '10px', 
+          borderRadius: '4px', 
+          marginBottom: '15px',
+          textAlign: 'center'
+        }}>
+          データを処理中...
+        </div>
+      )}
+      
+      {/* ステータス表示 */}
+      <div style={{ 
+        marginBottom: '1rem', 
+        backgroundColor: isConfirmed ? '#d1e7dd' : '#fff3cd',
+        color: isConfirmed ? '#0f5132' : '#664d03',
+        padding: '10px', 
+        borderRadius: '4px',
+        display: 'flex',
+        justifyContent: 'space-between'
+      }}>
+        <div>
+          <strong>ステータス:</strong> {status || '未確定'}
+        </div>
+        <div>
+          <strong>更新日時:</strong> {formatDate(localData.updated_at)}
+        </div>
+      </div>
+      
+      <div style={{ 
+        backgroundColor: 'white', 
+        border: '1px solid #dee2e6', 
+        borderRadius: '4px', 
+        padding: '20px',
+        marginBottom: '1rem'
+      }}>
+        <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>基本情報</h4>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(2, 1fr)', 
+          gap: '20px'
+        }}>
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>従業員数</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.employees_count}
+                min="0"
+                onChange={(e) => handleFieldChange('employees_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.employees_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>フルタイム従業員数</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.fulltime_count}
+                min="0"
+                onChange={(e) => handleFieldChange('fulltime_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.fulltime_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>パートタイム従業員数</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.parttime_count}
+                min="0"
+                onChange={(e) => handleFieldChange('parttime_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.parttime_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>法定雇用率</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.legal_employment_rate}
+                min="0"
+                step="0.1"
+                onChange={(e) => handleFieldChange('legal_employment_rate', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.legal_employment_rate} %
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div style={{ 
+        backgroundColor: 'white', 
+        border: '1px solid #dee2e6', 
+        borderRadius: '4px', 
+        padding: '20px'
+      }}>
+        <h4 style={{ marginTop: 0, marginBottom: '1rem' }}>障がい者雇用情報</h4>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(2, 1fr)', 
+          gap: '20px'
+        }}>
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>重度身体障がい者・重度知的障がい者</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.level1_2_count}
+                min="0"
+                onChange={(e) => handleFieldChange('level1_2_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.level1_2_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>その他障がい者</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.other_disability_count}
+                min="0"
+                onChange={(e) => handleFieldChange('other_disability_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.other_disability_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>重度身体障がい者・重度知的障がい者（パートタイム）</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.level1_2_parttime_count}
+                min="0"
+                onChange={(e) => handleFieldChange('level1_2_parttime_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.level1_2_parttime_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>その他障がい者（パートタイム）</label>
+            {isEditing ? (
+              <input 
+                type="number"
+                value={localData.other_parttime_count}
+                min="0"
+                onChange={(e) => handleFieldChange('other_parttime_count', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            ) : (
+              <div style={{ 
+                padding: '8px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                {localData.other_parttime_count} 名
+              </div>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>障がい者合計</label>
+            <div style={{ 
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e9ecef',
+              fontWeight: 'bold'
+            }}>
+              {localData.total_disability_count} 名
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>実雇用率</label>
+            <div style={{ 
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e9ecef',
+              fontWeight: 'bold',
+              color: localData.employment_rate < localData.legal_employment_rate ? 'red' : 'green'
+            }}>
+              {localData.employment_rate.toFixed(2)} %
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>法定雇用者数</label>
+            <div style={{ 
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e9ecef'
+            }}>
+              {localData.required_count} 名
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label style={{ display: 'block', marginBottom: '5px' }}>超過・未達</label>
+            <div style={{ 
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e9ecef',
+              color: localData.over_under_count < 0 ? 'red' : 'green'
+            }}>
+              {localData.over_under_count} 名
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
