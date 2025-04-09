@@ -197,3 +197,45 @@ data: Array<{
     suffix?: string;
 }>;
 }
+
+// src/types.ts または src/types/index.ts に追加
+
+export interface MonthlyData {
+    month: number;
+    total_employees: number;
+    disabled_employees: number;
+    employment_rate: number;
+  }
+  
+  export interface PaymentReport {
+    id?: number;
+    fiscal_year: number;
+    company_name: string;
+    company_address?: string;
+    representative_name?: string;
+    contact_person?: string;
+    phone_number?: string;
+    email?: string;
+    adjustment_amount?: number;
+    average_employee_count: number;
+    legal_employment_count: number;
+    actual_employment_count: number;
+    shortage_count: number;
+    payment_amount: number;
+    status?: string;
+    submitted_date?: string | null;
+    notes?: string;
+    monthly_data: MonthlyData[];
+    created_at?: string;
+    updated_at?: string;
+  }
+  
+  export interface PaymentCalculation {
+    average_employee_count: number;
+    legal_employment_count: number;
+    actual_employment_count: number;
+    shortage_count: number;
+    payment_amount: number;
+    legal_employment_rate?: number;
+    payment_unit_price?: number;
+  }

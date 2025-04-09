@@ -31,17 +31,21 @@ export const handleApiError = (error: any): string => {
 // 月次報告一覧を取得
 export const getMonthlyReports = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/reports/monthly`);
+    const response = await axios.get(`${API_BASE_URL}/monthly-reports`);
     return response.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
 };
 
-// 特定の年月の月次報告を取得
-export const getMonthlyReport = async (year: number, month: number) => {
+// 特定の年月の月次報告を取得（年月が指定されない場合は現在の年月を使用）
+export const getMonthlyReport = async (year?: number, month?: number) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/reports/monthly/${year}/${month}`);
+    // 年度または月が未定義の場合のデフォルト値を設定
+    const validYear = year || new Date().getFullYear();
+    const validMonth = month || new Date().getMonth() + 1;
+    
+    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${validYear}/${validMonth}`);
     return response.data;
   } catch (error) {
     throw new Error(handleApiError(error));
@@ -57,7 +61,7 @@ export const updateEmployeeData = async (
 ) => {
   try {
     const response = await axios.put(
-      `${API_BASE_URL}/reports/monthly/${year}/${month}/employees/${employee_id}`,
+      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employee_id}`,
       data
     );
     return response.data;
@@ -76,7 +80,7 @@ export const updateDetailCell = async (
 ) => {
   try {
     const response = await axios.put(
-      `${API_BASE_URL}/reports/monthly/${year}/${month}/details/${detailId}`,
+      `${API_BASE_URL}/monthly-reports/${year}/${month}/details/${detailId}`,
       { [field]: value }
     );
     return response.data;
@@ -93,7 +97,7 @@ export const updateMonthlySummary = async (
 ) => {
   try {
     const response = await axios.put(
-      `${API_BASE_URL}/reports/monthly/${year}/${month}/summary`,
+      `${API_BASE_URL}/monthly-reports/${year}/${month}/summary`,
       data
     );
     return response.data;
@@ -106,7 +110,7 @@ export const updateMonthlySummary = async (
 export const confirmMonthlyReport = async (year: number, month: number) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/reports/monthly/${year}/${month}/confirm`
+      `${API_BASE_URL}/monthly-reports/${year}/${month}/confirm`
     );
     return response.data;
   } catch (error) {

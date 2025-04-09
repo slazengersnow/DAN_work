@@ -18,10 +18,13 @@ import ErrorMessage from '../../components/common/ErrorMessage';
 
 // 年間データをUI用の月次詳細形式に変換する関数
 export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetailData => {
+  // 無効なデータをフィルタリング
+  const validData = yearlyData.filter(d => d != null);
+  
   // 月別に並べ替え（4月始まり会計年度を想定）
   const orderedData = [
-    ...yearlyData.filter(d => d.month >= 4).sort((a, b) => a.month - b.month),
-    ...yearlyData.filter(d => d.month <= 3).sort((a, b) => a.month - b.month)
+    ...validData.filter(d => d.month >= 4).sort((a, b) => a.month - b.month),
+    ...validData.filter(d => d.month <= 3).sort((a, b) => a.month - b.month)
   ];
 
   // 各月のデータを取得、存在しない月はデフォルト値（例: 0）を設定
@@ -143,17 +146,37 @@ const MonthlyReport: React.FC = () => {
     refetch: refetchReportData
   } = useQuery(
     ['monthlyReport', selectedYear, selectedMonth],
-    () => getMonthlyReport(selectedYear, selectedMonth),
+    () => {
+      // 年月が有効値であることを確認
+      const validYear = selectedYear || new Date().getFullYear();
+      const validMonth = selectedMonth || new Date().getMonth() + 1;
+      return getMonthlyReport(validYear, validMonth);
+    },
     {
       onSuccess: (data) => {
         if (data) {
+          // サマリーデータの安全な処理
+          const summaryData = data.summary || null;
+          let detailData = data.detail || null;
+          
+          // サマリーデータが存在する場合のみformatYearlyDataForUIを呼び出す
+          if (summaryData && !detailData) {
+            try {
+              detailData = formatYearlyDataForUI([summaryData]);
+            } catch (error) {
+              console.error("詳細データの生成中にエラーが発生しました:", error);
+              detailData = null;
+            }
+          }
+          
           setCurrentReport({
-            summary: data.summary,
-            employees: data.employees,
-            detail: data.detail || formatYearlyDataForUI([data.summary]) // 詳細データがなければサマリーから生成
+            summary: summaryData,
+            employees: data.employees || [],
+            detail: detailData
           });
         }
       },
+      enabled: !!selectedYear && !!selectedMonth, // 年月が設定されている場合のみクエリを実行
       staleTime: 5 * 60 * 1000,
       cacheTime: 10 * 60 * 1000,
     }
