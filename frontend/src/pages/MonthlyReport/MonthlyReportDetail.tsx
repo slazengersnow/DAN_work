@@ -27,7 +27,10 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     });
     
     // 年月コンテキストから現在の年月を取得
-    const { fiscalYear, month } = useContext(YearMonthContext);
+    const yearMonthContext = useContext(YearMonthContext);
+    // contextの実際のプロパティ名を使用
+    const year = yearMonthContext.fiscalYear; // YearMonthContextの実際のプロパティに合わせて修正
+    const month = yearMonthContext.month;     // YearMonthContextの実際のプロパティに合わせて修正
     
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
@@ -545,6 +548,32 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   // 強制的にfalseに設定
   isConfirmed = false;
 
+  // エラーメッセージ要素を事前に作成（TypeScriptエラー回避のため）
+  const errorMessageElement = errorMessage ? (
+    <div style={{ 
+      backgroundColor: '#f8d7da', 
+      color: '#721c24', 
+      padding: '10px', 
+      borderRadius: '4px', 
+      marginBottom: '15px' 
+    }}>
+      {errorMessage}
+    </div>
+  ) : null;
+
+  // ローディングインジケーター要素を事前に作成
+  const loadingElement = isLoading ? (
+    <div style={{ 
+      backgroundColor: '#e9ecef', 
+      padding: '10px', 
+      borderRadius: '4px', 
+      marginBottom: '15px',
+      textAlign: 'center'
+    }}>
+      データを処理中...
+    </div>
+  ) : null;
+
   return (
     <div className="monthly-report-detail" style={{ padding: isEmbedded ? '0' : '20px' }}>
       {/* 独立ページモードの場合のみ表示 */}
@@ -590,30 +619,10 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       )}
 
       {/* エラーメッセージ表示エリア */}
-      {errorMessage && (
-        <div style={{ 
-          backgroundColor: '#f8d7da', 
-          color: '#721c24', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          marginBottom: '15px' 
-        }}>
-          {errorMessage}
-        </div>
-      )}
+      {errorMessageElement}
         
       {/* ローディングインジケーター */}
-      {isLoading && (
-        <div style={{ 
-          backgroundColor: '#e9ecef', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          marginBottom: '15px',
-          textAlign: 'center'
-        }}>
-          データを処理中...
-        </div>
-      )}
+      {loadingElement}
 
       {/* アクションボタン */}
       <div style={{ marginBottom: '15px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -646,22 +655,23 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           </button>
           
           {/* 強制的に保存ボタンを表示 */}
-          <button 
-            type="button"
-            onClick={handleSave}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#3a66d4',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: isEditing ? 'block' : 'none' // これで条件表示
-            }}
-            disabled={isLoading}
-          >
-            {isLoading ? '保存中...' : '保存'}
-          </button>
+          {isEditing && (
+            <button 
+              type="button"
+              onClick={handleSave}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#3a66d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? '保存中...' : '保存'}
+            </button>
+          )}
         </div>
         
         {/* 独立モードの場合のみ印刷とCSVエクスポートボタンを表示 */}

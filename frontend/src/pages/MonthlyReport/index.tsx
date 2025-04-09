@@ -294,53 +294,179 @@ const MonthlyReport: React.FC = () => {
     { id: 'monthly', label: '月次詳細' }
   ];
 
-  // MonthlyReportContentコンポーネントを作成して単一の子要素として返す
-  const MonthlyReportContent = () => {
-    return (
+  // タブコンテンツをレンダリングするための関数
+  const renderTabContent = () => {
+    if (activeTab === 'summary' && summary) {
+      return (
+        <SummaryTab 
+          summaryData={summary} 
+          onSummaryChange={handleSummaryChange}
+          onRefreshData={handleRefreshData}
+        />
+      );
+    }
+    
+    if (activeTab === 'employees' && summary) {
+      return (
+        <EmployeesTab 
+          employees={employees} 
+          onEmployeeChange={handleEmployeeChange}
+          summaryData={summary}
+          onRefreshData={handleRefreshData}
+        />
+      );
+    }
+    
+    if (activeTab === 'monthly' && summary && detail) {
+      return (
+        <MonthlyReportDetail 
+          isEmbedded={true}
+          summaryData={summary}
+          monthlyDetailData={detail}
+          onDetailCellChange={handleDetailCellChange}
+          onRefreshData={handleRefreshData}
+        />
+      );
+    }
+    
+    if (activeTab === 'monthly' && !detail && !isLoading) {
+      return <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>月次詳細データがありません。</div>;
+    }
+    
+    if (activeTab === 'employees' && employees.length === 0 && !isLoading) {
+      return <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>従業員データがありません。</div>;
+    }
+    
+    if (!isLoading && !summary) {
+      return (
+        <div style={{ 
+          padding: '20px', 
+          textAlign: 'center', 
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px'
+        }}>
+          表示するデータがありません。
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  // 条件付きレンダリング要素を事前に作成
+  const errorMessageElement = errorMessage ? (
+    <div className="error-message" style={{ 
+      backgroundColor: '#f8d7da', 
+      color: '#721c24', 
+      padding: '10px', 
+      borderRadius: '4px', 
+      marginBottom: '15px' 
+    }}>
+      {errorMessage}
+    </div>
+  ) : null;
+
+  const hasErrorElement = hasError ? (
+    <div style={{ 
+      backgroundColor: '#f8d7da', 
+      color: '#721c24', 
+      padding: '10px', 
+      borderRadius: '4px', 
+      marginBottom: '15px' 
+    }}>
+      データの取得中にエラーが発生しました。
+    </div>
+  ) : null;
+
+  const isLoadingElement = isLoading ? (
+    <div style={{ 
+      backgroundColor: '#e9ecef', 
+      padding: '10px', 
+      borderRadius: '4px', 
+      marginBottom: '15px',
+      textAlign: 'center'
+    }}>
+      データを読み込み中...
+    </div>
+  ) : null;
+
+  const summaryElement = summary ? (
+    <div style={{
+      backgroundColor: '#e9f2ff',
+      padding: '15px 20px',
+      borderRadius: '8px',
+      marginBottom: '20px',
+      borderLeft: '4px solid #3a66d4',
+      fontSize: '0.9rem'
+    }}>
+      <h3 style={{ fontSize: '1.1rem', margin: '0 0 10px 0', color: '#3a66d4' }}>
+        {summary.fiscal_year}年 {summary.month}月 サマリー
+      </h3>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px' }}>
+        <span>常用労働者数: <strong>{summary.employees_count}</strong>名</span>
+        <span>|</span>
+        <span>うちフルタイム: {summary.fulltime_count}名</span>
+        <span>|</span>
+        <span>うちパートタイム: {summary.parttime_count}名</span>
+        <br />
+        <span>障害者数 (カウント): <strong>{safeNumber(summary.total_disability_count).toFixed(1)}</strong>名</span>
+        <span>|</span>
+        <span>実雇用率: <strong>{safeNumber(summary.employment_rate).toFixed(2)}</strong>%</span>
+        <span>|</span>
+        <span>法定雇用率: {safeNumber(summary.legal_employment_rate).toFixed(2)}%</span>
+        <span>|</span>
+        <span>法定雇用障害者数: {safeNumber(summary.required_count).toFixed(1)}名</span>
+        <span>|</span>
+        <span>不足数: <strong style={{ color: safeNumber(summary.over_under_count) < 0 ? 'red' : 'inherit' }}>{safeNumber(summary.over_under_count).toFixed(1)}</strong>名</span>
+      </div>
+    </div>
+  ) : null;
+
+  const noSummaryElement = !summary && !isLoading ? (
+    <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>
+      表示するサマリーデータがありません。
+    </div>
+  ) : null;
+
+  const reportsListElement = reportsList && reportsList.length > 0 ? (
+    <select
+      value={`${selectedYear}-${selectedMonth}`}
+      onChange={(e) => {
+        const [year, month] = e.target.value.split('-').map(Number);
+        handleYearMonthChange(year, month);
+      }}
+      style={{ 
+        padding: '8px', 
+        borderRadius: '4px', 
+        border: '1px solid #ced4da',
+        minWidth: '200px'
+      }}
+      disabled={isLoading}
+    >
+      {reportsList.map((report: { fiscal_year: number; month: number; status?: string }) => (
+        <option 
+          key={`${report.fiscal_year}-${report.month}`} 
+          value={`${report.fiscal_year}-${report.month}`}
+        >
+          {report.fiscal_year}年度 {report.month}月 ({report.status || '未確定'})
+        </option>
+      ))}
+    </select>
+  ) : null;
+
+  const isConfirmedElement = isConfirmed ? (
+    <span style={{ color: '#28a745', fontWeight: 'bold', marginLeft:'5px' }}> (確定済)</span>
+  ) : null;
+
+  return (
+    <YearMonthProvider initialYear={selectedYear} initialMonth={selectedMonth}>
       <div className="monthly-report-container" style={{ padding: '20px' }}>
         <h1 style={{ marginBottom: '20px' }}>月次報告</h1>
         
-        {/* エラーメッセージ表示 */}
-        {errorMessage && (
-          <div className="error-message" style={{ 
-            backgroundColor: '#f8d7da', 
-            color: '#721c24', 
-            padding: '10px', 
-            borderRadius: '4px', 
-            marginBottom: '15px' 
-          }}>
-            {errorMessage}
-          </div>
-        )}
+        {errorMessageElement}
+        {hasErrorElement}
+        {isLoadingElement}
         
-        
-        {/* 標準エラー表示 */}
-        {hasError && (
-          <div style={{ 
-            backgroundColor: '#f8d7da', 
-            color: '#721c24', 
-            padding: '10px', 
-            borderRadius: '4px', 
-            marginBottom: '15px' 
-          }}>
-            データの取得中にエラーが発生しました。
-          </div>
-        )}
-        
-        {/* ローディングインジケーター */}
-        {isLoading && (
-          <div style={{ 
-            backgroundColor: '#e9ecef', 
-            padding: '10px', 
-            borderRadius: '4px', 
-            marginBottom: '15px',
-            textAlign: 'center'
-          }}>
-            データを読み込み中...
-          </div>
-        )}
-        
-        {/* 年月選択 & 操作ボタン */}
         <div className="filter-container" style={{ 
           marginBottom: '20px', 
           display: 'flex', 
@@ -356,7 +482,6 @@ const MonthlyReport: React.FC = () => {
             style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
             disabled={isLoading}
           >
-            {/* 前後5年分くらい表示 */}
             {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
               <option key={year} value={year}>{year}年</option>
             ))}
@@ -392,31 +517,7 @@ const MonthlyReport: React.FC = () => {
             表示
           </button>
 
-          {reportsList && reportsList.length > 0 && (
-            <select
-              value={`${selectedYear}-${selectedMonth}`}
-              onChange={(e) => {
-                const [year, month] = e.target.value.split('-').map(Number);
-                handleYearMonthChange(year, month);
-              }}
-              style={{ 
-                padding: '8px', 
-                borderRadius: '4px', 
-                border: '1px solid #ced4da',
-                minWidth: '200px'
-              }}
-              disabled={isLoading}
-            >
-              {reportsList.map((report: { fiscal_year: number; month: number; status?: string }) => (
-                <option 
-                  key={`${report.fiscal_year}-${report.month}`} 
-                  value={`${report.fiscal_year}-${report.month}`}
-                >
-                  {report.fiscal_year}年度 {report.month}月 ({report.status || '未確定'})
-                </option>
-              ))}
-            </select>
-          )}
+          {reportsListElement}
           
           <button
             onClick={handleConfirm}
@@ -437,9 +538,7 @@ const MonthlyReport: React.FC = () => {
             {confirmMutation.isLoading ? '確定中...' : '月次確定'}
           </button>
           
-          {isConfirmed && (
-            <span style={{ color: '#28a745', fontWeight: 'bold', marginLeft:'5px' }}> (確定済)</span>
-          )}
+          {isConfirmedElement}
 
           <button 
             onClick={handleRefreshData}
@@ -457,46 +556,9 @@ const MonthlyReport: React.FC = () => {
           </button>
         </div>
         
-        {/* サマリーボックス */}
-        {summary && (
-          <div style={{
-            backgroundColor: '#e9f2ff',
-            padding: '15px 20px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            borderLeft: '4px solid #3a66d4',
-            fontSize: '0.9rem'
-          }}>
-            <h3 style={{ fontSize: '1.1rem', margin: '0 0 10px 0', color: '#3a66d4' }}>
-              {summary.fiscal_year}年 {summary.month}月 サマリー
-            </h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px' }}>
-              <span>常用労働者数: <strong>{summary.employees_count}</strong>名</span>
-              <span>|</span>
-              <span>うちフルタイム: {summary.fulltime_count}名</span>
-              <span>|</span>
-              <span>うちパートタイム: {summary.parttime_count}名</span>
-              <br />
-              <span>障害者数 (カウント): <strong>{safeNumber(summary.total_disability_count).toFixed(1)}</strong>名</span>
-              <span>|</span>
-              <span>実雇用率: <strong>{safeNumber(summary.employment_rate).toFixed(2)}</strong>%</span>
-              <span>|</span>
-              <span>法定雇用率: {safeNumber(summary.legal_employment_rate).toFixed(2)}%</span>
-              <span>|</span>
-              <span>法定雇用障害者数: {safeNumber(summary.required_count).toFixed(1)}名</span>
-              <span>|</span>
-              <span>不足数: <strong style={{ color: safeNumber(summary.over_under_count) < 0 ? 'red' : 'inherit' }}>{safeNumber(summary.over_under_count).toFixed(1)}</strong>名</span>
-            </div>
-          </div>
-        )}
+        {summaryElement}
+        {noSummaryElement}
         
-        {!summary && !isLoading && (
-          <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>
-            表示するサマリーデータがありません。
-          </div>
-        )}
-        
-        {/* タブナビゲーション */}
         <div style={{
           display: 'flex',
           borderBottom: '1px solid #ddd',
@@ -524,66 +586,10 @@ const MonthlyReport: React.FC = () => {
           ))}
         </div>
         
-        {/* タブコンテンツ */}
         <div className="tab-content">
-          {/* サマリータブ */}
-          {activeTab === 'summary' && summary && (
-            <SummaryTab 
-              summaryData={summary} 
-              onSummaryChange={handleSummaryChange}
-              onRefreshData={handleRefreshData}
-            />
-          )}
-          
-          {/* 従業員タブ */}
-          {activeTab === 'employees' && summary && (
-            <EmployeesTab 
-              employees={employees} 
-              onEmployeeChange={handleEmployeeChange}
-              summaryData={summary}
-              onRefreshData={handleRefreshData}
-            />
-          )}
-          
-          {/* 月次詳細タブ */}
-          {activeTab === 'monthly' && summary && detail && (
-            <MonthlyReportDetail 
-              isEmbedded={true}
-              summaryData={summary}
-              monthlyDetailData={detail}
-              onDetailCellChange={handleDetailCellChange}
-              onRefreshData={handleRefreshData}
-            />
-          )}
-          
-          {/* データがない場合 */}
-          {activeTab === 'monthly' && !detail && !isLoading && (
-            <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>月次詳細データがありません。</div>
-          )}
-          
-          {activeTab === 'employees' && employees.length === 0 && !isLoading && (
-            <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>従業員データがありません。</div>
-          )}
-          
-          {!isLoading && !summary && (
-            <div style={{ 
-              padding: '20px', 
-              textAlign: 'center', 
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px'
-            }}>
-              表示するデータがありません。
-            </div>
-          )}
+          {renderTabContent()}
         </div>
       </div>
-    );
-  };
-
-  // 実際の返り値を単一のコンポーネントにする
-  return (
-    <YearMonthProvider initialYear={selectedYear} initialMonth={selectedMonth}>
-      <MonthlyReportContent />
     </YearMonthProvider>
   );
 };
