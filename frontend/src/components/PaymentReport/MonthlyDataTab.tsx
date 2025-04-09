@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+// src/components/PaymentReport/MonthlyDataTab.tsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { paymentReportApi } from '../../api/paymentReportApi';
 
 interface MonthlyDataTabProps {
   fiscalYear: string;
@@ -8,8 +10,12 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
   // 法定雇用率
   const LEGAL_EMPLOYMENT_RATE = 2.3; // 2.3%
   
+  // API連携用の状態
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   // 月別データ
-  const monthlyData = [
+  const [monthlyData, setMonthlyData] = useState([
     { month: '4月', employees: 510, disabledEmployees: 13 },
     { month: '5月', employees: 515, disabledEmployees: 13 },
     { month: '6月', employees: 520, disabledEmployees: 14 },
@@ -22,7 +28,84 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
     { month: '1月', employees: 515, disabledEmployees: 13 },
     { month: '2月', employees: 510, disabledEmployees: 12 },
     { month: '3月', employees: 505, disabledEmployees: 12 }
-  ];
+  ]);
+  
+  // 選択した表示月
+  const [selectedYear, setSelectedYear] = useState(fiscalYear.replace('年度', ''));
+  const [selectedMonth, setSelectedMonth] = useState('4月');
+  
+  // 年度数値を取得する
+  const getYearValue = () => {
+    if (fiscalYear.includes('年度')) {
+      return parseInt(fiscalYear.replace('年度', ''));
+    }
+    return new Date().getFullYear();
+  };
+  
+  // APIからデータを取得
+  useEffect(() => {
+    const fetchPaymentReport = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const year = getYearValue();
+        const report = await paymentReportApi.getPaymentReport(year);
+        
+        // monthly_dataプロパティが存在する場合のみ処理
+        if (report && report.monthly_data) {
+          // 月次データがJSON文字列として保存されている場合はパース
+          let monthlyDataObj: {
+            totalRegularEmployees?: { [key: string]: number };
+            disabledEmployees?: { [key: string]: number };
+            [key: string]: any;
+          };
+          
+          try {
+            monthlyDataObj = typeof report.monthly_data === 'string' 
+              ? JSON.parse(report.monthly_data)
+              : report.monthly_data;
+              
+            console.log('APIから取得した月次データ:', monthlyDataObj);
+            
+            // APIからデータを取得できた場合のみ、モックデータを置き換える
+            // 以下は例として、実際のAPIレスポンス形式に合わせて修正が必要
+            if (monthlyDataObj.totalRegularEmployees && monthlyDataObj.disabledEmployees) {
+              const months = [
+                '4月', '5月', '6月', '7月', '8月', '9月', 
+                '10月', '11月', '12月', '1月', '2月', '3月'
+              ];
+              const monthKeys = [
+                'april', 'may', 'june', 'july', 'august', 'september',
+                'october', 'november', 'december', 'january', 'february', 'march'
+              ];
+              
+              const formattedData = months.map((month, index) => {
+                const key = monthKeys[index];
+                return {
+                  month: month,
+                  employees: monthlyDataObj.totalRegularEmployees?.[key] || 0,
+                  disabledEmployees: monthlyDataObj.disabledEmployees?.[key] || 0
+                };
+              });
+              
+              setMonthlyData(formattedData);
+            }
+          } catch (parseError) {
+            console.error('月次データのパースエラー:', parseError);
+          }
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : '月次データの取得に失敗しました');
+        console.error('月次データの取得エラー:', err);
+      }
+    };
+    
+    fetchPaymentReport();
+  }, [fiscalYear]);
   
   // 月別のデータを計算
   const calculatedData = useMemo(() => {
@@ -77,13 +160,45 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
 
   return (
     <div style={{ padding: '0', marginTop: '1rem' }}>
+      {loading && (
+        <div style={{ 
+          padding: '12px', 
+          textAlign: 'center', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '4px', 
+          marginBottom: '1rem' 
+        }}>
+          データを読み込み中...
+        </div>
+      )}
+      
+      {error && (
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '1rem' 
+        }}>
+          {error}
+        </div>
+      )}
+      
       <div style={{ marginBottom: '1rem' }}>
         <label style={{ marginRight: '6px', fontSize: '16px' }}>対象月:</label>
-        <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}>
+        <select 
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}
+        >
           <option value="2024年">2024年</option>
           <option value="2025年">2025年</option>
         </select>
-        <select style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}>
+        <select 
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}
+        >
           <option value="4月">4月</option>
           <option value="5月">5月</option>
           <option value="6月">6月</option>

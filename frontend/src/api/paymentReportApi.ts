@@ -39,6 +39,9 @@ export interface PaymentReport {
   payment_amount: number;
   status: string;
   notes?: string;
+  monthly_data?: string | any; // JSON文字列またはオブジェクト
+  company_data?: string | any; // JSON文字列またはオブジェクト
+  bank_info?: string | any;    // JSON文字列またはオブジェクト
   created_at?: string;
   updated_at?: string;
 }

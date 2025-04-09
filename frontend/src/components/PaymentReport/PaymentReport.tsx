@@ -1,14 +1,20 @@
+// src/components/PaymentReport/PaymentReport.tsx
 import React, { useState, useEffect } from 'react';
-
-// 既存のタブコンポーネントをインポート（同じディレクトリにあると仮定）
 import MonthlyDataTab from './MonthlyDataTab';
 import PaymentInfoTab from './PaymentInfoTab';
 import HistoryTab from './HistoryTab';
 
 const PaymentReport: React.FC = () => {
-  const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+  // 現在の年度を取得（例：2025年なら2025年度）
+  const currentYear = new Date().getFullYear();
   
-  // URLからタブを取得する関数（デフォルトを'monthly'に変更）
+  // 年度の選択肢を作成（現在の年度から5年前までを選択可能にする）
+  const yearOptions = Array.from({ length: 6 }, (_, i) => `${currentYear - i}年度`);
+  
+  // 最新の年度をデフォルト値にする
+  const [fiscalYear, setFiscalYear] = useState<string>(yearOptions[0]);
+  
+  // URLからタブを取得する関数
   const getTabFromUrl = () => {
     const searchParams = new URLSearchParams(window.location.search);
     return searchParams.get('tab') || 'monthly';
@@ -37,11 +43,32 @@ const PaymentReport: React.FC = () => {
     window.history.pushState({}, '', url.toString());
   };
 
+  // 年度変更ハンドラー
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFiscalYear(e.target.value);
+  };
+
   return (
     <div className="page-container">
       <h1 className="page-title">納付金申告</h1>
       
-      {/* 年度選択など */}
+      {/* 年度選択 */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ marginRight: '8px' }}>年度:</label>
+        <select 
+          value={fiscalYear} 
+          onChange={handleYearChange}
+          style={{ 
+            padding: '6px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ced4da'
+          }}
+        >
+          {yearOptions.map(year => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+      </div>
       
       {/* タブナビゲーション */}
       <div className="tab-navigation">
@@ -71,8 +98,6 @@ const PaymentReport: React.FC = () => {
         {activeTab === 'payment' && <PaymentInfoTab fiscalYear={fiscalYear} />}
         {activeTab === 'history' && <HistoryTab fiscalYear={fiscalYear} />}
       </div>
-      
-      {/* 注意書き */}
     </div>
   );
 };
