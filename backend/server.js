@@ -97,7 +97,6 @@ const settingsController = require('./controllers/settingsController');
 // ルーターのインポート
 const employeeRoutes = require('./routes/employeeRoutes');
 const monthlyReportRoutes = require('./routes/monthlyReportRoutes');
-const paymentReportRoutes = require('./routes/paymentReportRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 
 // テスト用の直接エンドポイント
@@ -208,6 +207,7 @@ app.get('/api/test-get/:id', async (req, res) => {
 // APIルートの設定
 app.use('/api/employees', employeeRoutes);
 app.use('/api/monthly-reports', monthlyReportRoutes);
+app.use('/api/monthlyReports', monthlyReportRoutes);
 app.use('/api/payment-reports', paymentReportRoutes);
 app.use('/api/settings', settingsRoutes);
 

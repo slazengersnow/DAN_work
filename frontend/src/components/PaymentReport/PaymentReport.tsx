@@ -5,14 +5,14 @@ import PaymentInfoTab from './PaymentInfoTab';
 import HistoryTab from './HistoryTab';
 
 const PaymentReport: React.FC = () => {
-  // 現在の年度を取得（例：2025年なら2025年度）
+  // 現在の年度を取得
   const currentYear = new Date().getFullYear();
   
   // 年度の選択肢を作成（現在の年度から5年前までを選択可能にする）
   const yearOptions = Array.from({ length: 6 }, (_, i) => `${currentYear - i}年度`);
   
-  // 最新の年度をデフォルト値にする
-  const [fiscalYear, setFiscalYear] = useState<string>(yearOptions[0]);
+  // デフォルト値を2024年度に設定（または存在するデータの年度に）
+  const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
   
   // URLからタブを取得する関数
   const getTabFromUrl = () => {

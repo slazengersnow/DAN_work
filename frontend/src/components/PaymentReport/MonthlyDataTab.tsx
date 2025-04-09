@@ -10,6 +10,22 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
   // 法定雇用率
   const LEGAL_EMPLOYMENT_RATE = 2.3; // 2.3%
   
+  // コンポーネントの先頭で定数として定義
+  const defaultMonthlyData = [
+    { month: '4月', employees: 0, disabledEmployees: 0 },
+    { month: '5月', employees: 0, disabledEmployees: 0 },
+    { month: '6月', employees: 0, disabledEmployees: 0 },
+    { month: '7月', employees: 0, disabledEmployees: 0 },
+    { month: '8月', employees: 0, disabledEmployees: 0 },
+    { month: '9月', employees: 0, disabledEmployees: 0 },
+    { month: '10月', employees: 0, disabledEmployees: 0 },
+    { month: '11月', employees: 0, disabledEmployees: 0 },
+    { month: '12月', employees: 0, disabledEmployees: 0 },
+    { month: '1月', employees: 0, disabledEmployees: 0 },
+    { month: '2月', employees: 0, disabledEmployees: 0 },
+    { month: '3月', employees: 0, disabledEmployees: 0 }
+  ];
+  
   // API連携用の状態
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +117,11 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
         setLoading(false);
         setError(err instanceof Error ? err.message : '月次データの取得に失敗しました');
         console.error('月次データの取得エラー:', err);
+        
+        // データがない場合はデフォルト値を使用
+        if (monthlyData.length === 0) {
+          setMonthlyData(defaultMonthlyData);
+        }
       }
     };
     

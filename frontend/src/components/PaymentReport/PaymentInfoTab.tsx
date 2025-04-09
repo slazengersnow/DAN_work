@@ -125,6 +125,7 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showCreateOption, setShowCreateOption] = useState(false);
 
   // 年度数値を取得する
   const getYearValue = () => {
@@ -136,15 +137,23 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear }) => {
 
   // APIからデータを取得
   useEffect(() => {
-    const fetchData = async () => {
+    fetchData();
+  }, [fiscalYear]);
+
+  // データ取得関数
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setShowCreateOption(false);
+      
+      const year = getYearValue();
+      
       try {
-        setLoading(true);
-        setError(null);
-        
-        const year = getYearValue();
+        // 既存レポートの取得を試みる
         const report = await paymentReportApi.getPaymentReport(year);
         
-        // 取得したデータをフォームにセット
+        // レポートが取得できた場合の処理
         if (report) {
           // APIから取得したデータを適切な形式に変換する処理が必要
           // 実際のAPIレスポンス形式によって実装方法は異なる
@@ -155,16 +164,61 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear }) => {
           // setFormData({ ... });
         }
         
-        setLoading(false);
-      } catch (err) {
-        setLoading(false);
-        setError(err instanceof Error ? err.message : '納付金レポートデータの取得に失敗しました');
-        console.error('納付金レポートデータの取得エラー:', err);
+      } catch (error) {
+        // まずはエラーの型チェック
+        const fetchError = error as Error;
+        
+        if (fetchError.message && fetchError.message.includes('見つかりません')) {
+          // 404エラーの場合は、新規作成のオプションを提供
+          setError(`${year}年度のデータが見つかりません。新規作成することができます。`);
+          setShowCreateOption(true);
+        } else {
+          throw error; // その他のエラーは再スロー
+        }
       }
-    };
-    
-    fetchData();
-  }, [fiscalYear]);
+      
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : '納付金レポートデータの取得に失敗しました');
+      console.error('納付金レポートデータの取得エラー:', err);
+    }
+  };
+
+  // 新規作成ハンドラー
+  const handleCreateNewReport = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const year = getYearValue();
+      
+      // 新規レポートの基本データ
+      const initialData = {
+        year,
+        total_employees: 0,
+        disabled_employees: 0,
+        employment_rate: 0,
+        legal_employment_rate: 2.3,
+        shortage_count: 0,
+        payment_amount: 0,
+        status: '作成中',
+        notes: `${year}年度の納付金レポート（新規作成）`
+      };
+      
+      // 新規レポートを保存
+      await paymentReportApi.savePaymentReport(year, initialData);
+      
+      // 保存後再読み込み
+      fetchData();
+      
+      setShowCreateOption(false);
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : '納付金レポートの作成に失敗しました');
+      console.error('納付金レポートの作成エラー:', err);
+    }
+  };
 
   // データを保存する関数
   const handleSave = async () => {
@@ -291,9 +345,21 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear }) => {
       
       {loading && <div className="text-center py-4">データを読み込み中...</div>}
       
-      {error && (
+      {error && !showCreateOption && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           <p>{error}</p>
+        </div>
+      )}
+      
+      {showCreateOption && (
+        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4 flex justify-between items-center">
+          <p>このデータは存在しません。新規作成しますか？</p>
+          <button 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            onClick={handleCreateNewReport}
+          >
+            新規作成
+          </button>
         </div>
       )}
       

@@ -139,6 +139,55 @@ const paymentReportController = {
     }
   },
 
+  // 納付金計算
+  calculatePayment: async (req, res) => {
+    const { year } = req.params;
+    
+    try {
+      // バリデーション
+      if (!year || isNaN(parseInt(year))) {
+        return res.status(400).json({ error: '有効な年度を指定してください' });
+      }
+      
+      const yearNum = parseInt(year);
+      
+      // 月次レポートから年間データを集計して納付金を計算
+      const calculationResult = await paymentReportModel.calculatePaymentAmount(yearNum);
+      
+      res.status(200).json(calculationResult);
+    } catch (error) {
+      console.error('納付金計算中にエラーが発生しました:', error);
+      res.status(500).json({ error: '納付金計算に失敗しました' });
+    }
+  },
+
+  // 納付金レポートを確定
+  confirmPaymentReport: async (req, res) => {
+    const { year } = req.params;
+    
+    try {
+      // バリデーション
+      if (!year || isNaN(parseInt(year))) {
+        return res.status(400).json({ error: '有効な年度を指定してください' });
+      }
+      
+      const yearNum = parseInt(year);
+      const confirmedReport = await paymentReportModel.confirmPaymentReport(yearNum);
+      
+      if (!confirmedReport) {
+        return res.status(404).json({ error: '指定された納付金レポートが見つかりません' });
+      }
+      
+      res.status(200).json({ 
+        message: '納付金レポートを確定しました', 
+        report: confirmedReport 
+      });
+    } catch (error) {
+      console.error('納付金レポート確定中にエラーが発生しました:', error);
+      res.status(500).json({ error: '納付金レポート確定に失敗しました' });
+    }
+  },
+
   // 新規納付金レポートの作成（会社情報を自動入力）
   createNewPaymentReport: async (req, res) => {
     const { fiscalYear } = req.params;

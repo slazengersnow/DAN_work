@@ -3,25 +3,27 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
-// エラーハンドリング関数
+// エラーハンドリング関数を改善
 export const handleApiError = (error: any): string => {
   if (axios.isAxiosError(error)) {
     if (error.response) {
-      // サーバーからのレスポンスがある場合
-      const { status, data } = error.response;
-      if (typeof data === 'string') {
-        return `エラー (${status}): ${data}`;
-      } else if (data && data.message) {
-        return `エラー (${status}): ${data.message}`;
-      } else {
-        return `エラー (${status}): サーバーエラーが発生しました`;
+      const { status } = error.response;
+      
+      // ステータスコード別のメッセージ
+      switch (status) {
+        case 404:
+          return 'データが見つかりません。別の年度を選択するか、新規作成してください。';
+        case 500:
+          return 'サーバーでエラーが発生しました。しばらく経ってから再度お試しください。';
+        case 401:
+          return '認証エラーが発生しました。ログインし直してください。';
+        default:
+          return `エラーが発生しました (${status})。サポートにお問い合わせください。`;
       }
     } else if (error.request) {
-      // リクエストは送信されたがレスポンスがない場合
       return 'サーバーに接続できません。ネットワーク接続を確認してください。';
     } else {
-      // リクエスト設定時にエラーが発生した場合
-      return `エラー: ${error.message}`;
+      return `リクエストエラー: ${error.message}`;
     }
   }
   return `予期せぬエラーが発生しました: ${error}`;

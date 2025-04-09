@@ -10,6 +10,10 @@ router.get('/', paymentReportController.getAllPaymentReports);
 // 納付金額計算（シミュレーション）
 router.post('/calculate', paymentReportController.calculatePaymentAmount);
 
+router.get('/:year/calculate', paymentReportController.calculatePayment);
+
+router.post('/:year/confirm', paymentReportController.confirmPaymentReport);
+
 // 特定の納付金レポートの取得
 router.get('/:fiscalYear', paymentReportController.getPaymentReport);
 
