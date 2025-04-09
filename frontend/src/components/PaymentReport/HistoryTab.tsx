@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { paymentReportApi, PaymentReport } from '../../api/paymentReportApi';
 
 // インポートコンポーネント
 const ImportPaymentHistory: React.FC<{
@@ -159,9 +160,24 @@ interface HistoryTabProps {
   fiscalYear: string;
 }
 
+// 表示用の履歴データ型定義
+interface HistoryItem {
+  id: number;
+  year: string;
+  type: string;
+  amount: number;
+  applicationDate: string;
+  paymentDate: string;
+  status: string;
+}
+
 const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
-  // 申告履歴データ
-  const historyData = [
+  // API連携用の状態
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 履歴データの状態
+  const [historyData, setHistoryData] = useState<HistoryItem[]>([
     { 
       id: 1,
       year: '2024年度', 
@@ -207,7 +223,65 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
       paymentDate: '2021/07/12', 
       status: '支払済' 
     }
-  ];
+  ]);
+
+  // APIからデータを取得
+  useEffect(() => {
+    const fetchPaymentReports = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // APIから納付金レポート履歴を取得
+        const reports = await paymentReportApi.getAllPaymentReports();
+        
+        // APIのレスポンスを表示用のフォーマットに変換
+        const formattedData: HistoryItem[] = reports.map((report) => {
+          // 種別を判定（納付金か調整金か）
+          const type = report.payment_amount > 0 ? '納付金' : '調整金';
+          // 支払状態を判定
+          const status = report.status === '確定済み' 
+            ? (report.payment_amount > 0 ? '支払済' : '受取済')
+            : '作成中';
+          
+          // 日付をフォーマット
+          const updatedDate = new Date(report.updated_at || '');
+          const applicationDate = `${updatedDate.getFullYear()}/${(updatedDate.getMonth() + 1).toString().padStart(2, '0')}/${updatedDate.getDate().toString().padStart(2, '0')}`;
+          
+          // 支払/受取日（仮の値、実際のAPIレスポンスに合わせて調整）
+          const paymentDate = status !== '作成中'
+            ? `${updatedDate.getFullYear()}/${(updatedDate.getMonth() + 2).toString().padStart(2, '0')}/${updatedDate.getDate().toString().padStart(2, '0')}`
+            : '-';
+          
+          return {
+            id: report.id || 0, // idがundefinedの場合は0を使用
+            year: `${report.year}年度`,
+            type,
+            // 納付金はマイナス表示、調整金はプラス表示
+            amount: type === '納付金' ? -Math.abs(report.payment_amount) : Math.abs(report.payment_amount),
+            applicationDate,
+            paymentDate,
+            status
+          };
+        });
+        
+        // もしAPIからデータが取得できる場合は、モックデータを置き換える
+        if (formattedData.length > 0) {
+          setHistoryData(formattedData);
+        }
+        // ※開発中は既存のモックデータを使用し、APIが完成したら上記のコメントを外す
+        
+        setLoading(false);
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : '納付金レポート履歴の取得に失敗しました');
+        console.error('納付金レポート履歴の取得エラー:', err);
+      }
+    };
+    
+    // APIからデータを取得
+    fetchPaymentReports();
+  }, []);
 
   // 状態管理
   const [showImport, setShowImport] = useState(false);
@@ -216,6 +290,22 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
   const handleImportComplete = (importedData: any[]) => {
     console.log('インポート完了', importedData);
     // ここで履歴データを更新する処理を実装
+    // APIを使用して更新する場合
+    // const updateData = async () => {
+    //   setLoading(true);
+    //   try {
+    //     // CSVデータをAPIに送信
+    //     await paymentReportApi.importReports(importedData);
+    //     // 再度データを取得して表示を更新
+    //     const reports = await paymentReportApi.getAllPaymentReports();
+    //     // データの変換処理...
+    //     setLoading(false);
+    //   } catch (err) {
+    //     setError(err instanceof Error ? err.message : 'インポート中にエラーが発生しました');
+    //     setLoading(false);
+    //   }
+    // };
+    // updateData();
   };
   
   // インポートモーダルを閉じる
@@ -248,11 +338,17 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
         backgroundColor: '#d1fae5',
         color: '#065f46'
       };
-    } else {
+    } else if (status === '支払済') {
       return {
         ...baseStyle,
         backgroundColor: '#dbeafe',
         color: '#1e40af'
+      };
+    } else {
+      return {
+        ...baseStyle,
+        backgroundColor: '#f3f4f6',
+        color: '#374151'
       };
     }
   };
@@ -324,6 +420,20 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
     alignItems: 'center',
     zIndex: 50
   };
+  
+  const loadingStyle: React.CSSProperties = {
+    textAlign: 'center',
+    padding: '20px',
+    color: '#4A60DD'
+  };
+  
+  const errorStyle: React.CSSProperties = {
+    backgroundColor: '#fee2e2',
+    color: '#b91c1c',
+    padding: '10px',
+    borderRadius: '4px',
+    marginBottom: '15px'
+  };
 
   return (
     <div style={containerStyle}>
@@ -338,39 +448,61 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
         </button>
       </div>
       
-      {/* 履歴テーブル */}
-      <div style={tableContainerStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>年度</th>
-              <th style={thStyle}>種別</th>
-              <th style={thStyle}>金額</th>
-              <th style={thStyle}>申告日</th>
-              <th style={thStyle}>支払/受取日</th>
-              <th style={thStyle}>状態</th>
-            </tr>
-          </thead>
-          <tbody>
-            {historyData.map((item) => (
-              <tr key={item.id}>
-                <td style={tdStyle}>{item.year}</td>
-                <td style={tdStyle}>{item.type}</td>
-                <td style={{...amountCellStyle, color: getPaymentColor(item.amount)}}>
-                  {item.amount < 0 ? '-' : ''}{formatNumber(Math.abs(item.amount))}円
-                </td>
-                <td style={tdStyle}>{item.applicationDate}</td>
-                <td style={tdStyle}>{item.paymentDate}</td>
-                <td style={tdStyle}>
-                  <span style={getStatusStyle(item.status)}>
-                    {item.status}
-                  </span>
-                </td>
+      {/* エラーメッセージ表示 */}
+      {error && (
+        <div style={errorStyle}>
+          {error}
+        </div>
+      )}
+      
+      {/* ローディング表示 */}
+      {loading ? (
+        <div style={loadingStyle}>
+          データを読み込み中...
+        </div>
+      ) : (
+        /* 履歴テーブル */
+        <div style={tableContainerStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>年度</th>
+                <th style={thStyle}>種別</th>
+                <th style={thStyle}>金額</th>
+                <th style={thStyle}>申告日</th>
+                <th style={thStyle}>支払/受取日</th>
+                <th style={thStyle}>状態</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {historyData.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{...tdStyle, textAlign: 'center'}}>
+                    申告履歴がありません
+                  </td>
+                </tr>
+              ) : (
+                historyData.map((item) => (
+                  <tr key={item.id}>
+                    <td style={tdStyle}>{item.year}</td>
+                    <td style={tdStyle}>{item.type}</td>
+                    <td style={{...amountCellStyle, color: getPaymentColor(item.amount)}}>
+                      {item.amount < 0 ? '-' : ''}{formatNumber(Math.abs(item.amount))}円
+                    </td>
+                    <td style={tdStyle}>{item.applicationDate}</td>
+                    <td style={tdStyle}>{item.paymentDate}</td>
+                    <td style={tdStyle}>
+                      <span style={getStatusStyle(item.status)}>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
       
       {/* インポートモーダルのオーバーレイ */}
       {showImport && (

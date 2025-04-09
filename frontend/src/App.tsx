@@ -62,6 +62,7 @@ const App: React.FC = () => {
             <Route path="/monthly-report/detail" element={<MonthlyReportDetail />} />
             <Route path="/monthly-report/:id" element={<MonthlyReportDetail />} />
             <Route path="/monthly-report" element={<MonthlyReport />} />
+            <Route path="/payment-report" element={<PaymentReport />} />
             
             {/* 納付金報告書 - シンプルに単一のルートとして定義 */}
             <Route path="/payment-report/*" element={<PaymentReport />} />
