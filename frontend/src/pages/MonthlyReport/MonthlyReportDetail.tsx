@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MonthlyDetailData, MonthlyTotal } from './types';
 import { updateDetailCell, handleApiError } from '../../api/reportApi';
 import { YearMonthContext } from './YearMonthContext';
+import { useYearMonth } from './YearMonthContext';  // カスタムフックを使用
+
 
 interface MonthlyReportDetailProps {
   // タブ内に埋め込む場合に必要なprops
@@ -17,7 +19,7 @@ interface MonthlyReportDetailProps {
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     console.log('MonthlyReportDetail.tsx loaded at:', new Date().toISOString());
     const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded, onRefreshData } = props;
-    
+          
     // Debug logs
     console.log('MonthlyReportDetail props:', {
       isEmbedded,
@@ -26,11 +28,13 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       detailDataItemCount: monthlyDetailData?.data?.length
     });
     
+    // 年月コンテキストから現在の年月を取得（カスタムフックを使用）
+    const { fiscalYear, month } = useYearMonth();
+
     // 年月コンテキストから現在の年月を取得
     const yearMonthContext = useContext(YearMonthContext);
     // contextの実際のプロパティ名を使用
     const year = yearMonthContext.fiscalYear; // YearMonthContextの実際のプロパティに合わせて修正
-    const month = yearMonthContext.month;     // YearMonthContextの実際のプロパティに合わせて修正
     
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();

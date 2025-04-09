@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Employee, MonthlyTotal } from './types';
 import { updateEmployeeData, handleApiError } from '../../api/reportApi';
 import { YearMonthContext } from './YearMonthContext'; // YearMonthContextのインポート方法を変更
+import { useYearMonth } from './YearMonthContext';  // カスタムフックを使用
+
 
 interface EmployeesTabProps {
   employees: Employee[];
@@ -19,8 +21,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 }) => {
   console.log('EmployeesTab.tsx loaded at:', new Date().toISOString());
   
-  // 年月コンテキストから現在の年月を取得
-  const { fiscalYear, month } = useContext(YearMonthContext);
+  // 年月コンテキストから現在の年月を取得（カスタムフックを使用）
+  const { fiscalYear, month } = useYearMonth();
   
   // 編集モード状態
   const [editMode, setEditMode] = useState(false);

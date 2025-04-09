@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { MonthlyTotal } from './types';
 import { YearMonthContext } from './YearMonthContext';
+import { useYearMonth } from './YearMonthContext';  // カスタムフックを使用
 import { 
   updateMonthlySummary, 
   confirmMonthlyReport, 
@@ -17,8 +18,8 @@ interface SummaryTabProps {
 const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, onRefreshData }) => {
   console.log('SummaryTab.tsx loaded at:', new Date().toISOString());
   
-  // 年月コンテキストから現在の年月を取得
-  const { fiscalYear, month } = useContext(YearMonthContext);
+  // 年月コンテキストから現在の年月を取得（カスタムフックを使用）
+  const { fiscalYear, month } = useYearMonth();
   
   // 編集モード状態
   const [isEditing, setIsEditing] = useState<boolean>(false);

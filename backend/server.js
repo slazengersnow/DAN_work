@@ -17,6 +17,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 // Express アプリの初期化
 const app = express();
 
+const paymentReportRoutes = require('./routes/paymentReportRoutes');
+
 // ミドルウェアの設定 (ルートより前に配置)
 app.use(cors({
   origin: '*',
@@ -37,6 +39,8 @@ app.use((req, res, next) => {
   console.log('Request Body:', req.body);
   next();
 });
+
+app.use('/api/payment-reports', paymentReportRoutes);
 
 // PostgreSQL 接続設定
 const pool = new Pool({
