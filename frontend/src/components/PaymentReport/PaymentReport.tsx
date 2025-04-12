@@ -71,6 +71,14 @@ const PaymentReport: React.FC = () => {
       
       const data = await paymentReportApi.getPaymentReport(yearNum);
       
+      // データ構造の詳細なログ
+      console.log(`年度 ${yearNum} のデータ構造:`, {
+        hasMonthlyData: !!data.monthly_data,
+        monthlyDataType: typeof data.monthly_data,
+        dataKeys: Object.keys(data),
+        rawMonthlyData: data.monthly_data
+      });
+      
       // データを更新
       setReportData(data);
       console.log(`年度 ${yearNum} のデータを取得完了:`, data);

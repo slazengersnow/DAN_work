@@ -54,17 +54,141 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     return new Date().getFullYear();
   };
   
-  // データ処理関数を分離して共通化
+  // 標準形式のデータを処理する関数
+  const processStandardFormat = (monthlyData: any) => {
+    const months = [
+      '4月', '5月', '6月', '7月', '8月', '9月', 
+      '10月', '11月', '12月', '1月', '2月', '3月'
+    ];
+    const monthKeys = [
+      'april', 'may', 'june', 'july', 'august', 'september',
+      'october', 'november', 'december', 'january', 'february', 'march'
+    ];
+    
+    console.log('標準形式のデータを処理します');
+    
+    return months.map((month, index) => {
+      const key = monthKeys[index];
+      return {
+        month: month,
+        employees: monthlyData.totalRegularEmployees?.[key] || 0,
+        disabledEmployees: monthlyData.disabledEmployees?.[key] || 0
+      };
+    });
+  };
+  
+  // シンプル形式のデータを処理する関数（すべての月で同じ値）
+  const processSimpleFormat = (totalEmployees: number, disabledEmployees: number) => {
+    const months = [
+      '4月', '5月', '6月', '7月', '8月', '9月', 
+      '10月', '11月', '12月', '1月', '2月', '3月'
+    ];
+    
+    console.log('シンプル形式のデータを処理します', { totalEmployees, disabledEmployees });
+    
+    // すべての月で同じ値を使用
+    return months.map(month => ({
+      month,
+      employees: totalEmployees,
+      disabledEmployees: disabledEmployees
+    }));
+  };
+  
+  // フィールド直接アクセスの形式を処理する関数
+  const processDirectFields = (data: any) => {
+    const months = [
+      '4月', '5月', '6月', '7月', '8月', '9月', 
+      '10月', '11月', '12月', '1月', '2月', '3月'
+    ];
+    const monthKeys = [
+      'april', 'may', 'june', 'july', 'august', 'september',
+      'october', 'november', 'december', 'january', 'february', 'march'
+    ];
+    
+    console.log('フィールド直接アクセス形式のデータを処理します');
+    
+    return months.map((month, index) => {
+      const key = monthKeys[index];
+      return {
+        month: month,
+        employees: data[`employees_${key}`] || 0,
+        disabledEmployees: data[`disabled_${key}`] || 0
+      };
+    });
+  };
+  
+  // 適応的なデータ処理関数を追加
+  const adaptiveProcessMonthlyData = (data: any) => {
+    console.log('適応的データ処理を開始:', data);
+    
+    // データなしの場合
+    if (!data) {
+      console.warn('データがありません');
+      return defaultMonthlyData;
+    }
+    
+    try {
+      // 複数の可能なデータ構造をチェック
+      
+      // ケース1: 標準形式の月次データ
+      if (data.monthly_data) {
+        const monthlyData = typeof data.monthly_data === 'string' 
+          ? JSON.parse(data.monthly_data)
+          : data.monthly_data;
+        
+        if (monthlyData.totalRegularEmployees && monthlyData.disabledEmployees) {
+          // 標準形式処理
+          return processStandardFormat(monthlyData);
+        }
+      }
+      
+      // ケース2: フラットな構造の月次データ
+      if (data.total_employees && data.disabled_employees) {
+        // フラット構造処理 (すべての月で同じ値)
+        return processSimpleFormat(data.total_employees, data.disabled_employees);
+      }
+      
+      // ケース3: フィールド直接アクセス
+      const monthKeys = ['april', 'may', 'june', 'july', 'august', 'september',
+                        'october', 'november', 'december', 'january', 'february', 'march'];
+      
+      const hasDirectMonthFields = monthKeys.some(key => 
+        data[`employees_${key}`] !== undefined || data[`disabled_${key}`] !== undefined
+      );
+      
+      if (hasDirectMonthFields) {
+        // 直接フィールドアクセス処理
+        return processDirectFields(data);
+      }
+      
+      // どの形式にも当てはまらない場合はデフォルト値を使用
+      console.warn('認識できるデータ構造ではありません。デフォルト値を使用します。');
+      return defaultMonthlyData;
+      
+    } catch (error) {
+      console.error('データ処理エラー:', error);
+      return defaultMonthlyData;
+    }
+  };
+  
+  // データ処理関数を修正
   const processReportData = (data: any) => {
     if (data && data.monthly_data) {
       try {
-        const monthlyDataObj = typeof data.monthly_data === 'string' 
+        let monthlyDataObj: {
+          totalRegularEmployees?: { [key: string]: number };
+          disabledEmployees?: { [key: string]: number };
+          [key: string]: any;
+        };
+        
+        monthlyDataObj = typeof data.monthly_data === 'string' 
           ? JSON.parse(data.monthly_data)
           : data.monthly_data;
-          
-        console.log('月次データを処理:', monthlyDataObj);
         
-        if (monthlyDataObj.totalRegularEmployees && monthlyDataObj.disabledEmployees) {
+        console.log('処理する月次データ:', monthlyDataObj);
+        
+        // データが存在するか明示的に検証
+        if (monthlyDataObj && typeof monthlyDataObj === 'object') {
           const months = [
             '4月', '5月', '6月', '7月', '8月', '9月', 
             '10月', '11月', '12月', '1月', '2月', '3月'
@@ -74,24 +198,55 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
             'october', 'november', 'december', 'january', 'february', 'march'
           ];
           
-          const formattedData = months.map((month, index) => {
-            const key = monthKeys[index];
-            return {
-              month: month,
-              employees: monthlyDataObj.totalRegularEmployees?.[key] || 0,
-              disabledEmployees: monthlyDataObj.disabledEmployees?.[key] || 0
-            };
-          });
+          // 有効なデータ構造かを確認し、必要に応じてデフォルト値を使用
+          const hasValidData = monthlyDataObj.totalRegularEmployees && 
+                              monthlyDataObj.disabledEmployees;
           
-          setMonthlyData(formattedData);
-          setLoading(false);
-          return true; // 処理成功
+          console.log('有効なデータ構造ですか？', hasValidData);
+          
+          if (hasValidData) {
+            const formattedData = months.map((month, index) => {
+              const key = monthKeys[index];
+              return {
+                month: month,
+                employees: monthlyDataObj.totalRegularEmployees?.[key] || 0,
+                disabledEmployees: monthlyDataObj.disabledEmployees?.[key] || 0
+              };
+            });
+            
+            console.log('フォーマット済みデータ:', formattedData);
+            setMonthlyData(formattedData);
+          } else {
+            console.warn('月次データの構造が期待と異なります:', monthlyDataObj);
+            
+            // 適応的な処理を試みる
+            const adaptiveData = adaptiveProcessMonthlyData(data);
+            setMonthlyData(adaptiveData);
+          }
+        } else {
+          console.warn('月次データがオブジェクトではありません:', monthlyDataObj);
+          
+          // 適応的な処理を試みる
+          const adaptiveData = adaptiveProcessMonthlyData(data);
+          setMonthlyData(adaptiveData);
         }
-      } catch (error) {
-        console.error('月次データのパースエラー:', error);
+      } catch (parseError) {
+        console.error('月次データのパースエラー:', parseError);
+        
+        // パースエラーでも適応的な処理を試みる
+        const adaptiveData = adaptiveProcessMonthlyData(data);
+        setMonthlyData(adaptiveData);
       }
+    } else {
+      console.warn('月次データがありません');
+      
+      // 適応的な処理を試みる
+      const adaptiveData = adaptiveProcessMonthlyData(data);
+      setMonthlyData(adaptiveData);
     }
-    return false; // 処理失敗または対象データなし
+    
+    // いずれの場合もローディング状態を解除
+    setLoading(false);
   };
   
   // API からデータを取得する関数
@@ -104,21 +259,14 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
       const report = await paymentReportApi.getPaymentReport(year);
       
       // データ処理関数を呼び出し
-      const processed = processReportData(report);
-      
-      // 処理に失敗した場合でもローディング状態を解除
-      if (!processed) {
-        setLoading(false);
-      }
+      processReportData(report);
     } catch (err) {
       setLoading(false);
       setError(err instanceof Error ? err.message : '月次データの取得に失敗しました');
       console.error('月次データの取得エラー:', err);
       
       // データがない場合はデフォルト値を使用
-      if (monthlyData.length === 0) {
-        setMonthlyData(defaultMonthlyData);
-      }
+      setMonthlyData(defaultMonthlyData);
     }
   };
   
@@ -128,6 +276,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     
     if (reportData) {
       console.log('親コンポーネントから受け取ったデータを処理します:', reportData);
+      setLoading(true); // 親コンポーネントからのデータ処理中もローディング状態に
       processReportData(reportData);
       return; // reportData が存在する場合は API 呼び出しをスキップ
     }
@@ -141,7 +290,9 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
   const calculatedData = useMemo(() => {
     return monthlyData.map(item => {
       // 実雇用率 = 障害者雇用数 / 常用労働者数 * 100
-      const employmentRate = (item.disabledEmployees / item.employees) * 100;
+      const employmentRate = item.employees > 0 
+        ? (item.disabledEmployees / item.employees) * 100
+        : 0;
       
       // 必要雇用数 = 常用労働者数 * 法定雇用率 / 100
       const requiredEmployees = Math.floor(item.employees * LEGAL_EMPLOYMENT_RATE / 100);
@@ -213,8 +364,6 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
           {error}
         </div>
       )}
-      
-      {/* 対象月の選択部分を削除しました */}
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
