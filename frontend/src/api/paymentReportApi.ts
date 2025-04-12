@@ -84,9 +84,12 @@ export const getPaymentReport = async (year: number): Promise<PaymentReport> => 
 // 納付金レポートを保存（新規作成または更新）
 export const savePaymentReport = async (year: number, data: Partial<PaymentReport>): Promise<PaymentReport> => {
   try {
+    console.log(`${year}年度のデータを保存します:`, data);
     const response = await axios.post(`${API_BASE_URL}/payment-reports/${year}`, data);
+    console.log('保存成功:', response.data);
     return response.data;
   } catch (error) {
+    console.error('保存エラー詳細:', error);
     throw new Error(handleApiError(error));
   }
 };

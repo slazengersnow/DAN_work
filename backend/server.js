@@ -17,9 +17,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 // Express アプリの初期化
 const app = express();
 
+// コントローラーのインポート
+const employeeController = require('./controllers/employeeController');
+const settingsController = require('./controllers/settingsController');
+
+// ルーターのインポート
+const employeeRoutes = require('./routes/employeeRoutes');
+const monthlyReportRoutes = require('./routes/monthlyReportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 const paymentReportRoutes = require('./routes/paymentReportRoutes');
 
-// ミドルウェアの設定 (ルートより前に配置)
+// 1. CORS設定
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -27,20 +35,30 @@ app.use(cors({
   credentials: true
 }));
 
+// 2. BodyParser
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// デバッグ用ミドルウェア
+// 3. デバッグミドルウェア（オプション - 問題がある場合は一時的に無効化）
 app.use((req, res, next) => {
-  console.log('Request Headers:', req.headers);
-  console.log('Request Method:', req.method);
-  console.log('Request URL:', req.url);
-  console.log('Content-Type:', req.headers['content-type']);
-  console.log('Request Body:', req.body);
-  next();
+  try {
+    // デバッグ情報のログ出力
+    if (req.body) {
+      console.log('Request Body:', req.body);
+    }
+    next();
+  } catch (error) {
+    console.error('デバッグミドルウェアでエラー:', error);
+    next();  // エラーがあっても処理を続行
+  }
 });
 
+// 4. ルーティング設定
 app.use('/api/payment-reports', paymentReportRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/monthly-reports', monthlyReportRoutes);
+app.use('/api/monthlyReports', monthlyReportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // PostgreSQL 接続設定
 const pool = new Pool({
@@ -90,18 +108,13 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// コントローラーのインポート
-const employeeController = require('./controllers/employeeController');
-const settingsController = require('./controllers/settingsController');
-
-// ルーターのインポート
-const employeeRoutes = require('./routes/employeeRoutes');
-const monthlyReportRoutes = require('./routes/monthlyReportRoutes');
-const settingsRoutes = require('./routes/settingsRoutes');
-
 // テスト用の直接エンドポイント
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working without auth' });
+});
+
+app.get('/api/test-direct', (req, res) => {
+  res.status(200).json({ message: 'Direct test endpoint is working' });
 });
 
 app.post('/api/direct-test', (req, res) => {
@@ -203,13 +216,6 @@ app.get('/api/test-get/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// APIルートの設定
-app.use('/api/employees', employeeRoutes);
-app.use('/api/monthly-reports', monthlyReportRoutes);
-app.use('/api/monthlyReports', monthlyReportRoutes);
-app.use('/api/payment-reports', paymentReportRoutes);
-app.use('/api/settings', settingsRoutes);
 
 // 認証関連のルート
 app.post('/api/auth/register', async (req, res) => {
@@ -463,6 +469,17 @@ app.get('/api/db-test', async (req, res) => {
     console.error('DB接続テストエラー:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// 新しいテストエンドポイント
+app.get('/test', (req, res) => {
+  res.status(200).json({ message: 'テストエンドポイントが正常に動作しています' });
+});
+
+// エラーハンドリングミドルウェア - すべてのルーティングの後に配置
+app.use((err, req, res, next) => {
+  console.error('アプリケーションエラー:', err);
+  res.status(500).json({ error: '内部サーバーエラー' });
 });
 
 // サーバーの起動

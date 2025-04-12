@@ -1,8 +1,8 @@
-// src/components/PaymentReport/PaymentReport.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MonthlyDataTab from './MonthlyDataTab';
 import PaymentInfoTab from './PaymentInfoTab';
 import HistoryTab from './HistoryTab';
+import { paymentReportApi } from '../../api/paymentReportApi';
 
 const PaymentReport: React.FC = () => {
   // 現在の年度を取得
@@ -11,8 +11,16 @@ const PaymentReport: React.FC = () => {
   // 年度の選択肢を作成（現在の年度から5年前までを選択可能にする）
   const yearOptions = Array.from({ length: 6 }, (_, i) => `${currentYear - i}年度`);
   
-  // デフォルト値を2024年度に設定（または存在するデータの年度に）
-  const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
+  // デフォルト値を現在の年度に設定
+  const [fiscalYear, setFiscalYear] = useState<string>(`${currentYear}年度`);
+  
+  // データ状態
+  const [reportData, setReportData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // selectボックスのrefを作成
+  const selectRef = useRef<HTMLSelectElement>(null);
   
   // URLからタブを取得する関数
   const getTabFromUrl = () => {
@@ -33,6 +41,49 @@ const PaymentReport: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
   
+  // 初回レンダリング時にセッションストレージから年度を復元
+  useEffect(() => {
+    // セッションストレージから前回選択した年度を取得
+    const savedYear = sessionStorage.getItem('selectedFiscalYear');
+    
+    if (savedYear) {
+      console.log(`前回選択した年度(${savedYear})を使用します`);
+      setFiscalYear(savedYear);
+      // この時点でデータ取得はまだ行わない
+    }
+  }, []);
+
+  // fiscalYear が変更されたときにデータを取得する
+  useEffect(() => {
+    console.log(`年度(${fiscalYear})のデータを取得します`);
+    fetchPaymentReportData(fiscalYear);
+  }, [fiscalYear]);
+  
+  // データ取得関数
+  const fetchPaymentReportData = async (year: string) => {
+    try {
+      setLoading(true);
+      setError(null); // エラー状態をリセット
+      
+      // 年度からyear部分だけを抽出（例：「2024年度」→「2024」）
+      const yearNum = parseInt(year.replace('年度', ''));
+      console.log(`年度 ${yearNum} のデータを取得中...`);
+      
+      const data = await paymentReportApi.getPaymentReport(yearNum);
+      
+      // データを更新
+      setReportData(data);
+      console.log(`年度 ${yearNum} のデータを取得完了:`, data);
+      setLoading(false);
+    } catch (error) {
+      console.error('データ取得エラー:', error);
+      setError('データの取得に失敗しました');
+      setLoading(false);
+      // データ取得に失敗した場合は、reportDataをnullに設定
+      setReportData(null);
+    }
+  };
+  
   // タブ切り替え関数
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -45,7 +96,14 @@ const PaymentReport: React.FC = () => {
 
   // 年度変更ハンドラー
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFiscalYear(e.target.value);
+    const newYear = e.target.value;
+    console.log(`年度切り替え: ${fiscalYear} → ${newYear}`);
+    
+    // 選択した年度をセッションストレージに保存
+    sessionStorage.setItem('selectedFiscalYear', newYear);
+    
+    // 状態を更新（これにより上記の useEffect が発動しデータを再取得）
+    setFiscalYear(newYear);
   };
 
   return (
@@ -53,9 +111,10 @@ const PaymentReport: React.FC = () => {
       <h1 className="page-title">納付金申告</h1>
       
       {/* 年度選択 */}
-      <div style={{ marginBottom: '1rem' }}>
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
         <label style={{ marginRight: '8px' }}>年度:</label>
         <select 
+          ref={selectRef}
           value={fiscalYear} 
           onChange={handleYearChange}
           style={{ 
@@ -68,6 +127,9 @@ const PaymentReport: React.FC = () => {
             <option key={year} value={year}>{year}</option>
           ))}
         </select>
+        
+        {loading && <span style={{ marginLeft: '10px', color: '#666' }}>データを読み込み中...</span>}
+        {error && <span style={{ marginLeft: '10px', color: 'red' }}>{error}</span>}
       </div>
       
       {/* タブナビゲーション */}
@@ -94,9 +156,9 @@ const PaymentReport: React.FC = () => {
       
       {/* 条件付きレンダリングでタブコンテンツを表示 */}
       <div className="tab-content">
-        {activeTab === 'monthly' && <MonthlyDataTab fiscalYear={fiscalYear} />}
-        {activeTab === 'payment' && <PaymentInfoTab fiscalYear={fiscalYear} />}
-        {activeTab === 'history' && <HistoryTab fiscalYear={fiscalYear} />}
+        {activeTab === 'monthly' && <MonthlyDataTab fiscalYear={fiscalYear} reportData={reportData} />}
+        {activeTab === 'payment' && <PaymentInfoTab fiscalYear={fiscalYear} reportData={reportData} />}
+        {activeTab === 'history' && <HistoryTab fiscalYear={fiscalYear} reportData={reportData} />}
       </div>
     </div>
   );

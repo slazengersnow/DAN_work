@@ -182,29 +182,6 @@ const MonthlyReport: React.FC = () => {
     }
   );
 
-  // 月次確定Mutation
-  const confirmMutation = useMutation(
-    // updateMonthlySummaryとconfirmMonthlyReportはAPIとして提供されていないので、
-    // この部分は削除するか、別のコンポーネントから提供される関数を使用する
-    () => import('../../api/reportApi').then(module => module.confirmMonthlyReport(selectedYear, selectedMonth)),
-    {
-      onSuccess: (data) => {
-        // 成功したら関連クエリを無効化して最新データを再取得
-        queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
-        queryClient.invalidateQueries(['monthlyReports']);
-        setCurrentReport(prev => ({
-          ...prev,
-          summary: data
-        }));
-        alert('月次データを確定しました。');
-      },
-      onError: (error: any) => {
-        console.error("月次確定エラー:", error);
-        setErrorMessage(`月次データの確定に失敗しました: ${handleApiError(error)}`);
-      }
-    }
-  );
-
   // サマリーデータ更新ハンドラー
   const handleSummaryChange = (updatedSummary: MonthlyTotal) => {
     setCurrentReport(prev => ({
@@ -273,13 +250,6 @@ const MonthlyReport: React.FC = () => {
     refetchReportData();
   };
 
-  // 確定ボタンハンドラー
-  const handleConfirm = () => {
-    if (window.confirm(`${selectedYear}年${selectedMonth}月の月次データを確定しますか？この操作は元に戻せません。`)) {
-      confirmMutation.mutate();
-    }
-  };
-
   // データ再取得ハンドラー
   const handleRefreshData = () => {
     queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
@@ -295,7 +265,7 @@ const MonthlyReport: React.FC = () => {
   };
 
   // ローディングまたはエラー状態の処理
-  const isLoading = isLoadingReportsList || isLoadingReportData || confirmMutation.isLoading;
+  const isLoading = isLoadingReportsList || isLoadingReportData;
   const hasError = reportsListError || reportDataError;
 
   if (isLoading && !currentReport.summary) {
@@ -451,32 +421,6 @@ const MonthlyReport: React.FC = () => {
     </div>
   ) : null;
 
-  const reportsListElement = reportsList && reportsList.length > 0 ? (
-    <select
-      value={`${selectedYear}-${selectedMonth}`}
-      onChange={(e) => {
-        const [year, month] = e.target.value.split('-').map(Number);
-        handleYearMonthChange(year, month);
-      }}
-      style={{ 
-        padding: '8px', 
-        borderRadius: '4px', 
-        border: '1px solid #ced4da',
-        minWidth: '200px'
-      }}
-      disabled={isLoading}
-    >
-      {reportsList.map((report: { fiscal_year: number; month: number; status?: string }) => (
-        <option 
-          key={`${report.fiscal_year}-${report.month}`} 
-          value={`${report.fiscal_year}-${report.month}`}
-        >
-          {report.fiscal_year}年度 {report.month}月 ({report.status || '未確定'})
-        </option>
-      ))}
-    </select>
-  ) : null;
-
   const isConfirmedElement = isConfirmed ? (
     <span style={{ color: '#28a745', fontWeight: 'bold', marginLeft:'5px' }}> (確定済)</span>
   ) : null;
@@ -540,27 +484,6 @@ const MonthlyReport: React.FC = () => {
             表示
           </button>
 
-          {reportsListElement}
-          
-          <button
-            onClick={handleConfirm}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              opacity: isConfirmed || confirmMutation.isLoading ? 0.6 : 1,
-              transition: 'background-color 0.2s, opacity 0.2s',
-            }}
-            disabled={isConfirmed || confirmMutation.isLoading || !summary}
-            onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#218838')}
-            onMouseOut={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#28a745')}
-          >
-            {confirmMutation.isLoading ? '確定中...' : '月次確定'}
-          </button>
-          
           {isConfirmedElement}
 
           <button 

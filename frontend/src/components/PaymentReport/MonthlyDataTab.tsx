@@ -1,12 +1,12 @@
-// src/components/PaymentReport/MonthlyDataTab.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { paymentReportApi } from '../../api/paymentReportApi';
 
 interface MonthlyDataTabProps {
   fiscalYear: string;
+  reportData?: any; // データがない場合もあるので optional (?) にします
 }
 
-const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
+const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData }) => {
   // 法定雇用率
   const LEGAL_EMPLOYMENT_RATE = 2.3; // 2.3%
   
@@ -46,10 +46,6 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
     { month: '3月', employees: 505, disabledEmployees: 12 }
   ]);
   
-  // 選択した表示月
-  const [selectedYear, setSelectedYear] = useState(fiscalYear.replace('年度', ''));
-  const [selectedMonth, setSelectedMonth] = useState('4月');
-  
   // 年度数値を取得する
   const getYearValue = () => {
     if (fiscalYear.includes('年度')) {
@@ -58,75 +54,88 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
     return new Date().getFullYear();
   };
   
-  // APIからデータを取得
-  useEffect(() => {
-    const fetchPaymentReport = async () => {
+  // データ処理関数を分離して共通化
+  const processReportData = (data: any) => {
+    if (data && data.monthly_data) {
       try {
-        setLoading(true);
-        setError(null);
-        
-        const year = getYearValue();
-        const report = await paymentReportApi.getPaymentReport(year);
-        
-        // monthly_dataプロパティが存在する場合のみ処理
-        if (report && report.monthly_data) {
-          // 月次データがJSON文字列として保存されている場合はパース
-          let monthlyDataObj: {
-            totalRegularEmployees?: { [key: string]: number };
-            disabledEmployees?: { [key: string]: number };
-            [key: string]: any;
-          };
+        const monthlyDataObj = typeof data.monthly_data === 'string' 
+          ? JSON.parse(data.monthly_data)
+          : data.monthly_data;
           
-          try {
-            monthlyDataObj = typeof report.monthly_data === 'string' 
-              ? JSON.parse(report.monthly_data)
-              : report.monthly_data;
-              
-            console.log('APIから取得した月次データ:', monthlyDataObj);
-            
-            // APIからデータを取得できた場合のみ、モックデータを置き換える
-            // 以下は例として、実際のAPIレスポンス形式に合わせて修正が必要
-            if (monthlyDataObj.totalRegularEmployees && monthlyDataObj.disabledEmployees) {
-              const months = [
-                '4月', '5月', '6月', '7月', '8月', '9月', 
-                '10月', '11月', '12月', '1月', '2月', '3月'
-              ];
-              const monthKeys = [
-                'april', 'may', 'june', 'july', 'august', 'september',
-                'october', 'november', 'december', 'january', 'february', 'march'
-              ];
-              
-              const formattedData = months.map((month, index) => {
-                const key = monthKeys[index];
-                return {
-                  month: month,
-                  employees: monthlyDataObj.totalRegularEmployees?.[key] || 0,
-                  disabledEmployees: monthlyDataObj.disabledEmployees?.[key] || 0
-                };
-              });
-              
-              setMonthlyData(formattedData);
-            }
-          } catch (parseError) {
-            console.error('月次データのパースエラー:', parseError);
-          }
-        }
+        console.log('月次データを処理:', monthlyDataObj);
         
-        setLoading(false);
-      } catch (err) {
-        setLoading(false);
-        setError(err instanceof Error ? err.message : '月次データの取得に失敗しました');
-        console.error('月次データの取得エラー:', err);
-        
-        // データがない場合はデフォルト値を使用
-        if (monthlyData.length === 0) {
-          setMonthlyData(defaultMonthlyData);
+        if (monthlyDataObj.totalRegularEmployees && monthlyDataObj.disabledEmployees) {
+          const months = [
+            '4月', '5月', '6月', '7月', '8月', '9月', 
+            '10月', '11月', '12月', '1月', '2月', '3月'
+          ];
+          const monthKeys = [
+            'april', 'may', 'june', 'july', 'august', 'september',
+            'october', 'november', 'december', 'january', 'february', 'march'
+          ];
+          
+          const formattedData = months.map((month, index) => {
+            const key = monthKeys[index];
+            return {
+              month: month,
+              employees: monthlyDataObj.totalRegularEmployees?.[key] || 0,
+              disabledEmployees: monthlyDataObj.disabledEmployees?.[key] || 0
+            };
+          });
+          
+          setMonthlyData(formattedData);
+          setLoading(false);
+          return true; // 処理成功
         }
+      } catch (error) {
+        console.error('月次データのパースエラー:', error);
       }
-    };
+    }
+    return false; // 処理失敗または対象データなし
+  };
+  
+  // API からデータを取得する関数
+  const fetchPaymentReport = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const year = getYearValue();
+      const report = await paymentReportApi.getPaymentReport(year);
+      
+      // データ処理関数を呼び出し
+      const processed = processReportData(report);
+      
+      // 処理に失敗した場合でもローディング状態を解除
+      if (!processed) {
+        setLoading(false);
+      }
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : '月次データの取得に失敗しました');
+      console.error('月次データの取得エラー:', err);
+      
+      // データがない場合はデフォルト値を使用
+      if (monthlyData.length === 0) {
+        setMonthlyData(defaultMonthlyData);
+      }
+    }
+  };
+  
+  // useEffect を修正
+  useEffect(() => {
+    console.log('MonthlyDataTab: fiscalYear/reportData変更検知', fiscalYear, reportData);
     
+    if (reportData) {
+      console.log('親コンポーネントから受け取ったデータを処理します:', reportData);
+      processReportData(reportData);
+      return; // reportData が存在する場合は API 呼び出しをスキップ
+    }
+    
+    // reportData がない場合のみ API 呼び出し
+    console.log('MonthlyDataTab: APIからデータを取得します', fiscalYear);
     fetchPaymentReport();
-  }, [fiscalYear]);
+  }, [fiscalYear, reportData]);
   
   // 月別のデータを計算
   const calculatedData = useMemo(() => {
@@ -205,45 +214,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
         </div>
       )}
       
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ marginRight: '6px', fontSize: '16px' }}>対象月:</label>
-        <select 
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}
-        >
-          <option value="2024年">2024年</option>
-          <option value="2025年">2025年</option>
-        </select>
-        <select 
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ced4da', marginRight: '8px', fontSize: '16px' }}
-        >
-          <option value="4月">4月</option>
-          <option value="5月">5月</option>
-          <option value="6月">6月</option>
-          <option value="7月">7月</option>
-          <option value="8月">8月</option>
-          <option value="9月">9月</option>
-          <option value="10月">10月</option>
-          <option value="11月">11月</option>
-          <option value="12月">12月</option>
-          <option value="1月">1月</option>
-          <option value="2月">2月</option>
-          <option value="3月">3月</option>
-        </select>
-        <button style={{ 
-          backgroundColor: '#4a77e5', 
-          color: 'white', 
-          padding: '4px 16px', 
-          border: 'none', 
-          borderRadius: '4px',
-          fontSize: '16px'
-        }}>
-          表示
-        </button>
-      </div>
+      {/* 対象月の選択部分を削除しました */}
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
@@ -258,8 +229,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
                 whiteSpace: 'nowrap',
                 width: '150px'
               }}>項目</th>
-              {monthlyData.map((item) => (
-                <th key={item.month} style={{ 
+              {monthlyData.map((item, idx) => (
+                <th key={`month-header-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   fontWeight: 'normal', 
@@ -283,6 +254,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
             </tr>
           </thead>
           <tbody>
+            {/* 常用労働者数の行 */}
             <tr>
               <td style={{ 
                 padding: '6px 4px', 
@@ -293,8 +265,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               }}>
                 常用労働者数(人)
               </td>
-              {calculatedData.map((item, index) => (
-                <td key={index} style={{ 
+              {calculatedData.map((item, idx) => (
+                <td key={`employees-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   borderBottom: '1px solid #dee2e6' 
@@ -312,6 +284,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               </td>
             </tr>
             
+            {/* 障がい者雇用者数の行 */}
             <tr>
               <td style={{ 
                 padding: '6px 4px', 
@@ -322,8 +295,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               }}>
                 障がい者雇用者数(人)
               </td>
-              {calculatedData.map((item, index) => (
-                <td key={index} style={{ 
+              {calculatedData.map((item, idx) => (
+                <td key={`disabled-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   borderBottom: '1px solid #dee2e6' 
@@ -341,6 +314,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               </td>
             </tr>
             
+            {/* 超過・未達の行 */}
             <tr>
               <td style={{ 
                 padding: '6px 4px', 
@@ -351,8 +325,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               }}>
                 超過・未達(人)
               </td>
-              {calculatedData.map((item, index) => (
-                <td key={index} style={{ 
+              {calculatedData.map((item, idx) => (
+                <td key={`difference-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   borderBottom: '1px solid #dee2e6',
@@ -372,6 +346,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               </td>
             </tr>
             
+            {/* 調整金・納付金の行 */}
             <tr>
               <td style={{ 
                 padding: '6px 4px', 
@@ -382,8 +357,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear }) => {
               }}>
                 調整金・納付金(円)
               </td>
-              {calculatedData.map((item, index) => (
-                <td key={index} style={{ 
+              {calculatedData.map((item, idx) => (
+                <td key={`payment-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   borderBottom: '1px solid #dee2e6',

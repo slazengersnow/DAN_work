@@ -158,6 +158,7 @@ const ImportPaymentHistory: React.FC<{
 
 interface HistoryTabProps {
   fiscalYear: string;
+  reportData?: any;
 }
 
 // 表示用の履歴データ型定義

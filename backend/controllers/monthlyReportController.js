@@ -51,7 +51,13 @@ const monthlyReportController = {
         return res.status(400).json({ error: '全従業員数と障害者数は必須です' });
       }
       
-      const savedReport = await monthlyReportModel.saveMonthlyReport(yearNum, monthNum, reportData);
+      // 常に確定状態にするよう修正
+      const updatedReportData = {
+        ...reportData,
+        status: '確定'  // statusを常に「確定」に設定
+      };
+      
+      const savedReport = await monthlyReportModel.saveMonthlyReport(yearNum, monthNum, updatedReportData);
       res.status(200).json(savedReport);
     } catch (error) {
       console.error('月次レポートの保存中にエラーが発生しました:', error);
@@ -130,12 +136,13 @@ const monthlyReportController = {
       // レポートを生成（従業員データから集計）
       const report = await monthlyReportModel.getMonthlyReport(year, month);
       
-      // レポートを保存
+      // レポートを保存（常に確定状態で保存）
       const savedReport = await monthlyReportModel.saveMonthlyReport(year, month, {
         total_employees: report.report.total_employees,
         disabled_employees: report.report.disabled_employees,
         employment_rate: report.report.employment_rate,
-        notes: `${year}年${month}月の自動生成レポート`
+        notes: `${year}年${month}月の自動生成レポート`,
+        status: '確定'  // 自動生成レポートも常に確定状態に
       });
       
       res.status(200).json(savedReport);
