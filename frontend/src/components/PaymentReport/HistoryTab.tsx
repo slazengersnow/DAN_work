@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { paymentReportApi, PaymentReport } from '../../api/paymentReportApi';
 
+// PaymentReport型を拡張
+interface ExtendedPaymentReport extends PaymentReport {
+  type?: string;
+  application_date?: string;
+  payment_date?: string;
+  fiscal_year?: number;
+}
+
 // インポートコンポーネント
 const ImportPaymentHistory: React.FC<{
   onImportComplete?: (importedData: any[]) => void;
   onClose?: () => void;
 }> = ({ onImportComplete, onClose }) => {
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
   // テンプレートダウンロード処理
   const handleDownloadTemplate = async () => {
     try {
@@ -44,26 +55,125 @@ const ImportPaymentHistory: React.FC<{
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
-          console.log(`CSVファイル "${file.name}" をインポートしました（モック処理）`);
-          alert('CSVインポートが完了しました（モック処理）');
+          setImporting(true);
+          setImportError(null);
           
-          // インポート完了通知
-          if (onImportComplete) {
-            onImportComplete([]);
-          }
+          // FileReader でファイルを読み込む
+          const reader = new FileReader();
           
-          // モーダルを閉じる
-          if (onClose) {
-            onClose();
-          }
+          reader.onload = async (event) => {
+            if (event.target && event.target.result) {
+              const csvContent = event.target.result as string;
+              
+              // CSVをパースしてデータに変換
+              const importedData = parseCSV(csvContent);
+              
+              // APIを呼び出してデータを保存
+              try {
+                // APIでデータを保存（本実装時はこちらを使用）
+                for (const record of importedData) {
+                  await saveImportedRecord(record);
+                }
+                
+                console.log('CSVインポート完了:', importedData);
+                
+                // インポート完了通知
+                if (onImportComplete) {
+                  onImportComplete(importedData);
+                }
+                
+                // モーダルを閉じる
+                if (onClose) {
+                  onClose();
+                }
+                
+                setImporting(false);
+                alert('CSVインポートが完了しました');
+              } catch (saveError) {
+                console.error('データ保存エラー:', saveError);
+                setImportError('データの保存中にエラーが発生しました');
+                setImporting(false);
+              }
+            }
+          };
+          
+          reader.onerror = () => {
+            setImportError('ファイルの読み込み中にエラーが発生しました');
+            setImporting(false);
+          };
+          
+          reader.readAsText(file, 'UTF-8');
+          
         } catch (error) {
           console.error('CSVインポートエラー:', error);
-          alert('CSVインポート中にエラーが発生しました');
+          setImportError('CSVインポート中にエラーが発生しました');
+          setImporting(false);
         }
       }
     };
     
     fileInput.click();
+  };
+
+  // CSVをパースする関数
+  const parseCSV = (csvContent: string) => {
+    // BOMを除去する
+    const content = csvContent.replace(/^\uFEFF/, '');
+    
+    // 行に分割
+    const rows = content.split(/\r?\n/).filter(row => row.trim() !== '');
+    
+    // ヘッダー行を取得
+    const headers = rows[0].split(',');
+    
+    // データ行をパース
+    const data = rows.slice(1).map(row => {
+      const values = row.split(',');
+      const record: Record<string, any> = {};
+      
+      headers.forEach((header, index) => {
+        // ヘッダーに対応する値を設定
+        let value: any = values[index] ? values[index].trim() : '';
+        
+        // データ型の変換
+        if (header === '金額') {
+          // 数値に変換
+          value = value ? parseInt(value, 10) : 0;
+        }
+        
+        record[header] = value;
+      });
+      
+      return record;
+    });
+    
+    return data;
+  };
+
+  // インポートしたレコードを保存する関数
+  const saveImportedRecord = async (record: Record<string, any>) => {
+    // 年度から数値部分を抽出
+    const yearMatch = record['年度'].match(/(\d{4})/);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+    
+    // 金額の正負を確認（納付金はマイナス、調整金はプラス）
+    const isPayment = record['種別'] === '納付金';
+    const amount = Math.abs(record['金額']);
+    
+    // PaymentReport APIに送信するデータを作成
+    const paymentData = {
+      year,
+      fiscal_year: year,
+      payment_amount: isPayment ? -amount : amount,
+      status: record['状態'] === '作成中' ? '作成中' : '確定済み',
+      type: record['種別'],
+      application_date: record['申告日'] || '',
+      payment_date: record['支払/受取日'] || '',
+      notes: `${year}年度の${record['種別']}（CSVインポート）`
+    };
+    
+    // APIを呼び出して保存
+    await paymentReportApi.savePaymentReport(year, paymentData);
   };
 
   // スタイル定義
@@ -128,10 +238,23 @@ const ImportPaymentHistory: React.FC<{
     <div style={importContainerStyle}>
       <h3 style={importTitleStyle}>納付金申告のインポート</h3>
       
+      {importError && (
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '1rem' 
+        }}>
+          {importError}
+        </div>
+      )}
+      
       <div style={importButtonsStyle}>
         <button
           onClick={handleDownloadTemplate}
           style={downloadButtonStyle}
+          disabled={importing}
         >
           インポートテンプレートをダウンロード
         </button>
@@ -139,14 +262,16 @@ const ImportPaymentHistory: React.FC<{
         <button
           onClick={handleFileSelect}
           style={selectButtonStyle}
+          disabled={importing}
         >
-          CSVファイルを選択
+          {importing ? 'インポート中...' : 'CSVファイルを選択'}
         </button>
         
         {onClose && (
           <button
             onClick={onClose}
             style={closeButtonStyle}
+            disabled={importing}
           >
             閉じる
           </button>
@@ -226,61 +351,76 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
     }
   ]);
 
+  // 日付フォーマット用のヘルパー関数
+  const formatDate = (dateString: string | undefined, addDays = 0) => {
+    if (!dateString) return '-';
+    
+    try {
+      const date = new Date(dateString);
+      if (addDays) {
+        date.setDate(date.getDate() + addDays);
+      }
+      return `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+    } catch (e) {
+      return '-';
+    }
+  };
+
+  // APIからデータを取得する関数を独立させる
+  const fetchPaymentReports = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // APIから納付金レポート履歴を取得
+      const reports = await paymentReportApi.getAllPaymentReports();
+      
+      // APIのレスポンスを表示用のフォーマットに変換
+      const formattedData: HistoryItem[] = reports.map((report) => {
+        // 拡張された型にキャスト
+        const extReport = report as ExtendedPaymentReport;
+        
+        // 種別を判定（納付金か調整金か）
+        const type = extReport.type || ((report.payment_amount ?? 0) < 0 ? '納付金' : '調整金');
+        
+        // 支払状態を判定
+        const status = report.status === '作成中' 
+          ? '作成中'
+          : ((report.payment_amount ?? 0) < 0 ? '支払済' : '受取済');
+        
+        // 日付をフォーマット
+        const applicationDate = extReport.application_date || formatDate(report.updated_at);
+        const paymentDate = extReport.payment_date || (status !== '作成中' ? formatDate(report.updated_at, 45) : '-');
+        
+        // 金額のデフォルト値を設定
+        const amount = report.payment_amount ?? 0;
+        
+        return {
+          id: report.id || 0,
+          year: `${extReport.fiscal_year || report.year || new Date().getFullYear()}年度`,
+          type,
+          amount: amount,
+          applicationDate,
+          paymentDate,
+          status
+        };
+      });
+      
+      // データが取得できた場合、それを使用
+      if (formattedData.length > 0) {
+        setHistoryData(formattedData);
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : '納付金レポート履歴の取得に失敗しました');
+      console.error('納付金レポート履歴の取得エラー:', err);
+    }
+  };
+
   // APIからデータを取得
   useEffect(() => {
-    const fetchPaymentReports = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // APIから納付金レポート履歴を取得
-        const reports = await paymentReportApi.getAllPaymentReports();
-        
-        // APIのレスポンスを表示用のフォーマットに変換
-        const formattedData: HistoryItem[] = reports.map((report) => {
-          // 種別を判定（納付金か調整金か）
-          const type = report.payment_amount > 0 ? '納付金' : '調整金';
-          // 支払状態を判定
-          const status = report.status === '確定済み' 
-            ? (report.payment_amount > 0 ? '支払済' : '受取済')
-            : '作成中';
-          
-          // 日付をフォーマット
-          const updatedDate = new Date(report.updated_at || '');
-          const applicationDate = `${updatedDate.getFullYear()}/${(updatedDate.getMonth() + 1).toString().padStart(2, '0')}/${updatedDate.getDate().toString().padStart(2, '0')}`;
-          
-          // 支払/受取日（仮の値、実際のAPIレスポンスに合わせて調整）
-          const paymentDate = status !== '作成中'
-            ? `${updatedDate.getFullYear()}/${(updatedDate.getMonth() + 2).toString().padStart(2, '0')}/${updatedDate.getDate().toString().padStart(2, '0')}`
-            : '-';
-          
-          return {
-            id: report.id || 0, // idがundefinedの場合は0を使用
-            year: `${report.year}年度`,
-            type,
-            // 納付金はマイナス表示、調整金はプラス表示
-            amount: type === '納付金' ? -Math.abs(report.payment_amount) : Math.abs(report.payment_amount),
-            applicationDate,
-            paymentDate,
-            status
-          };
-        });
-        
-        // もしAPIからデータが取得できる場合は、モックデータを置き換える
-        if (formattedData.length > 0) {
-          setHistoryData(formattedData);
-        }
-        // ※開発中は既存のモックデータを使用し、APIが完成したら上記のコメントを外す
-        
-        setLoading(false);
-      } catch (err) {
-        setLoading(false);
-        setError(err instanceof Error ? err.message : '納付金レポート履歴の取得に失敗しました');
-        console.error('納付金レポート履歴の取得エラー:', err);
-      }
-    };
-    
-    // APIからデータを取得
     fetchPaymentReports();
   }, []);
 
@@ -290,23 +430,8 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ fiscalYear }) => {
   // インポート完了ハンドラ
   const handleImportComplete = (importedData: any[]) => {
     console.log('インポート完了', importedData);
-    // ここで履歴データを更新する処理を実装
-    // APIを使用して更新する場合
-    // const updateData = async () => {
-    //   setLoading(true);
-    //   try {
-    //     // CSVデータをAPIに送信
-    //     await paymentReportApi.importReports(importedData);
-    //     // 再度データを取得して表示を更新
-    //     const reports = await paymentReportApi.getAllPaymentReports();
-    //     // データの変換処理...
-    //     setLoading(false);
-    //   } catch (err) {
-    //     setError(err instanceof Error ? err.message : 'インポート中にエラーが発生しました');
-    //     setLoading(false);
-    //   }
-    // };
-    // updateData();
+    // データの再読み込み
+    fetchPaymentReports();
   };
   
   // インポートモーダルを閉じる

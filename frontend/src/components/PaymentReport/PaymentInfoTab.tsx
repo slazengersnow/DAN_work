@@ -3,6 +3,8 @@ import PaymentInfoForm from './PaymentInfoForm';
 import PaymentCalculation from './PaymentCalculation';
 import PaymentMonthlyData from './PaymentMonthlyData';
 import { paymentReportApi } from '../../api/paymentReportApi';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 interface PaymentInfoTabProps {
   fiscalYear: string;
@@ -523,6 +525,110 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear, reportData 
     }
   };
 
+  // PDF 出力ボタンのハンドラー
+  const handlePdfExport = () => {
+    try {
+      setLoading(true);
+      const doc = new jsPDF();
+      
+      // ヘッダー情報を追加
+      doc.setFontSize(16);
+      doc.text('障害者雇用納付金申告書', 105, 15, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(`対象年度: ${fiscalYear}`, 105, 25, { align: 'center' });
+      
+      // 会社情報を追加
+      doc.setFontSize(10);
+      doc.text(`法人名: ${formData.companyName}`, 14, 35);
+      doc.text(`代表者: ${formData.representativeName}`, 14, 42);
+      doc.text(`住所: ${formData.address}`, 14, 49);
+      
+      // 月別データの表を追加
+      const monthJp = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
+      const monthEn = ['april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december', 'january', 'february', 'march'];
+      
+      const tableData = monthJp.map((month, idx) => {
+        const key = monthEn[idx];
+        const employees = formData.totalRegularEmployees[key] || 0;
+        const disabled = formData.disabledEmployees[key] || 0;
+        const rate = employees > 0 ? (disabled / employees * 100).toFixed(2) : '0.00';
+        
+        return [
+          month,
+          employees.toString(),
+          disabled.toString(),
+          `${rate}%`
+        ];
+      });
+      
+      // 月別データテーブル
+      doc.text('月別データ', 14, 60);
+      (doc as any).autoTable({
+        startY: 65,
+        head: [['月', '常用労働者数', '障がい者雇用者数', '実雇用率']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [66, 119, 229], textColor: 255 },
+        styles: { fontSize: 8 }
+      });
+      
+      // 納付金計算結果
+      const totalEmployees = Object.values(formData.totalRegularEmployees).reduce((a, b) => a + b, 0) / 12;
+      const totalDisabled = Object.values(formData.disabledEmployees).reduce((a, b) => a + b, 0) / 12;
+      const employmentRate = (totalDisabled / totalEmployees * 100).toFixed(2);
+      const paymentAmount = calculatePaymentAmount();
+      
+      const tableY = (doc as any).lastAutoTable.finalY + 10;
+      doc.text('納付金計算結果', 14, tableY);
+      
+      (doc as any).autoTable({
+        startY: tableY + 5,
+        body: [
+          ['平均常用労働者数', `${Math.round(totalEmployees)}人`],
+          ['平均障がい者雇用者数', `${Math.round(totalDisabled)}人`],
+          ['実雇用率', `${employmentRate}%`],
+          ['法定雇用率', `${formData.legalEmploymentRate}%`],
+          ['納付金額', `${paymentAmount.toLocaleString()}円`]
+        ],
+        theme: 'plain',
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 50 }
+        }
+      });
+      
+      // 銀行情報
+      const bankTableY = (doc as any).lastAutoTable.finalY + 10;
+      doc.text('振込先銀行口座情報', 14, bankTableY);
+      
+      (doc as any).autoTable({
+        startY: bankTableY + 5,
+        body: [
+          ['銀行名', formData.bankName],
+          ['支店名', formData.branchName],
+          ['口座種別', formData.accountType],
+          ['口座番号', formData.accountNumber],
+          ['口座名義', formData.accountHolder]
+        ],
+        theme: 'plain',
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 50 }
+        }
+      });
+      
+      // PDF をダウンロード
+      doc.save(`納付金申告書_${fiscalYear}.pdf`);
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      setError('PDF出力中にエラーが発生しました');
+      console.error('PDF出力エラー:', err);
+    }
+  };
+
   // 納付金申告処理を実行する関数（ステータス関連の不要機能を削除）
   const handleSubmit = async () => {
     try {
@@ -535,8 +641,8 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear, reportData 
       // ここで申告処理の実行（PDFダウンロードやメール送信など）
       alert('納付金申告処理が完了しました。納付金申告書がダウンロードされます。');
       
-      // 実際の処理はここで実装（PDF生成など）
-      // 例: window.open('/api/payment-reports/download-pdf/' + getYearValue(), '_blank');
+      // PDF出力処理を実行
+      handlePdfExport();
       
       setLoading(false);
     } catch (err) {
@@ -646,6 +752,7 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear, reportData 
           </button>
           <button 
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
+            onClick={handlePdfExport}
             disabled={loading}
           >
             PDFで出力

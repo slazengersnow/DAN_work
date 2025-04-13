@@ -186,7 +186,7 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
       
       // 次の編集可能なセルを探して移動
       const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
-      let nextRowId = null;
+      let nextRowId: number | null = null;
       
       for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
         if (!isCalculatedField(localData.data[i].id)) {
@@ -212,7 +212,7 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
           // 前の行の最後の列へ
           const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
           if (currentRowIndex > 0) {
-            let prevRowId = null;
+            let prevRowId: number | null = null;
             for (let i = currentRowIndex - 1; i >= 0; i--) {
               if (!isCalculatedField(localData.data[i].id)) {
                 prevRowId = localData.data[i].id;
@@ -232,7 +232,7 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
           // 次の行の最初の列へ
           const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
           if (currentRowIndex < localData.data.length - 1) {
-            let nextRowId = null;
+            let nextRowId: number | null = null;
             for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
               if (!isCalculatedField(localData.data[i].id)) {
                 nextRowId = localData.data[i].id;
@@ -254,7 +254,7 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
       const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
       
       if (e.key === 'ArrowUp' && currentRowIndex > 0) {
-        let prevRowId = null;
+        let prevRowId: number | null = null;
         for (let i = currentRowIndex - 1; i >= 0; i--) {
           if (!isCalculatedField(localData.data[i].id)) {
             prevRowId = localData.data[i].id;
@@ -266,7 +266,7 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
         }
       }
       else if (e.key === 'ArrowDown' && currentRowIndex < localData.data.length - 1) {
-        let nextRowId = null;
+        let nextRowId: number | null = null;
         for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
           if (!isCalculatedField(localData.data[i].id)) {
             nextRowId = localData.data[i].id;

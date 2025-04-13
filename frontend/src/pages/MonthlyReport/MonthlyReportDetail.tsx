@@ -267,17 +267,21 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   };
 
   // キーボードナビゲーション
-  const handleKeyDown = (e: React.KeyboardEvent, rowId: number, colIndex: number) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowId: number, colIndex: number) => {
     if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
+    
+    // 変数の型を number | null に変更
+    let nextRowId: number | null = null;
+    let prevRowId: number | null = null;
+    
+    // 現在の行のインデックスを探す
+    const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
     
     if (e.key === 'Enter') {
       e.preventDefault();
       handleDetailCellSave();
       
       // 次の編集可能なセルを探して移動
-      const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
-      let nextRowId = null;
-      
       for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
         if (!isCalculatedField(localData.data[i].id)) {
           nextRowId = localData.data[i].id;
@@ -300,7 +304,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         } else {
           const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
           if (currentRowIndex > 0) {
-            let prevRowId = null;
+            let prevRowId: number | null = null;
             for (let i = currentRowIndex - 1; i >= 0; i--) {
               if (!isCalculatedField(localData.data[i].id)) {
                 prevRowId = localData.data[i].id;
@@ -318,7 +322,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         } else {
           const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
           if (currentRowIndex < localData.data.length - 1) {
-            let nextRowId = null;
+            let nextRowId: number | null = null;
             for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
               if (!isCalculatedField(localData.data[i].id)) {
                 nextRowId = localData.data[i].id;
@@ -340,7 +344,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
       
       if (e.key === 'ArrowUp' && currentRowIndex > 0) {
-        let prevRowId = null;
+        let prevRowId: number | null = null;
         for (let i = currentRowIndex - 1; i >= 0; i--) {
           if (!isCalculatedField(localData.data[i].id)) {
             prevRowId = localData.data[i].id;
@@ -352,7 +356,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         }
       }
       else if (e.key === 'ArrowDown' && currentRowIndex < localData.data.length - 1) {
-        let nextRowId = null;
+        let nextRowId: number | null = null;
         for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
           if (!isCalculatedField(localData.data[i].id)) {
             nextRowId = localData.data[i].id;
