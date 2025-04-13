@@ -1,4 +1,3 @@
-// paymentReportApi.ts
 import client from './client';
 
 // 納付金レポートの型定義
@@ -25,6 +24,8 @@ export interface PaymentReport {
   payment_date?: string;
   created_at?: string;
   updated_at?: string;
+  average_employee_count?: number;
+  actual_employment_count?: number;
 }
 
 // Axiosエラーの型定義
@@ -40,6 +41,7 @@ interface AxiosError {
     url?: string;
     baseURL?: string;
   };
+  isAxiosError?: boolean;
 }
 
 // 全ての納付金レポートを取得
@@ -75,101 +77,97 @@ export const getPaymentReport = async (year: number): Promise<PaymentReport> => 
 };
 
 // 納付金レポートを保存
-export const savePaymentReport = async (year: number, data: any): Promise<PaymentReport> => {
+export const savePaymentReport = async (year: number, data: any): Promise<any> => {
   try {
     console.log(`${year}年度のデータを保存します:`, data);
     
-    // データの整形 - monthly_dataの処理
-    let processedData = { ...data };
+    // データの前処理
+    const processedData = { ...data };
     
-    // monthly_dataフィールドの処理
+    // 数値型の変換 - 小数点を保持するように数値フィールドを確実に数値型に
+    if (processedData.total_employees !== undefined) {
+      processedData.total_employees = Number(processedData.total_employees);
+    }
+    
+    if (processedData.disabled_employees !== undefined) {
+      processedData.disabled_employees = Number(processedData.disabled_employees);
+    }
+    
+    if (processedData.average_employee_count !== undefined) {
+      processedData.average_employee_count = Number(processedData.average_employee_count);
+    }
+    
+    if (processedData.actual_employment_count !== undefined) {
+      processedData.actual_employment_count = Number(processedData.actual_employment_count);
+    }
+    
+    if (processedData.employment_rate !== undefined) {
+      processedData.employment_rate = Number(processedData.employment_rate);
+    }
+    
+    // monthly_dataがオブジェクト形式であることを確認
     if (processedData.monthly_data) {
-      // monthly_dataが文字列の場合
+      // 文字列の場合はすでにパースされているかもしれないので、チェックする
       if (typeof processedData.monthly_data === 'string') {
         try {
-          // 既にJSON文字列かチェック
-          JSON.parse(processedData.monthly_data);
-          // 有効なJSONならそのまま使用
-        } catch (e) {
-          // パースエラーなら文字列化が必要
-          console.log('monthly_dataの文字列が不正なため再変換します');
-          processedData.monthly_data = JSON.stringify(processedData.monthly_data);
+          processedData.monthly_data = JSON.parse(processedData.monthly_data);
+        } catch (error) {
+          console.error('monthly_dataのパースエラー:', error);
         }
-      } 
-      // monthly_dataがオブジェクトの場合は文字列化
-      else if (typeof processedData.monthly_data === 'object') {
-        console.log('monthly_dataをJSON文字列に変換します');
-        processedData.monthly_data = JSON.stringify(processedData.monthly_data);
       }
     }
     
-    // company_dataフィールドの処理
-    if (processedData.company_data && typeof processedData.company_data === 'object') {
-      console.log('company_dataをJSON文字列に変換します');
-      processedData.company_data = JSON.stringify(processedData.company_data);
+    // company_dataの処理
+    if (processedData.company_data && typeof processedData.company_data === 'string') {
+      try {
+        processedData.company_data = JSON.parse(processedData.company_data);
+      } catch (error) {
+        console.error('company_dataのパースエラー:', error);
+      }
     }
     
-    // bank_infoフィールドの処理
-    if (processedData.bank_info && typeof processedData.bank_info === 'object') {
-      console.log('bank_infoをJSON文字列に変換します');
-      processedData.bank_info = JSON.stringify(processedData.bank_info);
+    // bank_infoの処理
+    if (processedData.bank_info && typeof processedData.bank_info === 'string') {
+      try {
+        processedData.bank_info = JSON.parse(processedData.bank_info);
+      } catch (error) {
+        console.error('bank_infoのパースエラー:', error);
+      }
     }
     
-    // データ型の調整
-    if (processedData.year && typeof processedData.year === 'string') {
-      processedData.year = parseInt(processedData.year.replace('年度', ''), 10);
-    }
-    
-    if (processedData.fiscal_year && typeof processedData.fiscal_year === 'string') {
-      processedData.fiscal_year = parseInt(processedData.fiscal_year.replace('年度', ''), 10);
+    // JSON形式を維持するために一部のフィールドを削除
+    // id などバックエンドで自動生成されるフィールドは削除
+    if (processedData.id) {
+      delete processedData.id;
     }
     
     console.log('整形後のデータ:', processedData);
+    console.log('APIパス:', `/payment-reports/${year}`);
     
-    // 既存のレポートを更新する場合はPUT、新規作成の場合はPOSTを使用
-    let response;
+    // 既存データの取得を試みる
     try {
-      // 既存のレポートを確認
-      await getPaymentReport(year);
-      // 既存のレポートがある場合は更新
-      console.log(`${year}年度のデータを更新します`);
-      console.log(`APIパス: /payment-reports/${year}`);
-      response = await client.put(`/payment-reports/${year}`, processedData);
-    } catch (e) {
-      // 既存のレポートがない場合は新規作成
+      const checkData = await client.get(`/payment-reports/${year}`);
+      
+      if (checkData.data) {
+        // 既存データが存在する場合は更新（PUT）
+        console.log(`${year}年度のデータを更新します`);
+        const response = await client.put(`/payment-reports/${year}`, processedData);
+        return response.data;
+      }
+    } catch (error) {
+      // データが存在しない場合は作成（POST）
       console.log(`${year}年度のデータを新規作成します`);
-      console.log(`APIパス: /payment-reports/${year}`);
-      response = await client.post(`/payment-reports/${year}`, processedData);
+      const response = await client.post(`/payment-reports/${year}`, processedData);
+      return response.data;
     }
-    
-    return response.data;
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error('保存エラー詳細:', error);
     
-    // APIパスのデバッグ
-    if (error && typeof error === 'object' && 'config' in error) {
-      const axiosError = error as AxiosError;
-      console.log('リクエストURL:', axiosError.config?.url);
-      console.log('リクエストベースURL:', axiosError.config?.baseURL);
+    if (error.response) {
+      console.error('エラーレスポンス:', error.response.status, error.response.data);
     }
     
-    // エラーの型を絞り込む
-    if (error && typeof error === 'object') {
-      const axiosError = error as AxiosError;
-      
-      if (axiosError.response?.status === 500) {
-        throw new Error('サーバーでエラーが発生しました。しばらく経ってから再度お試しください。');
-      } else if (axiosError.response?.status === 400) {
-        throw new Error('入力データに問題があります。データ形式を確認してください。');
-      } else if (axiosError.response?.data?.message) {
-        throw new Error(axiosError.response.data.message);
-      } else if ('message' in axiosError && typeof axiosError.message === 'string') {
-        throw new Error(axiosError.message);
-      }
-    }
-    
-    // デフォルトのエラーメッセージ
-    throw new Error('納付金レポートの保存に失敗しました。');
+    throw new Error('サーバーでエラーが発生しました。しばらく経ってから再度お試しください。');
   }
 };
 

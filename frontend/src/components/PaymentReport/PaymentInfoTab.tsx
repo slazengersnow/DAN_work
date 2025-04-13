@@ -419,6 +419,184 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear, reportData 
     }
   };
 
+  // データベース修復処理
+  const repairDatabase = async () => {
+    const confirmRepair = window.confirm(
+      'データベースの修復を行います。これにより年度データの不整合が修正される可能性がありますが、一部のデータが初期化される場合もあります。続行しますか？'
+    );
+    
+    if (!confirmRepair) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 現在のデータを取得
+      const allReports = await paymentReportApi.getAllPaymentReports();
+      console.log('現在のレポート一覧:', allReports);
+      
+      const years = [2023, 2024, 2025];
+      const repairResults: string[] = [];
+      
+      // 各年度のデータをチェックして修復
+      for (const year of years) {
+        try {
+          // その年度のデータを取得
+          const reportData = await paymentReportApi.getPaymentReport(year);
+          console.log(`${year}年度のデータ:`, reportData);
+          
+          // データが存在するが壊れている場合は修復
+          if (reportData) {
+            const fixedData = {
+              ...reportData,
+              year: year,
+              fiscal_year: year
+            };
+            
+            // monthly_data が文字列でもオブジェクトでもない場合、初期データを設定
+            if (!reportData.monthly_data || (typeof reportData.monthly_data !== 'string' && typeof reportData.monthly_data !== 'object')) {
+              const defaultMonthlyData = {
+                totalRegularEmployees: {
+                  april: 510, may: 515, june: 520, july: 523, august: 525,
+                  september: 530, october: 528, november: 527, december: 520,
+                  january: 515, february: 510, march: 505
+                },
+                disabledEmployees: {
+                  april: 13, may: 13, june: 14, july: 15, august: 15,
+                  september: 15, october: 14, november: 14, december: 13,
+                  january: 13, february: 12, march: 12
+                }
+              };
+              
+              fixedData.monthly_data = defaultMonthlyData;
+            }
+            
+            // ID削除（新規作成にする）
+            if (fixedData.id) {
+              delete fixedData.id;
+            }
+            
+            // データを保存
+            await paymentReportApi.savePaymentReport(year, fixedData);
+            repairResults.push(`${year}年度のデータを修復しました`);
+            console.log(`${year}年度のデータを修復しました`);
+          }
+        } catch (error) {
+          // データが存在しない場合は新規作成
+          console.log(`${year}年度のデータが見つかりません。新規作成します。`);
+          
+          const newData = {
+            year: year,
+            fiscal_year: year,
+            total_employees: 510,
+            disabled_employees: 15,
+            employment_rate: 2.8,
+            legal_employment_rate: 2.3,
+            status: '作成中',
+            monthly_data: {
+              totalRegularEmployees: {
+                april: 510, may: 515, june: 520, july: 523, august: 525,
+                september: 530, october: 528, november: 527, december: 520,
+                january: 515, february: 510, march: 505
+              },
+              disabledEmployees: {
+                april: 13, may: 13, june: 14, july: 15, august: 15,
+                september: 15, october: 14, november: 14, december: 13,
+                january: 13, february: 12, march: 12
+              }
+            }
+          };
+          
+          try {
+            // ここで、yearはnumber型であることを確認してからAPIを呼び出す
+            await paymentReportApi.savePaymentReport(year, newData);
+            repairResults.push(`${year}年度のデータを新規作成しました`);
+            console.log(`${year}年度のデータを新規作成しました`);
+          } catch (saveError) {
+            repairResults.push(`${year}年度のデータ作成に失敗しました`);
+            console.error(`${year}年度のデータ作成に失敗しました:`, saveError);
+          }
+        }
+      }
+      
+      setLoading(false);
+      alert(`データベース修復結果:\n${repairResults.join('\n')}\n\nページをリロードします。`);
+      window.location.reload();
+      
+    } catch (error) {
+      setLoading(false);
+      setError('データベースの修復中にエラーが発生しました');
+      console.error('データベース修復エラー:', error);
+      alert('データベースの修復中にエラーが発生しました。');
+    }
+  };
+  
+  // すべての年度データを修復する処理
+  const repairAllYearData = async () => {
+    try {
+      setLoading(true);
+      
+      // すべての年度のデータを取得
+      const allReports = await paymentReportApi.getAllPaymentReports();
+      
+      for (const report of allReports) {
+        // 年度を取得
+        const year = report.fiscal_year || report.year;
+        
+        if (typeof year !== 'number') {
+          console.error('無効な年度形式:', year);
+          continue; // 無効な年度の場合はスキップ
+        }
+        
+        // 月次データの有無をチェック
+        const hasMonthlyData = 
+          report.monthly_data && 
+          (typeof report.monthly_data === 'string' || typeof report.monthly_data === 'object');
+        
+        // 月次データがない場合はデフォルト値を設定
+        if (!hasMonthlyData) {
+          const defaultMonthlyData = {
+            totalRegularEmployees: {
+              april: 510, may: 515, june: 520, july: 523, august: 525,
+              september: 530, october: 528, november: 527, december: 520,
+              january: 515, february: 510, march: 505
+            },
+            disabledEmployees: {
+              april: 13, may: 13, june: 14, july: 15, august: 15,
+              september: 15, october: 14, november: 14, december: 13,
+              january: 13, february: 12, march: 12
+            }
+          };
+          
+          // データを更新
+          const updatedData = {
+            ...report,
+            monthly_data: defaultMonthlyData,
+            total_employees: report.total_employees || 520,
+            disabled_employees: report.disabled_employees || 15
+          };
+          
+          // IDを削除して新規に作成する形で保存
+          if (updatedData.id) {
+            delete updatedData.id;
+          }
+          
+          await paymentReportApi.savePaymentReport(year, updatedData);
+          console.log(`${year}年度のデータを修復しました`);
+        }
+      }
+      
+      setLoading(false);
+      alert("すべての年度データを修復しました。画面をリロードします。");
+      window.location.reload();
+      
+    } catch (error) {
+      setLoading(false);
+      setError("データ修復中にエラーが発生しました");
+      console.error("データ修復エラー:", error);
+    }
+  };
+
   // 簡素化されたサンプルデータ作成関数
   const createSampleData = async () => {
     try {
@@ -742,6 +920,20 @@ const PaymentInfoTab: React.FC<PaymentInfoTabProps> = ({ fiscalYear, reportData 
             disabled={loading}
           >
             サンプルデータ作成
+          </button>
+          <button 
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+            onClick={repairDatabase}
+            disabled={loading}
+          >
+            データベース修復
+          </button>
+          <button 
+            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded"
+            onClick={repairAllYearData}
+            disabled={loading}
+          >
+            全年度データ修復
           </button>
           <button 
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"

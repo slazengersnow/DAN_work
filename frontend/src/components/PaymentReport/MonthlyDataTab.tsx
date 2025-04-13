@@ -21,9 +21,12 @@ const MonthlyDataImport: React.FC<{
     try {
       // CSVテンプレートの内容（BOM付きUTF-8でエンコード）
       const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
-      const templateContent = `年度,${currentYear},,,,,,,,,,,,
-,4月,5月,6月,7月,8月,9月,10月,11月,12月,1月,2月,3月,
-常勤雇用労働者数,510,515,520,523,525,530,528,527,520,515,510,505,
+      
+      // より明確で堅牢なCSVテンプレート形式
+      const templateContent = 
+`年度,${currentYear},,,,,,,,,,,,
+月,4月,5月,6月,7月,8月,9月,10月,11月,12月,1月,2月,3月,
+常用労働者数,510,515,520,523,525,530,528,527,520,515,510,505,
 障がい者雇用者数,13,13,14,15,15,15,14,14,13,13,12,12,`;
       
       // CSVファイルを作成（BOMを追加してUTF-8エンコーディングを明示）
@@ -36,8 +39,19 @@ const MonthlyDataImport: React.FC<{
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       console.log('月別データテンプレートをダウンロードしました');
+      
+      // テンプレートの使い方を説明するアラート
+      alert(
+        'CSVテンプレートをダウンロードしました。\n\n' +
+        '【使い方】\n' +
+        '1. ファイルをExcelなどで開く\n' +
+        '2. 年度の数字を必要に応じて変更（例: 2023, 2024, 2025など）\n' +
+        '3. 各月の常用労働者数と障がい者雇用者数を入力\n' +
+        '4. 【重要】CSVとして保存する（文字コードはUTF-8を選択）\n' +
+        '5. 「CSVファイルを選択」ボタンからインポート\n\n' +
+        '※ファイル形式は変更しないでください。月や行の見出しは変更しないでください。'
+      );
     } catch (error) {
       console.error('テンプレートダウンロードエラー:', error);
       alert('テンプレートのダウンロード中にエラーが発生しました');
@@ -108,112 +122,119 @@ const MonthlyDataImport: React.FC<{
     fileInput.click();
   };
 
-  // CSVをパースする関数 - 年度取得用の関数を引数として受け取る
+  // CSVをパースする関数 - 修正版
   const parseMonthlyCSV = (csvContent: string, yearGetter: () => number) => {
     // BOMを除去する
     const content = csvContent.replace(/^\uFEFF/, '');
     
     // 行に分割
     const rows = content.split(/\r?\n/).filter(row => row.trim() !== '');
+    console.log('CSV行数:', rows.length);
+    console.log('CSV内容:', rows);
     
-    // ヘッダー行を取得
-    const headers = rows[0].split(',');
+    // 年度を取得
+    let year = yearGetter();
+    // 行から年度を探す
+    for (const row of rows) {
+      const cells = row.split(',');
+      if (cells[0] === '年度' && cells[1] && /^\d{4}$/.test(cells[1].trim())) {
+        year = parseInt(cells[1].trim(), 10);
+        break;
+      }
+    }
     
-    // データ行をパース
-    const data = rows.slice(1).map(row => {
-      const rowValues = row.split(',');
-      const record: Record<string, any> = {};
-      
-      headers.forEach((header, index) => {
-        // ヘッダーに対応する値を設定
-        const strValue = rowValues[index] ? rowValues[index].trim() : '';
-        
-        // 数値に変換（常用労働者数、障がい者雇用者数）
-        if (header === '常用労働者数' || header === '障がい者雇用者数' || 
-            header === '常勤雇用労働者数') {
-          record[header] = strValue ? parseInt(strValue, 10) : 0;
-        } else {
-          record[header] = strValue;
-        }
-      });
-      
-      return record;
-    });
+    console.log("CSV解析: 年度", year);
     
-    console.log("パースしたCSVデータ:", data);
+    // 月次データ用の初期構造
+    const totalRegularEmployees: { [key: string]: number } = {};
+    const disabledEmployees: { [key: string]: number } = {};
     
-    // 月別データの形式に変換
+    // 月の対応マップ
     const monthMap: { [key: string]: string } = {
       '4月': 'april', '5月': 'may', '6月': 'june', '7月': 'july', 
       '8月': 'august', '9月': 'september', '10月': 'october', '11月': 'november', 
       '12月': 'december', '1月': 'january', '2月': 'february', '3月': 'march'
     };
     
-    // API向けのデータ形式に変換
-    const totalRegularEmployees: { [key: string]: number } = {};
-    const disabledEmployees: { [key: string]: number } = {};
+    // 月ヘッダー行と各データ行を検出
+    let monthHeaderRow: string[] = [];
+    let regularEmployeesRow: string[] = [];
+    let disabledEmployeesRow: string[] = [];
     
-    data.forEach(item => {
-      Object.keys(item).forEach(key => {
-        if (key.trim() === '') {
-          const month = item[key]; // 月の値
-          if (month && monthMap[month]) {
-            const monthKey = monthMap[month];
-            // このアプローチは値を直接取得できないため修正
-            // 対応する行と列のデータを取得する別の方法を使用
-          }
-        }
-      });
+    // 行を解析してデータを抽出
+    for (let i = 0; i < rows.length; i++) {
+      const cells = rows[i].split(',');
       
-      // 行ベースの処理も実行
-      const month = item['月'];
-      if (month && monthMap[month]) {
-        const monthKey = monthMap[month];
-        totalRegularEmployees[monthKey] = Number(item['常用労働者数'] || item['常勤雇用労働者数']) || 0;
-        disabledEmployees[monthKey] = Number(item['障がい者雇用者数']) || 0;
+      // 月ヘッダー行を検出
+      if (cells[0] === '月' || (cells[0] === '' && cells[1] === '4月')) {
+        monthHeaderRow = cells;
+        continue;
       }
-    });
-    
-    // 月次データが入力されていることを確認
-    if (Object.keys(totalRegularEmployees).length === 0 || Object.keys(disabledEmployees).length === 0) {
-      console.warn("月次データが不足しています。テンプレート形式を確認してください。");
       
-      // 代替方法で取得を試みる
-      for (let i = 1; i < rows.length; i++) {
-        const rowValues = rows[i].split(',');
-        if (rowValues[0] && (rowValues[0].includes('常勤雇用労働者数') || rowValues[0].includes('常用労働者数'))) {
-          // 行の先頭が常用労働者数の場合、月ごとのデータを格納
-          const monthKeys = [
-            'april', 'may', 'june', 'july', 'august', 'september',
-            'october', 'november', 'december', 'january', 'february', 'march'
-          ];
-          
-          for (let j = 1; j <= 12; j++) {
-            if (j < rowValues.length && rowValues[j].trim() !== '') {
-              totalRegularEmployees[monthKeys[j-1]] = Number(rowValues[j]) || 0;
-            }
-          }
-        } else if (rowValues[0] && rowValues[0].includes('障がい者雇用者数')) {
-          // 行の先頭が障がい者雇用者数の場合、月ごとのデータを格納
-          const monthKeys = [
-            'april', 'may', 'june', 'july', 'august', 'september',
-            'october', 'november', 'december', 'january', 'february', 'march'
-          ];
-          
-          for (let j = 1; j <= 12; j++) {
-            if (j < rowValues.length && rowValues[j].trim() !== '') {
-              disabledEmployees[monthKeys[j-1]] = Number(rowValues[j]) || 0;
-            }
-          }
+      // 常用労働者数の行を検出
+      if (cells[0] && (cells[0].includes('常用労働者数') || cells[0].includes('常勤雇用労働者数'))) {
+        regularEmployeesRow = cells;
+        continue;
+      }
+      
+      // 障がい者雇用者数の行を検出
+      if (cells[0] && cells[0].includes('障がい者雇用者数')) {
+        disabledEmployeesRow = cells;
+        continue;
+      }
+    }
+    
+    console.log("月ヘッダー行:", monthHeaderRow);
+    console.log("常用労働者数行:", regularEmployeesRow);
+    console.log("障がい者雇用者数行:", disabledEmployeesRow);
+    
+    // 月次データを取得 - 必ず数値型として処理
+    for (let i = 1; i < monthHeaderRow.length; i++) {
+      const monthCell = monthHeaderRow[i] ? monthHeaderRow[i].trim() : '';
+      if (monthCell && monthMap[monthCell]) {
+        const monthKey = monthMap[monthCell];
+        
+        // 常用労働者数
+        if (regularEmployeesRow.length > i) {
+          const cellValue = regularEmployeesRow[i] ? regularEmployeesRow[i].trim() : '';
+          const value = cellValue ? parseFloat(cellValue) : 0;
+          totalRegularEmployees[monthKey] = isNaN(value) ? 0 : value;
+        }
+        
+        // 障がい者雇用者数
+        if (disabledEmployeesRow.length > i) {
+          const cellValue = disabledEmployeesRow[i] ? disabledEmployeesRow[i].trim() : '';
+          const value = cellValue ? parseFloat(cellValue) : 0;
+          disabledEmployees[monthKey] = isNaN(value) ? 0 : value;
         }
       }
     }
     
-    // 確認のためデータをログ出力
-    console.log("変換後のデータ:", { totalRegularEmployees, disabledEmployees });
+    // 不足している月のデータを0で初期化
+    const monthKeys = [
+      'april', 'may', 'june', 'july', 'august', 'september',
+      'october', 'november', 'december', 'january', 'february', 'march'
+    ];
+    
+    monthKeys.forEach(month => {
+      if (totalRegularEmployees[month] === undefined) {
+        totalRegularEmployees[month] = 0;
+      }
+      if (disabledEmployees[month] === undefined) {
+        disabledEmployees[month] = 0;
+      }
+    });
+    
+    // データのバリデーション
+    const hasData = Object.values(totalRegularEmployees).some(v => v > 0) || 
+                   Object.values(disabledEmployees).some(v => v > 0);
+                   
+    if (!hasData) {
+      throw new Error("CSVからデータを抽出できませんでした。ファイル形式を確認してください。");
+    }
     
     return {
-      year: yearGetter(), // 渡された関数を使用して年度を取得
+      year,
       totalRegularEmployees,
       disabledEmployees
     };
@@ -407,10 +428,10 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
       } catch (settingsError) {
         // 設定APIがない場合は静かに失敗させる
         console.log('会社設定は利用できません。デフォルト値を使用します。');
-        // デフォルト設定を使った処理...
+        // デフォルト設定を使用
       }
     } catch (error) {
-      // その他の致命的なエラーのみログに記録
+      // その他のエラーは記録するだけ
       console.error('設定の読み込みに失敗しました:', error);
     }
   };
@@ -430,28 +451,48 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     
     return months.map((month, index) => {
       const key = monthKeys[index];
+      // 数値型を確実に維持する
+      const employeeValue = monthlyData.totalRegularEmployees?.[key];
+      const disabledValue = monthlyData.disabledEmployees?.[key];
+      
+      // 数値に変換（文字列の場合も変換、NaNの場合は0に）
+      const employees = typeof employeeValue === 'number' ? employeeValue : 
+                        (employeeValue ? parseFloat(employeeValue) : 0);
+      const disabledEmployees = typeof disabledValue === 'number' ? disabledValue : 
+                              (disabledValue ? parseFloat(disabledValue) : 0);
+                              
       return {
         month: month,
-        employees: monthlyData.totalRegularEmployees?.[key] || 0,
-        disabledEmployees: monthlyData.disabledEmployees?.[key] || 0
+        employees: isNaN(employees) ? 0 : employees,
+        disabledEmployees: isNaN(disabledEmployees) ? 0 : disabledEmployees
       };
     });
   };
   
   // シンプル形式のデータを処理する関数（すべての月で同じ値）
-  const processSimpleFormat = (totalEmployees: number, disabledEmployees: number) => {
+  const processSimpleFormat = (totalEmployees: any, disabledEmployees: any) => {
     const months = [
       '4月', '5月', '6月', '7月', '8月', '9月', 
       '10月', '11月', '12月', '1月', '2月', '3月'
     ];
     
-    console.log('シンプル形式のデータを処理します', { totalEmployees, disabledEmployees });
+    // 数値型に正しく変換
+    const employeesValue = typeof totalEmployees === 'number' ? totalEmployees : 
+                          (totalEmployees ? parseFloat(String(totalEmployees)) : 0);
+    
+    const disabledValue = typeof disabledEmployees === 'number' ? disabledEmployees : 
+                         (disabledEmployees ? parseFloat(String(disabledEmployees)) : 0);
+    
+    console.log('シンプル形式のデータを処理します', { 
+      totalEmployees: employeesValue, 
+      disabledEmployees: disabledValue 
+    });
     
     // すべての月で同じ値を使用
     return months.map(month => ({
       month,
-      employees: totalEmployees,
-      disabledEmployees: disabledEmployees
+      employees: isNaN(employeesValue) ? 0 : employeesValue,
+      disabledEmployees: isNaN(disabledValue) ? 0 : disabledValue
     }));
   };
   
@@ -470,10 +511,18 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     
     return months.map((month, index) => {
       const key = monthKeys[index];
+      // 数値型を確実に維持する
+      const employeeField = `employees_${key}`;
+      const disabledField = `disabled_${key}`;
+      
+      // 数値に変換
+      const employees = data[employeeField] ? parseFloat(data[employeeField]) : 0;
+      const disabledEmployees = data[disabledField] ? parseFloat(data[disabledField]) : 0;
+      
       return {
         month: month,
-        employees: data[`employees_${key}`] || 0,
-        disabledEmployees: data[`disabled_${key}`] || 0
+        employees: isNaN(employees) ? 0 : employees,
+        disabledEmployees: isNaN(disabledEmployees) ? 0 : disabledEmployees
       };
     });
   };
@@ -489,41 +538,53 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     }
     
     try {
-      // 複数の可能なデータ構造をチェック
-      
-      // ケース1: 標準形式の月次データ
-      if (data.monthly_data) {
-        const monthlyDataObj = typeof data.monthly_data === 'string' 
-          ? JSON.parse(data.monthly_data)
-          : data.monthly_data;
+      // シンプル形式の確認（total_employeesとdisabled_employeesが存在する）
+      if (data.total_employees !== undefined && data.disabled_employees !== undefined) {
+        console.log('シンプル形式のデータを処理します', {
+          totalEmployees: data.total_employees,
+          disabledEmployees: data.disabled_employees
+        });
         
-        if (monthlyDataObj && monthlyDataObj.totalRegularEmployees && monthlyDataObj.disabledEmployees) {
-          // 標準形式処理
+        // すべての月で同じ値を使用
+        return processSimpleFormat(data.total_employees, data.disabled_employees);
+      }
+      
+      // monthly_dataの確認（文字列かオブジェクト）
+      let monthlyDataObj: any = null;
+      
+      if (data.monthly_data) {
+        if (typeof data.monthly_data === 'string') {
+          try {
+            monthlyDataObj = JSON.parse(data.monthly_data);
+            console.log('monthly_data (文字列)をパースしました:', monthlyDataObj);
+          } catch (e) {
+            console.error('monthly_dataのJSON解析エラー:', e);
+          }
+        } else if (typeof data.monthly_data === 'object') {
+          monthlyDataObj = data.monthly_data;
+          console.log('monthly_data (オブジェクト)を取得しました:', monthlyDataObj);
+        }
+        
+        // 標準形式のチェック
+        if (monthlyDataObj && 
+            (monthlyDataObj.totalRegularEmployees || monthlyDataObj.disabledEmployees)) {
+          console.log('標準形式のデータを処理します');
+          
+          // 月次データがある場合は標準形式処理
           return processStandardFormat(monthlyDataObj);
         }
       }
       
-      // ケース2: フラットな構造の月次データ
-      if (data.total_employees && data.disabled_employees) {
-        // フラット構造処理 (すべての月で同じ値)
-        return processSimpleFormat(data.total_employees, data.disabled_employees);
-      }
+      // 上記のいずれにも該当しない場合はデフォルト値を返す
+      console.log('認識できるデータ構造ではありません。デフォルト値を使用します。');
+      console.log('データ構造:', {
+        hasMonthlyData: !!data.monthly_data,
+        monthlyDataType: typeof data.monthly_data,
+        hasTotal: !!data.total_employees,
+        hasDisabled: !!data.disabled_employees
+      });
       
-      // ケース3: フィールド直接アクセス
-      const monthKeys = ['april', 'may', 'june', 'july', 'august', 'september',
-                        'october', 'november', 'december', 'january', 'february', 'march'];
-      
-      const hasDirectMonthFields = monthKeys.some(key => 
-        data[`employees_${key}`] !== undefined || data[`disabled_${key}`] !== undefined
-      );
-      
-      if (hasDirectMonthFields) {
-        // 直接フィールドアクセス処理
-        return processDirectFields(data);
-      }
-      
-      // どの形式にも当てはまらない場合はデフォルト値を使用
-      console.warn('認識できるデータ構造ではありません。デフォルト値を使用します。');
+      // デフォルト値を返す
       return defaultMonthlyData;
       
     } catch (error) {
@@ -537,6 +598,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     if (!data) {
       console.warn('データがありません');
       setMonthlyData(defaultMonthlyData);
+      setLoading(false); // ローディング状態を解除
       return;
     }
     
@@ -578,33 +640,53 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
         
         const formattedData = months.map((month, index) => {
           const key = monthKeys[index];
+          
+          // 数値型を確実に維持する
+          const employeeValue = monthlyDataObj?.totalRegularEmployees?.[key];
+          const disabledValue = monthlyDataObj?.disabledEmployees?.[key];
+          
+          // 数値に変換
+          const employees = typeof employeeValue === 'number' ? employeeValue : 
+                          (employeeValue ? parseFloat(String(employeeValue)) : 0);
+          const disabledEmployees = typeof disabledValue === 'number' ? disabledValue : 
+                                 (disabledValue ? parseFloat(String(disabledValue)) : 0);
+          
           return {
             month: month,
-            employees: monthlyDataObj?.totalRegularEmployees?.[key] || 0,
-            disabledEmployees: monthlyDataObj?.disabledEmployees?.[key] || 0
+            employees: isNaN(employees) ? 0 : employees,
+            disabledEmployees: isNaN(disabledEmployees) ? 0 : disabledEmployees
           };
         });
         
         console.log('フォーマット済み月次データ:', formattedData);
         setMonthlyData(formattedData);
+        setLoading(false); // ここでローディング状態を解除
         return;
       }
       
       // 代替データ構造の確認
-      if (data.total_employees && data.disabled_employees) {
+      if (data.total_employees !== undefined && data.disabled_employees !== undefined) {
         console.log('シンプル形式のデータを処理します', {
           totalEmployees: data.total_employees,
           disabledEmployees: data.disabled_employees
         });
         
+        // 数値型を確実に維持する
+        const totalEmployees = typeof data.total_employees === 'number' ? data.total_employees : 
+                             (data.total_employees ? parseFloat(String(data.total_employees)) : 0);
+        
+        const disabledEmployees = typeof data.disabled_employees === 'number' ? data.disabled_employees : 
+                                (data.disabled_employees ? parseFloat(String(data.disabled_employees)) : 0);
+        
         // すべての月で同じ値を使用
         const formattedData = defaultMonthlyData.map(item => ({
           ...item,
-          employees: data.total_employees,
-          disabledEmployees: data.disabled_employees
+          employees: isNaN(totalEmployees) ? 0 : totalEmployees,
+          disabledEmployees: isNaN(disabledEmployees) ? 0 : disabledEmployees
         }));
         
         setMonthlyData(formattedData);
+        setLoading(false); // ここでローディング状態を解除
         return;
       }
       
@@ -612,13 +694,14 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
       const adaptiveData = adaptiveProcessMonthlyData(data);
       setMonthlyData(adaptiveData);
       
+      // 処理の最後でローディング状態を解除
+      setLoading(false);
+      
     } catch (error) {
       console.error('データ処理エラー:', error);
       setMonthlyData(defaultMonthlyData);
+      setLoading(false); // エラー時もローディング状態を解除
     }
-    
-    // いずれの場合もローディング状態を解除
-    setLoading(false);
   };
   
   // API からデータを取得する関数
@@ -665,16 +748,23 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
   // 月別のデータを計算
   const calculatedData = useMemo(() => {
     return monthlyData.map(item => {
+      // 数値型を確実に維持する
+      const employees = typeof item.employees === 'number' ? item.employees : 
+                       (item.employees ? parseFloat(String(item.employees)) : 0);
+      
+      const disabledEmployees = typeof item.disabledEmployees === 'number' ? item.disabledEmployees : 
+                               (item.disabledEmployees ? parseFloat(String(item.disabledEmployees)) : 0);
+      
       // 実雇用率 = 障害者雇用数 / 常用労働者数 * 100
-      const employmentRate = item.employees > 0 
-        ? (item.disabledEmployees / item.employees) * 100
+      const employmentRate = employees > 0 
+        ? (disabledEmployees / employees) * 100
         : 0;
       
       // 必要雇用数 = 常用労働者数 * 法定雇用率 / 100
-      const requiredEmployees = Math.floor(item.employees * LEGAL_EMPLOYMENT_RATE / 100);
+      const requiredEmployees = Math.floor(employees * LEGAL_EMPLOYMENT_RATE / 100);
       
       // 超過・未達 = 障害者雇用数 - 必要雇用数
-      const difference = item.disabledEmployees - requiredEmployees;
+      const difference = disabledEmployees - requiredEmployees;
       
       // 調整金・納付金（設定値から計算）
       const payment = difference >= 0 
@@ -683,6 +773,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
       
       return {
         ...item,
+        employees,
+        disabledEmployees,
         employmentRate,
         requiredEmployees,
         difference,
@@ -693,10 +785,23 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
   
   // 合計値を計算
   const totals = useMemo(() => {
-    const totalEmployees = monthlyData.reduce((sum, item) => sum + item.employees, 0);
-    const totalDisabled = monthlyData.reduce((sum, item) => sum + item.disabledEmployees, 0);
+    // 数値の合計を確実に計算するためのヘルパー関数
+    const sumNumericValues = (values: any[]) => {
+      return values.reduce((sum, value) => {
+        const numValue = typeof value === 'number' ? value : 
+                        (value ? parseFloat(String(value)) : 0);
+        return sum + (isNaN(numValue) ? 0 : numValue);
+      }, 0);
+    };
     
-    const totalRequiredEmployees = calculatedData.reduce((sum, item) => sum + item.requiredEmployees, 0);
+    const employeesArray = monthlyData.map(item => item.employees);
+    const disabledArray = monthlyData.map(item => item.disabledEmployees);
+    const requiredArray = calculatedData.map(item => item.requiredEmployees);
+    
+    const totalEmployees = sumNumericValues(employeesArray);
+    const totalDisabled = sumNumericValues(disabledArray);
+    const totalRequiredEmployees = sumNumericValues(requiredArray);
+    
     const totalDifference = totalDisabled - totalRequiredEmployees;
     
     // 合計金額を計算（各月の調整金/納付金合計）
@@ -713,6 +818,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
   
   // 金額の表示フォーマット
   const formatNumber = (num: number) => {
+    // NaNの場合は0として表示
+    if (isNaN(num)) return '0';
     return num.toLocaleString();
   };
 
@@ -720,8 +827,13 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
   const calculateAverageEmployees = (monthlyData: {[key: string]: number}) => {
     const values = Object.values(monthlyData);
     if (values.length === 0) return 0;
-    const sum = values.reduce((a, b) => a + b, 0);
-    return sum / values.length;
+    
+    // NaNを除外した有効な値の平均を計算
+    const validValues = values.filter(v => !isNaN(v) && v !== null && v !== undefined);
+    if (validValues.length === 0) return 0;
+    
+    const sum = validValues.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
+    return sum / validValues.length;
   };
 
   // インポート完了ハンドラ
@@ -762,10 +874,21 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     
     const formattedData = months.map((month, index) => {
       const key = monthKeys[index];
+      
+      // 数値型を確実に維持する
+      const employeeValue = importedData.totalRegularEmployees[key];
+      const disabledValue = importedData.disabledEmployees[key];
+      
+      // 数値変換（NaNをチェック）
+      const employees = typeof employeeValue === 'number' ? employeeValue : 
+                       (employeeValue ? parseFloat(String(employeeValue)) : 0);
+      const disabledEmployees = typeof disabledValue === 'number' ? disabledValue : 
+                              (disabledValue ? parseFloat(String(disabledValue)) : 0);
+      
       return {
         month: month,
-        employees: importedData.totalRegularEmployees[key] || 0,
-        disabledEmployees: importedData.disabledEmployees[key] || 0
+        employees: isNaN(employees) ? 0 : employees,
+        disabledEmployees: isNaN(disabledEmployees) ? 0 : disabledEmployees
       };
     });
     
@@ -778,12 +901,31 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
     saveImportedData(importedData);
   };
   
-  // インポートしたデータを保存
+  // 数値を安全に変換するヘルパー関数（NaNをチェック）
+  const safeParseFloat = (value: any): string => {
+    if (value === null || value === undefined) return '0.0';
+    
+    // 数値型の場合
+    if (typeof value === 'number') {
+      return isNaN(value) ? '0.0' : value.toFixed(1);
+    }
+    
+    // 文字列や他の型の場合
+    const parsedValue = parseFloat(String(value));
+    if (isNaN(parsedValue)) {
+      return '0.0';
+    }
+    return parsedValue.toFixed(1); // 小数点1桁で表示
+  };
+  
+  // インポートしたデータを保存する関数
   const saveImportedData = async (importedData: any) => {
     try {
       setLoading(true);
-      const year = getYearValue();
+      setError(null);
       
+      // 年度を取得
+      const year = importedData.year;
       console.log('保存するデータ準備:', importedData);
       
       // 既存のレポートデータを取得
@@ -795,27 +937,54 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
         console.log('既存データなし、新規作成します');
       }
       
+      // 月次データから平均値を計算
+      const avgTotalEmployees = calculateAverageEmployees(importedData.totalRegularEmployees);
+      const avgDisabledEmployees = calculateAverageEmployees(importedData.disabledEmployees);
+      
+      console.log('計算した平均値:', {
+        avgTotalEmployees,
+        avgDisabledEmployees
+      });
+      
       // APIに送信するデータを構築
       const paymentReportData = {
+        // 既存データの情報を引き継ぐ (ただし上書きしたいフィールドは除く)
+        ...(existingData || {}),
+        
+        // 基本プロパティを更新
         year,
         fiscal_year: year,
-        total_employees: calculateAverageEmployees(importedData.totalRegularEmployees),
-        disabled_employees: calculateAverageEmployees(importedData.disabledEmployees),
-        // 既存データからの情報を維持
-        ...(existingData || {}),
-        // 新しい月次データを追加
+        
+        // 計算した平均値で上書き（必ず数値型で保存）
+        total_employees: Number(avgTotalEmployees),
+        disabled_employees: Number(avgDisabledEmployees),
+        average_employee_count: Number(avgTotalEmployees),
+        actual_employment_count: Number(avgDisabledEmployees),
+        
+        // 実雇用率を再計算
+        employment_rate: avgTotalEmployees > 0 ? (avgDisabledEmployees / avgTotalEmployees * 100) : 0,
+        
+        // 月次データを直接オブジェクトとして設定（文字列ではなく）
         monthly_data: importedData
       };
       
-      console.log('APIに送信するデータ:', paymentReportData);
+      // IDフィールドを削除（新規作成対応）
+      if ('id' in paymentReportData) {
+        delete paymentReportData.id;
+      }
       
-      // APIを呼び出してデータを保存
-      await paymentReportApi.savePaymentReport(year, paymentReportData);
+      // 画面表示用に月次データを更新
+      const formattedData = processStandardFormat(importedData);
+      setMonthlyData(formattedData);
+      
+      console.log('送信するデータ:', paymentReportData);
+      
+      // APIでデータを保存
+      const savedData = await paymentReportApi.savePaymentReport(year, paymentReportData);
+      console.log('保存されたデータ:', savedData);
       
       setLoading(false);
-      alert('月別データを保存しました。画面をリロードします。');
-      // データ更新後にページをリロード
-      window.location.reload();
+      alert('月別データを保存しました。');
     } catch (err) {
       setLoading(false);
       setError(err instanceof Error ? err.message : '月別データの保存に失敗しました');
@@ -879,7 +1048,7 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
       )}
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #dee2e6' }}>
               <th style={{ 
@@ -889,7 +1058,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 backgroundColor: '#f8f9fa', 
                 borderBottom: '1px solid #dee2e6', 
                 whiteSpace: 'nowrap',
-                width: '150px'
+                width: '150px', // 項目列の幅を固定
+                height: '36px' // 高さを固定
               }}>項目</th>
               {monthlyData.map((item, idx) => (
                 <th key={`month-header-${item.month}-${idx}`} style={{ 
@@ -898,7 +1068,9 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                   fontWeight: 'normal', 
                   backgroundColor: '#f8f9fa', 
                   borderBottom: '1px solid #dee2e6', 
-                  whiteSpace: 'nowrap' 
+                  whiteSpace: 'nowrap',
+                  width: '60px', // 各月の列幅を固定
+                  height: '36px' // 高さを固定
                 }}>
                   {item.month}
                 </th>
@@ -909,7 +1081,9 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 fontWeight: 'normal', 
                 backgroundColor: '#f8f9fa', 
                 borderBottom: '1px solid #dee2e6', 
-                whiteSpace: 'nowrap' 
+                whiteSpace: 'nowrap',
+                width: '80px', // 合計列の幅を固定（少し広め）
+                height: '36px' // 高さを固定
               }}>
                 合計
               </th>
@@ -923,7 +1097,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 textAlign: 'left', 
                 fontWeight: 'normal', 
                 backgroundColor: '#f8f9fa', 
-                borderBottom: '1px solid #dee2e6' 
+                borderBottom: '1px solid #dee2e6',
+                height: '36px' // 高さを固定
               }}>
                 常用労働者数(人)
               </td>
@@ -931,7 +1106,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 <td key={`employees-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
-                  borderBottom: '1px solid #dee2e6' 
+                  borderBottom: '1px solid #dee2e6',
+                  height: '36px' // 高さを固定
                 }}>
                   {formatNumber(item.employees)}
                 </td>
@@ -940,7 +1116,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 padding: '6px 4px', 
                 textAlign: 'center', 
                 borderBottom: '1px solid #dee2e6', 
-                fontWeight: 'bold' 
+                fontWeight: 'bold',
+                height: '36px' // 高さを固定
               }}>
                 {formatNumber(totals.totalEmployees)}
               </td>
@@ -953,7 +1130,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 textAlign: 'left', 
                 fontWeight: 'normal', 
                 backgroundColor: '#f8f9fa', 
-                borderBottom: '1px solid #dee2e6' 
+                borderBottom: '1px solid #dee2e6',
+                height: '36px' // 高さを固定
               }}>
                 障がい者雇用者数(人)
               </td>
@@ -961,18 +1139,26 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 <td key={`disabled-${item.month}-${idx}`} style={{ 
                   padding: '6px 4px', 
                   textAlign: 'center', 
-                  borderBottom: '1px solid #dee2e6' 
+                  borderBottom: '1px solid #dee2e6',
+                  height: '36px' // 高さを固定
                 }}>
-                  {item.disabledEmployees}
+                  {/* 小数点以下を表示するが、0なら小数点以下を表示しない */}
+                  {item.disabledEmployees % 1 === 0 
+                    ? Math.floor(item.disabledEmployees) 
+                    : item.disabledEmployees.toFixed(1)}
                 </td>
               ))}
               <td style={{ 
                 padding: '6px 4px', 
                 textAlign: 'center', 
                 borderBottom: '1px solid #dee2e6', 
-                fontWeight: 'bold' 
+                fontWeight: 'bold',
+                height: '36px' // 高さを固定
               }}>
-                {totals.totalDisabled}
+                {/* 小数点以下を表示するが、0なら小数点以下を表示しない */}
+                {totals.totalDisabled % 1 === 0 
+                  ? Math.floor(totals.totalDisabled) 
+                  : totals.totalDisabled.toFixed(1)}
               </td>
             </tr>
             
@@ -983,7 +1169,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 textAlign: 'left', 
                 fontWeight: 'normal', 
                 backgroundColor: '#f8f9fa', 
-                borderBottom: '1px solid #dee2e6' 
+                borderBottom: '1px solid #dee2e6',
+                height: '36px' // 高さを固定
               }}>
                 超過・未達(人)
               </td>
@@ -992,9 +1179,13 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   borderBottom: '1px solid #dee2e6',
-                  color: item.difference < 0 ? '#dc3545' : 'inherit'
+                  color: item.difference < 0 ? '#dc3545' : 'inherit',
+                  height: '36px' // 高さを固定
                 }}>
-                  {item.difference > 0 ? '+' + item.difference : item.difference}
+                  {/* 小数点以下を表示するが、0なら小数点以下を表示しない */}
+                  {item.difference > 0 
+                    ? '+' + (item.difference % 1 === 0 ? Math.floor(item.difference) : item.difference.toFixed(1))
+                    : (item.difference % 1 === 0 ? Math.floor(item.difference) : item.difference.toFixed(1))}
                 </td>
               ))}
               <td style={{ 
@@ -1002,9 +1193,13 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 textAlign: 'center', 
                 borderBottom: '1px solid #dee2e6', 
                 fontWeight: 'bold',
-                color: totals.totalDifference < 0 ? '#dc3545' : 'inherit'
+                color: totals.totalDifference < 0 ? '#dc3545' : 'inherit',
+                height: '36px' // 高さを固定
               }}>
-                {totals.totalDifference > 0 ? '+' + totals.totalDifference : totals.totalDifference}
+                {/* 小数点以下を表示するが、0なら小数点以下を表示しない */}
+                {totals.totalDifference > 0 
+                  ? '+' + (totals.totalDifference % 1 === 0 ? Math.floor(totals.totalDifference) : totals.totalDifference.toFixed(1))
+                  : (totals.totalDifference % 1 === 0 ? Math.floor(totals.totalDifference) : totals.totalDifference.toFixed(1))}
               </td>
             </tr>
             
@@ -1015,7 +1210,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 textAlign: 'left', 
                 fontWeight: 'normal', 
                 backgroundColor: '#f8f9fa', 
-                borderBottom: '1px solid #dee2e6' 
+                borderBottom: '1px solid #dee2e6',
+                height: '36px' // 高さを固定
               }}>
                 調整金・納付金(円)
               </td>
@@ -1024,7 +1220,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                   padding: '6px 4px', 
                   textAlign: 'center', 
                   borderBottom: '1px solid #dee2e6',
-                  color: item.payment < 0 ? '#dc3545' : '#28a745'
+                  color: item.payment < 0 ? '#dc3545' : '#28a745',
+                  height: '36px' // 高さを固定
                 }}>
                   {formatNumber(item.payment)}
                 </td>
@@ -1034,7 +1231,8 @@ const MonthlyDataTab: React.FC<MonthlyDataTabProps> = ({ fiscalYear, reportData 
                 textAlign: 'center', 
                 borderBottom: '1px solid #dee2e6', 
                 fontWeight: 'bold',
-                color: totals.totalPayment < 0 ? '#dc3545' : '#28a745'
+                color: totals.totalPayment < 0 ? '#dc3545' : '#28a745',
+                height: '36px' // 高さを固定
               }}>
                 {formatNumber(totals.totalPayment)}
               </td>

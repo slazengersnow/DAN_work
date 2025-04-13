@@ -64,25 +64,37 @@ const PaymentReport: React.FC = () => {
     try {
       setLoading(true);
       setError(null); // エラー状態をリセット
+      setReportData(null); // データも一旦リセット
       
       // 年度からyear部分だけを抽出（例：「2024年度」→「2024」）
       const yearNum = parseInt(year.replace('年度', ''));
       console.log(`年度 ${yearNum} のデータを取得中...`);
       
-      const data = await paymentReportApi.getPaymentReport(yearNum);
-      
-      // データ構造の詳細なログ
-      console.log(`年度 ${yearNum} のデータ構造:`, {
-        hasMonthlyData: !!data.monthly_data,
-        monthlyDataType: typeof data.monthly_data,
-        dataKeys: Object.keys(data),
-        rawMonthlyData: data.monthly_data
-      });
-      
-      // データを更新
-      setReportData(data);
-      console.log(`年度 ${yearNum} のデータを取得完了:`, data);
-      setLoading(false);
+      try {
+        const data = await paymentReportApi.getPaymentReport(yearNum);
+        
+        // データ構造の詳細なログ
+        console.log(`年度 ${yearNum} のデータ構造:`, {
+          hasMonthlyData: !!data.monthly_data,
+          monthlyDataType: typeof data.monthly_data,
+          dataKeys: Object.keys(data)
+        });
+        
+        // データを更新
+        setReportData(data);
+        console.log(`年度 ${yearNum} のデータを取得完了:`, data);
+        setLoading(false);
+        
+      } catch (apiError) {
+        console.error(`年度 ${yearNum} のデータ取得エラー:`, apiError);
+        
+        // レポートデータが存在しない場合はnullに設定
+        setReportData(null);
+        
+        // ユーザーフレンドリーなエラーメッセージ
+        setError(`${yearNum}年度のデータが見つかりません。「納付金情報」タブで新規作成してください。`);
+        setLoading(false);
+      }
     } catch (error) {
       console.error('データ取得エラー:', error);
       setError('データの取得に失敗しました');
@@ -109,6 +121,10 @@ const PaymentReport: React.FC = () => {
     
     // 選択した年度をセッションストレージに保存
     sessionStorage.setItem('selectedFiscalYear', newYear);
+    
+    // データをリセット（新しいデータが取得されるまで古いデータを表示しない）
+    setReportData(null);
+    setError(null);
     
     // 状態を更新（これにより上記の useEffect が発動しデータを再取得）
     setFiscalYear(newYear);
