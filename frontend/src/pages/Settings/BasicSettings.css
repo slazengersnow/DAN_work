@@ -1,0 +1,150 @@
+/* src/pages/Settings/BasicSettings.css */
+
+.basic-settings .card {
+  background-color: white;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.basic-settings h2 {
+  font-size: 18px;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+.basic-settings h3 {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  font-weight: bold;
+}
+
+.basic-settings .description {
+  color: #888;
+  font-size: 12px;
+  margin-bottom: 15px;
+}
+
+.basic-settings .setting-section {
+  margin-bottom: 30px;
+}
+
+.basic-settings .year-selector {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.basic-settings .field-group {
+  display: flex;
+  align-items: center;
+  margin-right: 30px;
+}
+
+.basic-settings .field-group label {
+  margin-right: 10px;
+}
+
+.basic-settings .field-group select,
+.basic-settings .field-group input {
+  padding: 8px;
+  border: 1px solid #d8d8d8;
+  border-radius: 4px;
+}
+
+.basic-settings .apply-btn {
+  background-color: #4668c5;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+.basic-settings .monthly-rates {
+  margin-bottom: 20px;
+}
+
+.basic-settings .month-headers {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.basic-settings .month-header {
+  width: calc(100% / 12 - 5px);
+  text-align: center;
+  font-size: 13px;
+  background-color: #f8f8f8;
+  padding: 8px 0;
+  border-radius: 4px;
+}
+
+.basic-settings .month-inputs {
+  display: flex;
+  justify-content: space-between;
+}
+
+.basic-settings .rate-input {
+  width: calc(100% / 12 - 5px);
+  padding: 8px;
+  text-align: center;
+  border: 1px solid #d8d8d8;
+  border-radius: 4px;
+}
+
+.basic-settings .future-reference {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+}
+
+.basic-settings .future-reference p {
+  margin-bottom: 10px;
+  color: #666;
+  font-size: 13px;
+}
+
+.basic-settings .reference-rate {
+  width: calc(100% / 12 - 5px);
+  padding: 8px;
+  text-align: center;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  background-color: #f8f8f8;
+  color: #666;
+}
+
+.basic-settings .highlighted {
+  background-color: #fff4ea;
+  color: #d06b00;
+  border-color: #ffc107;
+}
+
+.basic-settings .field-row {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.basic-settings .field-row label {
+  width: 150px;
+  padding-top: 8px;
+}
+
+.basic-settings .field-content {
+  flex: 1;
+}
+
+.basic-settings .field-content input {
+  padding: 8px;
+  border: 1px solid #d8d8d8;
+  border-radius: 4px;
+  width: 150px;
+}
+
+.basic-settings .unit {
+  margin-left: 8px;
+}

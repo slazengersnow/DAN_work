@@ -1,0 +1,102 @@
+/* src/pages/Settings/EmploymentGoals.css */
+
+.employment-goals .card {
+  background-color: white;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.employment-goals h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.employment-goals .description {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.employment-goals .goals-table {
+  width: 100%;
+}
+
+.employment-goals table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.employment-goals th {
+  background-color: #f8f8f8;
+  padding: 12px;
+  text-align: left;
+  font-weight: normal;
+  font-size: 14px;
+}
+
+.employment-goals td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.employment-goals input[type="number"] {
+  width: 80px;
+  padding: 8px;
+  border: 1px solid #d8d8d8;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.employment-goals .unit {
+  margin-left: 8px;
+}
+
+.employment-goals .delete-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #e74c3c;
+  background-color: white;
+  border: 1px solid #e74c3c;
+}
+
+.employment-goals .add-goal-btn {
+  background-color: #4668c5;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.employment-goals .actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.employment-goals .cancel-btn, .employment-goals .save-btn {
+  padding: 8px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 10px;
+}
+
+.employment-goals .cancel-btn {
+  background-color: white;
+  border: 1px solid #d8d8d8;
+}
+
+.employment-goals .save-btn {
+  background-color: #4668c5;
+  color: white;
+  border: none;
+}

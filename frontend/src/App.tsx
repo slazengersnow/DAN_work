@@ -15,7 +15,7 @@ import EmployeeDetailPage from './pages/EmployeeDetailPage';
 import MonthlyReport from './pages/MonthlyReport/index';
 import MonthlyReportDetail from './pages/MonthlyReport/MonthlyReportDetail';
 import PaymentReport from './components/PaymentReport/PaymentReport';
-import Settings from './pages/Settings';
+import Settings from './pages/Settings/Settings';
 import './App.css';
 
 // 環境変数を設定

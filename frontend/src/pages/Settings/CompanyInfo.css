@@ -1,0 +1,98 @@
+/* src/pages/Settings/CompanyInfo.css */
+
+.company-info .card {
+  background-color: white;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.company-info h2 {
+  font-size: 18px;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+.company-info .field-row {
+  display: flex;
+  margin-bottom: 15px;
+  align-items: center;
+}
+
+.company-info .field-row label {
+  width: 100px;
+  font-size: 14px;
+}
+
+.company-info .field-row input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #d8d8d8;
+  border-radius: 4px;
+}
+
+.company-info .office-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.company-info .office-table th {
+  background-color: #f8f8f8;
+  padding: 12px;
+  text-align: left;
+  font-weight: normal;
+  font-size: 14px;
+}
+
+.company-info .office-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.company-info .office-table input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #d8d8d8;
+  border-radius: 4px;
+}
+
+.company-info .office-table input[type="number"] {
+  width: 80px;
+}
+
+.company-info .action-buttons {
+  display: flex;
+}
+
+.company-info .edit-btn, .company-info .delete-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 5px;
+  font-size: 12px;
+}
+
+.company-info .edit-btn {
+  color: #4668c5;
+  background-color: white;
+  border: 1px solid #4668c5;
+}
+
+.company-info .delete-btn {
+  color: #e74c3c;
+  background-color: white;
+  border: 1px solid #e74c3c;
+}
+
+.company-info .add-office-btn {
+  background-color: #4668c5;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+}
