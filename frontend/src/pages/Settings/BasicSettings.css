@@ -2,8 +2,8 @@
 
 .basic-settings .card {
   background-color: white;
-  border-radius: 6px;
-  padding: 20px;
+  border-radius: 8px;
+  padding: 24px;
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
@@ -11,19 +11,21 @@
 .basic-settings h2 {
   font-size: 18px;
   margin-bottom: 20px;
-  font-weight: bold;
+  font-weight: 600;
+  color: #333;
 }
 
 .basic-settings h3 {
   font-size: 16px;
   margin: 0 0 8px 0;
-  font-weight: bold;
+  font-weight: 600;
+  color: #333;
 }
 
 .basic-settings .description {
-  color: #888;
-  font-size: 12px;
-  margin-bottom: 15px;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
 }
 
 .basic-settings .setting-section {
@@ -44,13 +46,16 @@
 
 .basic-settings .field-group label {
   margin-right: 10px;
+  font-size: 14px;
+  color: #555;
 }
 
 .basic-settings .field-group select,
 .basic-settings .field-group input {
-  padding: 8px;
-  border: 1px solid #d8d8d8;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 14px;
 }
 
 .basic-settings .apply-btn {
@@ -61,76 +66,105 @@
   border-radius: 4px;
   margin-left: 10px;
   cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
 }
 
-.basic-settings .monthly-rates {
+.basic-settings .apply-btn:hover {
+  background-color: #3a58a8;
+}
+
+/* 月別雇用率テーブルスタイル（スプレッドシート風） */
+.basic-settings .monthly-rates-table {
+  width: 100%;
+  overflow-x: auto;
   margin-bottom: 20px;
 }
 
-.basic-settings .month-headers {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
+.basic-settings .monthly-rates-table table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e0e4e8;
 }
 
-.basic-settings .month-header {
-  width: calc(100% / 12 - 5px);
+.basic-settings .monthly-rates-table th {
+  background-color: #f5f7fa;
+  padding: 12px 8px;
   text-align: center;
-  font-size: 13px;
-  background-color: #f8f8f8;
-  padding: 8px 0;
-  border-radius: 4px;
+  font-weight: 500;
+  font-size: 14px;
+  color: #555;
+  border: 1px solid #e0e4e8;
 }
 
-.basic-settings .month-inputs {
-  display: flex;
-  justify-content: space-between;
+.basic-settings .monthly-rates-table .header-cell {
+  width: 15%;
+  text-align: left;
+  padding-left: 15px;
+}
+
+.basic-settings .monthly-rates-table .month-cell {
+  width: calc(85% / 12);
+}
+
+.basic-settings .monthly-rates-table .label-cell {
+  background-color: #f5f7fa;
+  padding: 12px 15px;
+  font-weight: 500;
+  font-size: 14px;
+  color: #555;
+  text-align: left;
+  border: 1px solid #e0e4e8;
+}
+
+.basic-settings .monthly-rates-table .data-cell {
+  padding: 0;
+  border: 1px solid #e0e4e8;
+  height: 40px;
 }
 
 .basic-settings .rate-input {
-  width: calc(100% / 12 - 5px);
-  padding: 8px;
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 8px 0;
   text-align: center;
-  border: 1px solid #d8d8d8;
-  border-radius: 4px;
+  font-size: 14px;
 }
 
-.basic-settings .future-reference {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #f8f8f8;
-  border-radius: 4px;
+.basic-settings .rate-input:focus {
+  outline: 2px solid #4668c5;
+  position: relative;
+  z-index: 1;
 }
 
-.basic-settings .future-reference p {
-  margin-bottom: 10px;
-  color: #666;
-  font-size: 13px;
+/* 納付金等単価設定 */
+.basic-settings .payment-settings {
+  margin-top: 30px;
 }
 
-.basic-settings .reference-rate {
-  width: calc(100% / 12 - 5px);
-  padding: 8px;
-  text-align: center;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
-  background-color: #f8f8f8;
-  color: #666;
+.basic-settings .payment-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -10px;
 }
 
-.basic-settings .highlighted {
-  background-color: #fff4ea;
-  color: #d06b00;
-  border-color: #ffc107;
+.basic-settings .payment-column {
+  flex: 1;
+  padding: 0 10px;
+  min-width: 300px;
 }
 
 .basic-settings .field-row {
   display: flex;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
+  align-items: flex-start;
 }
 
 .basic-settings .field-row label {
   width: 150px;
+  font-size: 14px;
+  color: #555;
   padding-top: 8px;
 }
 
@@ -139,12 +173,21 @@
 }
 
 .basic-settings .field-content input {
-  padding: 8px;
-  border: 1px solid #d8d8d8;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
   border-radius: 4px;
   width: 150px;
+  font-size: 14px;
 }
 
 .basic-settings .unit {
   margin-left: 8px;
+  color: #555;
+  font-size: 14px;
+}
+
+.basic-settings .help-text {
+  margin-top: 5px;
+  color: #888;
+  font-size: 12px;
 }
