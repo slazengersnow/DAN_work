@@ -1,36 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { settingsApi } from '../api/settingsApi';
+import { settingsApi, CompanySettings, User } from '../api/settingsApi';
 import Spinner from '../components/common/Spinner';
 import ErrorMessage from '../components/common/ErrorMessage';
-
-// 型定義
-interface CompanySettings {
-  company_name: string;
-  company_code: string;
-  company_address: string;
-  legal_rate: number;
-  fiscal_year_start: string;
-  fiscal_year_end: string;
-  monthly_report_reminder: boolean;
-  legal_rate_alert: boolean;
-  employment_end_notice: boolean;
-  theme: string;
-  language?: string;
-  notifications?: boolean;
-}
-
-// CompanySettingsを拡張したインターフェース
-interface ExtendedCompanySettings extends CompanySettings {
-  language?: string;
-  notifications?: boolean;
-}
-interface User {
-  id: number;
-  username: string;
-  role: string;
-  created_at?: string;
-}
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('application');
@@ -41,28 +13,9 @@ const Settings: React.FC = () => {
     data: companySettings, 
     isLoading: isLoadingSettings, 
     error: settingsError 
-  } = useQuery(
+  } = useQuery<CompanySettings>(
     'companySettings',
-    settingsApi.getCompanySettings,
-    {
-      // エラー時にフォールバックデータを提供
-      onError: () => {
-        return {
-          company_name: '',
-          company_code: '',
-          company_address: '',
-          legal_rate: 2.3,
-          fiscal_year_start: '',
-          fiscal_year_end: '',
-          monthly_report_reminder: true,
-          legal_rate_alert: true,
-          employment_end_notice: false,
-          theme: 'light',
-          language: 'ja',
-          notifications: true
-        };
-      }
-    }
+    settingsApi.getCompanySettings
   );
   
   // React Query: ユーザーデータの取得（accountタブでのみ使用）
@@ -70,13 +23,13 @@ const Settings: React.FC = () => {
     data: users, 
     isLoading: isLoadingUsers, 
     error: usersError 
-  } = useQuery(
+  } = useQuery<User[]>(
     'users',
     settingsApi.getUsers,
     { enabled: activeTab === 'account' } // accountタブが選択されている場合のみクエリを実行
   );
   
-  // フォームステート
+  // フォームステート - デフォルト値を持つ完全な形で初期化
   const [formData, setFormData] = useState<CompanySettings>({
     company_name: '',
     company_code: '',
@@ -85,6 +38,7 @@ const Settings: React.FC = () => {
     fiscal_year_start: '',
     fiscal_year_end: '',
     monthly_report_reminder: true,
+    payment_report_reminder: true, // 必須プロパティを追加
     legal_rate_alert: true,
     employment_end_notice: false,
     theme: 'light',
@@ -101,20 +55,28 @@ const Settings: React.FC = () => {
   // データが読み込まれたらフォームを初期化
   useEffect(() => {
     if (companySettings) {
-      // companySettingsをExtendedCompanySettingsに変換
-      const extendedSettings = companySettings as ExtendedCompanySettings;
-      setFormData({
+      // 必須プロパティの存在を保証
+      const updatedSettings: CompanySettings = {
         ...companySettings,
-        language: extendedSettings.language || 'ja',
-        notifications: extendedSettings.notifications !== undefined 
-          ? extendedSettings.notifications 
+        // 必須プロパティが存在するか確認し、デフォルト値を設定
+        payment_report_reminder: companySettings.payment_report_reminder !== undefined 
+          ? companySettings.payment_report_reminder 
+          : true,
+        legal_rate_alert: companySettings.legal_rate_alert !== undefined
+          ? companySettings.legal_rate_alert
+          : true,
+        language: companySettings.language || 'ja',
+        notifications: companySettings.notifications !== undefined 
+          ? companySettings.notifications 
           : true
-      });
+      };
+      
+      setFormData(updatedSettings);
     }
   }, [companySettings]);
   
   // Mutation: 設定更新
-  const updateSettingsMutation = useMutation(
+  const updateSettingsMutation = useMutation<CompanySettings, Error, CompanySettings>(
     (newSettings: CompanySettings) => settingsApi.updateCompanySettings(newSettings),
     {
       onSuccess: () => {
@@ -188,26 +150,44 @@ const Settings: React.FC = () => {
   
   // アプリケーション設定の保存
   const handleAppSettingsSave = () => {
+    if (!companySettings) return; // 安全チェック
+    
     // テーマ、言語、通知設定のみ更新
-    const appSettings = {
+    const appSettings: CompanySettings = {
       ...companySettings,
       theme: formData.theme,
       language: formData.language,
-      notifications: formData.notifications
+      notifications: formData.notifications,
+      // 必須プロパティを確実に含める
+      payment_report_reminder: companySettings.payment_report_reminder !== undefined 
+        ? companySettings.payment_report_reminder 
+        : true,
+      legal_rate_alert: companySettings.legal_rate_alert !== undefined
+        ? companySettings.legal_rate_alert
+        : true
     };
     
-    updateSettingsMutation.mutate(appSettings as CompanySettings);
+    updateSettingsMutation.mutate(appSettings);
   };
   
   // 法定雇用率の更新
   const handleLegalRateUpdate = () => {
+    if (!companySettings) return; // 安全チェック
+    
     // 法定雇用率のみ更新
-    const legalRateSettings = {
+    const legalRateSettings: CompanySettings = {
       ...companySettings,
-      legal_rate: formData.legal_rate
+      legal_rate: formData.legal_rate,
+      // 必須プロパティを確実に含める
+      payment_report_reminder: companySettings.payment_report_reminder !== undefined 
+        ? companySettings.payment_report_reminder 
+        : true,
+      legal_rate_alert: companySettings.legal_rate_alert !== undefined
+        ? companySettings.legal_rate_alert
+        : true
     };
     
-    updateSettingsMutation.mutate(legalRateSettings as CompanySettings);
+    updateSettingsMutation.mutate(legalRateSettings);
   };
   
   // パスワード変更処理
@@ -412,7 +392,7 @@ const Settings: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((user: any) => (
+                      {users.map((user) => (
                         <tr key={user.id}>
                           <td>{user.id}</td>
                           <td>{user.username}</td>
@@ -597,105 +577,3 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
-
-// API クライアント関数のサンプル実装
-// src/api/settingsApi.ts として別ファイルに実装することを推奨
-/*
-import axios from 'axios';
-
-export interface CompanySettings {
-  company_name: string;
-  company_code: string;
-  company_address: string;
-  legal_rate: number;
-  fiscal_year_start: string;
-  fiscal_year_end: string;
-  monthly_report_reminder: boolean;
-  legal_rate_alert: boolean;
-  employment_end_notice: boolean;
-  theme: string;
-  language?: string;
-  notifications?: boolean;
-}
-
-export interface User {
-  id: number;
-  username: string;
-  role: string;
-  created_at?: string;
-}
-
-export const settingsApi = {
-  // 会社設定を取得
-  getCompanySettings: async (): Promise<CompanySettings> => {
-    try {
-      const response = await axios.get('/api/settings/company');
-      return response.data;
-    } catch (error) {
-      // 開発中はモックデータを返す
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          company_name: 'サンプル株式会社',
-          company_code: 'SAMPLE-123',
-          company_address: '東京都千代田区〇〇 1-1-1',
-          legal_rate: 2.3,
-          fiscal_year_start: '2024-04-01',
-          fiscal_year_end: '2025-03-31',
-          monthly_report_reminder: true,
-          legal_rate_alert: true,
-          employment_end_notice: false,
-          theme: 'light',
-          language: 'ja',
-          notifications: true
-        };
-      }
-      throw error;
-    }
-  },
-
-  // 会社設定を更新
-  updateCompanySettings: async (data: CompanySettings): Promise<CompanySettings> => {
-    try {
-      const response = await axios.put('/api/settings/company', data);
-      return response.data;
-    } catch (error) {
-      // 開発中は成功したふりをする
-      if (process.env.NODE_ENV === 'development') {
-        return data;
-      }
-      throw error;
-    }
-  },
-
-  // ユーザー一覧を取得
-  getUsers: async (): Promise<User[]> => {
-    try {
-      const response = await axios.get('/api/users');
-      return response.data;
-    } catch (error) {
-      // 開発中はモックデータを返す
-      if (process.env.NODE_ENV === 'development') {
-        return [
-          { id: 1, username: 'admin', role: 'admin', created_at: '2023-01-01T00:00:00Z' },
-          { id: 2, username: 'user1', role: 'user', created_at: '2023-01-15T00:00:00Z' },
-          { id: 3, username: 'user2', role: 'user', created_at: '2023-02-01T00:00:00Z' }
-        ];
-      }
-      throw error;
-    }
-  },
-
-  // パスワード変更
-  changePassword: async (data: { currentPassword: string, newPassword: string }): Promise<void> => {
-    try {
-      await axios.post('/api/users/change-password', data);
-    } catch (error) {
-      // 開発中は成功したふりをする
-      if (process.env.NODE_ENV === 'development') {
-        return;
-      }
-      throw error;
-    }
-  }
-};
-*/

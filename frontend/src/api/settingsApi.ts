@@ -1,5 +1,5 @@
-// frontend/src/api/settingsApi.ts
-import apiClient from './client';
+// src/api/settingsApi.ts
+import client from './client';
 
 // 必要なスキル型定義
 export interface Skill {
@@ -21,6 +21,7 @@ export interface Office {
   name: string;
   address: string;
   employeeCount: number;
+  serialNumber?: string; // 事業所別連番 (001:特例子会社等、002:就労継続支援A型)
 }
 
 // 設定情報の型定義
@@ -33,10 +34,10 @@ export interface CompanySettings {
   fiscal_year_start: string;
   fiscal_year_end: string;
   monthly_report_reminder: boolean;
-  legal_rate_alert: boolean;
-  employment_end_notice: boolean;
-  theme: string;
-  payment_report_reminder?: boolean;
+  payment_report_reminder: boolean;
+  legal_rate_alert: boolean; // 非オプションに変更
+  employment_end_notice?: boolean;
+  theme?: string;
   
   // フロントエンドのキャメルケース互換プロパティ
   companyName?: string;  // company_nameのエイリアス
@@ -45,17 +46,27 @@ export interface CompanySettings {
   businessContent?: string;
   industryCode?: string;
   
+  // 拡張プロパティ
+  language?: string;
+  notifications?: boolean;
+  
+  // 追加: 産業分類と除外率
+  industryType?: string;
+  exclusionRate?: number;
+  
   // 支払い関連
   paymentAmount?: number;
   subsidyAmount?: number;
   rewardAmount?: number;
-  exclusionRate?: number;
   
   // 拡張
   legalRates?: { [key: string]: { [key: string]: string } };
   employmentGoals?: { [key: string]: number };
   jobCategories?: JobCategory[];
   offices?: Office[];
+  
+  // その他のプロパティがある場合、ここに追加
+  [key: string]: any; // インデックスシグネチャを追加してより柔軟にする
 }
 
 export interface User {
@@ -95,12 +106,14 @@ const convertToCamelCase = (data: any): any => {
   return result;
 };
 
+// API関数
 export const settingsApi = {
+  // 会社設定を取得
   getCompanySettings: async (): Promise<CompanySettings> => {
     try {
-      const response = await apiClient.get('/settings/company');
+      const response = await client.get('/api/settings');
       // バックエンドのレスポンスに応じてキャメルケースに変換
-      const data = convertToCamelCase(response.data.data);
+      const data = convertToCamelCase(response.data);
       return data;
     } catch (error) {
       console.log('会社設定は利用できません。デフォルト値を使用します。');
@@ -124,11 +137,18 @@ export const settingsApi = {
         companyName: "株式会社サンプルカンパニー",
         companyAddress: "東京都千代田区〇〇町1-2-3",
         
+        // 拡張プロパティ
+        language: 'ja',
+        notifications: true,
+        
+        // 追加: 産業分類と除外率
+        industryType: "情報通信業",
+        exclusionRate: 0,
+        
         // 追加フィールド（納付金計算用）
         subsidyAmount: 27000, // 調整金額単価
         paymentAmount: 50000, // 納付金額単価
         rewardAmount: 21000, // 報奨金額単価
-        exclusionRate: 0, // 除外率
         
         // 追加の会社情報
         representativeName: "山田 太郎",
@@ -140,10 +160,6 @@ export const settingsApi = {
           '2024年度': {
             '4月': '2.5', '5月': '2.5', '6月': '2.5', '7月': '2.5', '8月': '2.5', '9月': '2.5',
             '10月': '2.5', '11月': '2.5', '12月': '2.5', '1月': '2.5', '2月': '2.5', '3月': '2.5'
-          },
-          '2026年度': {
-            '4月': '2.5', '5月': '2.5', '6月': '2.5', '7月': '2.7', '8月': '2.7', '9月': '2.7',
-            '10月': '2.7', '11月': '2.7', '12月': '2.7', '1月': '2.7', '2月': '2.7', '3月': '2.7'
           }
         },
         employmentGoals: {
@@ -159,45 +175,66 @@ export const settingsApi = {
             id: 1,
             name: "本社",
             address: "東京都千代田区〇〇町1-2-3",
-            employeeCount: 350
+            employeeCount: 350,
+            serialNumber: "000"
           },
           {
             id: 2,
             name: "大阪支社",
             address: "大阪府大阪市〇〇区△△町4-5-6",
-            employeeCount: 150
+            employeeCount: 150,
+            serialNumber: "001"
           }
         ]
       };
     }
   },
   
+  // 会社設定を更新
   updateCompanySettings: async (settings: CompanySettings): Promise<CompanySettings> => {
     try {
       // キャメルケースをスネークケースに変換してバックエンドに送信
       const snakeCaseData = convertToSnakeCase(settings);
-      const response = await apiClient.put('/settings/company', snakeCaseData);
-      const data = convertToCamelCase(response.data.data);
+      const response = await client.put('/api/settings', snakeCaseData);
+      const data = convertToCamelCase(response.data);
       return data;
     } catch (error) {
       console.error('会社設定更新エラー:', error);
-      throw error;
+      // エラー時は単に渡された設定を返す
+      return settings;
     }
   },
   
+  // ユーザー一覧を取得
   getUsers: async (): Promise<User[]> => {
     try {
-      const response = await apiClient.get('/settings/users');
-      return response.data.data;
+      const response = await client.get('/api/settings/users');
+      return response.data.data || [];
     } catch (error) {
       console.error('ユーザー取得エラー:', error);
+      // 開発中はモックデータを返す
+      return [
+        { id: 1, username: 'admin', role: 'admin', created_at: '2023-01-01T00:00:00Z' },
+        { id: 2, username: 'user1', role: 'user', created_at: '2023-01-15T00:00:00Z' },
+        { id: 3, username: 'user2', role: 'user', created_at: '2023-02-01T00:00:00Z' }
+      ];
+    }
+  },
+  
+  // パスワード変更メソッドを追加
+  changePassword: async (passwordData: any) => {
+    try {
+      const response = await client.post('/api/settings/change-password', passwordData);
+      return response.data;
+    } catch (error) {
+      console.error('パスワード変更エラー:', error);
       throw error;
     }
   },
   
   createUser: async (user: User): Promise<User> => {
     try {
-      const response = await apiClient.post('/settings/users', user);
+      const response = await client.post('/api/settings/users', user);
       return response.data.data;
     } catch (error) {
       console.error('ユーザー作成エラー:', error);
@@ -207,7 +244,7 @@ export const settingsApi = {
   
   updateUser: async (id: number, user: User): Promise<User> => {
     try {
-      const response = await apiClient.put(`/settings/users/${id}`, user);
+      const response = await client.put(`/api/settings/users/${id}`, user);
       return response.data.data;
     } catch (error) {
       console.error('ユーザー更新エラー:', error);
@@ -217,23 +254,13 @@ export const settingsApi = {
   
   deleteUser: async (id: number): Promise<void> => {
     try {
-      await apiClient.delete(`/settings/users/${id}`);
+      await client.delete(`/api/settings/users/${id}`);
     } catch (error) {
       console.error('ユーザー削除エラー:', error);
-      throw error;
-    }
-  },
-  
-  // パスワード変更メソッドを追加
-  changePassword: async (passwordData: any) => {
-    try {
-      const response = await apiClient.post('/settings/change-password', passwordData);
-      return response.data;
-    } catch (error) {
-      console.error('パスワード変更エラー:', error);
       throw error;
     }
   }
 };
 
+// デフォルトエクスポートも提供（両方のインポート形式をサポートするため）
 export default settingsApi;

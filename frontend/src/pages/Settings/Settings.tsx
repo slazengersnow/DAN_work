@@ -1,7 +1,7 @@
 // src/pages/Settings/Settings.tsx
 
 import React, { useState, useEffect } from 'react';
-import { settingsApi, CompanySettings } from '../../api/settingsApi';
+import settingsApi, { CompanySettings } from '../../api/settingsApi';
 import BasicSettings from './BasicSettings';
 import CompanyInfo from './CompanyInfo';
 import EmploymentGoals from './EmploymentGoals';
@@ -21,7 +21,20 @@ const Settings: React.FC = () => {
       try {
         setLoading(true);
         const data = await settingsApi.getCompanySettings();
-        setSettings(data);
+        
+        // 必須プロパティが欠けている場合は確実に含める
+        const completeSettings: CompanySettings = {
+          ...data,
+          // 必須プロパティの存在確認とデフォルト値の設定
+          payment_report_reminder: data.payment_report_reminder !== undefined ? 
+            data.payment_report_reminder : true,
+          monthly_report_reminder: data.monthly_report_reminder !== undefined ? 
+            data.monthly_report_reminder : true,
+          legal_rate_alert: data.legal_rate_alert !== undefined ? 
+            data.legal_rate_alert : true
+        };
+        
+        setSettings(completeSettings);
         setError(null);
       } catch (err) {
         setError('設定データの読み込み中にエラーが発生しました');
@@ -38,8 +51,24 @@ const Settings: React.FC = () => {
   const handleSaveSettings = async (updatedSettings: CompanySettings) => {
     try {
       setLoading(true);
-      await settingsApi.updateCompanySettings(updatedSettings);
-      setSettings(updatedSettings);
+      
+      // 必須プロパティが欠けている場合は追加
+      const completeSettings: CompanySettings = {
+        ...updatedSettings,
+        // 現在の設定から復元するか、デフォルト値を設定
+        payment_report_reminder: updatedSettings.payment_report_reminder !== undefined ? 
+          updatedSettings.payment_report_reminder : 
+          (settings?.payment_report_reminder ?? true),
+        monthly_report_reminder: updatedSettings.monthly_report_reminder !== undefined ? 
+          updatedSettings.monthly_report_reminder : 
+          (settings?.monthly_report_reminder ?? true),
+        legal_rate_alert: updatedSettings.legal_rate_alert !== undefined ? 
+          updatedSettings.legal_rate_alert : 
+          (settings?.legal_rate_alert ?? true)
+      };
+      
+      await settingsApi.updateCompanySettings(completeSettings);
+      setSettings(completeSettings);
       alert('設定を保存しました');
     } catch (err) {
       setError('設定の保存中にエラーが発生しました');
