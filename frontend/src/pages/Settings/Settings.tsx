@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import settingsApi, { CompanySettings } from '../../api/settingsApi';
 import BasicSettings from './BasicSettings';
 import CompanyInfo from './CompanyInfo';
-import EmploymentGoals from './EmploymentGoals';
-import JobAnalysis from './JobAnalysis';
+// 不要なインポートを削除
+// import EmploymentGoals from './EmploymentGoals';
+// import JobAnalysis from './JobAnalysis';
 
 import './Settings.css';
 
@@ -80,7 +81,6 @@ const Settings: React.FC = () => {
 
   return (
     <div className="settings-container">
-      <div className="breadcrumb">ホーム &gt; 設定</div>
       
       <h1>設定</h1>
       
@@ -97,6 +97,7 @@ const Settings: React.FC = () => {
         >
           会社情報
         </button>
+        {/* 不要なタブを削除
         <button 
           className={activeTab === 'employment' ? 'tab-active' : 'tab'} 
           onClick={() => setActiveTab('employment')}
@@ -109,6 +110,7 @@ const Settings: React.FC = () => {
         >
           業務分析
         </button>
+        */}
       </div>
 
       {loading ? (
@@ -129,6 +131,7 @@ const Settings: React.FC = () => {
               onSave={handleSaveSettings} 
             />
           )}
+          {/* 不要なタブのコンテンツを削除
           {activeTab === 'employment' && settings && (
             <EmploymentGoals 
               settings={settings} 
@@ -141,6 +144,7 @@ const Settings: React.FC = () => {
               onSave={handleSaveSettings} 
             />
           )}
+          */}
         </div>
       )}
     </div>
