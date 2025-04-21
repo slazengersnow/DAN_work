@@ -8,22 +8,37 @@ import {
   confirmMonthlyReport, 
   handleApiError 
 } from '../../api/reportApi';
+import { 
+  headerStyle, 
+  buttonStyle, 
+  primaryButtonStyle, 
+  successButtonStyle, 
+  editModeIndicatorStyle, 
+  buttonAreaStyle, 
+  errorMessageStyle, 
+  loadingIndicatorStyle,
+  summaryBoxStyle,
+  formFieldStyle,
+  inputStyle,
+  readonlyFieldStyle,
+  sectionHeaderStyle,
+  tabStyle,
+  activeTabStyle
+} from './utils';
 
 interface SummaryTabProps {
   summaryData: MonthlyTotal;
   onSummaryChange: (data: MonthlyTotal) => void;
   onRefreshData?: () => void;
+  isEditMode: boolean;
+  setIsEditMode: (mode: boolean) => void;
 }
 
-const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, onRefreshData }) => {
+const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, onRefreshData, isEditMode, setIsEditMode }) => {
   console.log('SummaryTab.tsx loaded at:', new Date().toISOString());
   
   // 年月コンテキストから現在の年月を取得（カスタムフックを使用）
   const { fiscalYear, month } = useYearMonth();
-  
-  // 編集モード状態
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  console.log("SummaryTab コンポーネントがマウントされました。isEditing初期値:", false);
   
   // ローディング状態
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -55,12 +70,12 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
 
   // 編集モード切り替え
   const toggleEditMode = () => {
-    if (isEditing) {
+    if (isEditMode) {
       // 編集モードを終了する場合、ローカルデータを元に戻す
       setLocalData(summaryData);
       setErrorMessage(null);
     }
-    setIsEditing(!isEditing);
+    setIsEditMode(!isEditMode);
   };
 
   // 保存ボタンのハンドラー
@@ -94,7 +109,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
         onRefreshData();
       }
       
-      setIsEditing(false);
+      setIsEditMode(false);
       alert('サマリーデータを保存しました');
     } catch (error) {
       console.error('サマリーデータ保存エラー:', error);
@@ -145,55 +160,51 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
 
   return (
     <div className="summary-tab-container">
-      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0 }}>月次レポートサマリー</h3>
-        <div style={{ display: 'flex', gap: '10px' }}>
+      {/* 集計サマリー情報 */}
+      <div style={summaryBoxStyle}>
+        <h2 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '10px' }}>2024年集計サマリー</h2>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+          <span>常用労働者数: {localData.employees_count}名</span>
+          <span>|</span>
+          <span>障害者数: {localData.total_disability_count}名</span>
+          <span>|</span>
+          <span>雇用カウント: {localData.total_disability_count}</span>
+          <span>|</span>
+          <span>実雇用率: {localData.employment_rate.toFixed(2)}%</span>
+          <span>|</span>
+          <span>法定雇用率: {localData.legal_employment_rate}%</span>
+        </div>
+      </div>
+      
+      {/* ヘッダーとアクションボタン */}
+      <div style={headerStyle}>
+        <h3 style={{ margin: 0 }}>サマリー</h3>
+        <div style={buttonAreaStyle}>
           <button 
             type="button"
             onClick={toggleEditMode}
-            style={{ 
-              padding: '8px 16px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-            disabled={isLoading || isConfirming || isConfirmed}
+            style={buttonStyle}
+            disabled={isConfirmed}
           >
-            {isEditing ? '編集中止' : '編集'}
+            {isEditMode ? '編集中止' : '編集'}
           </button>
           
-          {isEditing && (
+          {isEditMode && (
             <button 
               type="button"
               onClick={handleSave}
-              style={{ 
-                padding: '8px 16px',
-                backgroundColor: '#3a66d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
+              style={primaryButtonStyle}
               disabled={isLoading}
             >
               {isLoading ? '保存中...' : '保存'}
             </button>
           )}
           
-          {!isEditing && !isConfirmed && (
+          {!isEditMode && !isConfirmed && (
             <button 
               type="button"
               onClick={handleConfirm}
-              style={{ 
-                padding: '8px 16px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
+              style={successButtonStyle}
               disabled={isConfirming}
             >
               {isConfirming ? '確定中...' : '確定する'}
@@ -202,31 +213,16 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
         </div>
       </div>
       
-      {/* エラーメッセージ */}
-      {errorMessage && (
-        <div style={{ 
-          backgroundColor: '#f8d7da', 
-          color: '#721c24', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          marginBottom: '15px' 
-        }}>
-          {errorMessage}
+      {/* 編集モード時のインジケーター */}
+      {isEditMode && (
+        <div style={editModeIndicatorStyle}>
+          <span style={{ fontWeight: 'bold' }}>編集モード</span>：変更後は「保存」ボタンをクリックしてください。
         </div>
       )}
       
-      {/* ローディングインジケーター */}
-      {(isLoading || isConfirming) && (
-        <div style={{ 
-          backgroundColor: '#e9ecef', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          marginBottom: '15px',
-          textAlign: 'center'
-        }}>
-          データを処理中...
-        </div>
-      )}
+      {/* エラーとローディング表示 */}
+      {errorMessage && <div style={errorMessageStyle}>{errorMessage}</div>}
+      {(isLoading || isConfirming) && <div style={loadingIndicatorStyle}>データを処理中...</div>}
       
       {/* ステータス表示 */}
       <div style={{ 
@@ -246,6 +242,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
         </div>
       </div>
       
+      {/* 基本情報セクション */}
       <div style={{ 
         backgroundColor: 'white', 
         border: '1px solid #dee2e6', 
@@ -259,110 +256,71 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
           gridTemplateColumns: 'repeat(2, 1fr)', 
           gap: '20px'
         }}>
-          <div className="form-group">
+          {/* 従業員数フィールド */}
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>従業員数</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.employees_count}
                 min="0"
                 onChange={(e) => handleFieldChange('employees_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.employees_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>フルタイム従業員数</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.fulltime_count}
                 min="0"
                 onChange={(e) => handleFieldChange('fulltime_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.fulltime_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>パートタイム従業員数</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.parttime_count}
                 min="0"
                 onChange={(e) => handleFieldChange('parttime_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.parttime_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>法定雇用率</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.legal_employment_rate}
                 min="0"
                 step="0.1"
                 onChange={(e) => handleFieldChange('legal_employment_rate', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.legal_employment_rate} %
               </div>
             )}
@@ -370,6 +328,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
         </div>
       </div>
       
+      {/* 障がい者雇用情報セクション */}
       <div style={{ 
         backgroundColor: 'white', 
         border: '1px solid #dee2e6', 
@@ -382,134 +341,90 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
           gridTemplateColumns: 'repeat(2, 1fr)', 
           gap: '20px'
         }}>
-          <div className="form-group">
+          {/* 重度身体障がい者フィールド */}
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>重度身体障がい者・重度知的障がい者</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.level1_2_count}
                 min="0"
                 onChange={(e) => handleFieldChange('level1_2_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.level1_2_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>その他障がい者</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.other_disability_count}
                 min="0"
                 onChange={(e) => handleFieldChange('other_disability_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.other_disability_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>重度身体障がい者・重度知的障がい者（パートタイム）</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.level1_2_parttime_count}
                 min="0"
                 onChange={(e) => handleFieldChange('level1_2_parttime_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.level1_2_parttime_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>その他障がい者（パートタイム）</label>
-            {isEditing ? (
+            {isEditMode ? (
               <input 
                 type="number"
                 value={localData.other_parttime_count}
                 min="0"
                 onChange={(e) => handleFieldChange('other_parttime_count', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
+                style={inputStyle}
               />
             ) : (
-              <div style={{ 
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef'
-              }}>
+              <div style={readonlyFieldStyle}>
                 {localData.other_parttime_count} 名
               </div>
             )}
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>障がい者合計</label>
             <div style={{ 
-              padding: '8px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #e9ecef',
+              ...readonlyFieldStyle,
               fontWeight: 'bold'
             }}>
               {localData.total_disability_count} 名
             </div>
           </div>
           
-          <div className="form-group">
+          {/* 実雇用率 - 読み取り専用、色付き */}
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>実雇用率</label>
             <div style={{ 
-              padding: '8px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #e9ecef',
+              ...readonlyFieldStyle,
               fontWeight: 'bold',
               color: localData.employment_rate < localData.legal_employment_rate ? 'red' : 'green'
             }}>
@@ -517,25 +432,18 @@ const SummaryTab: React.FC<SummaryTabProps> = ({ summaryData, onSummaryChange, o
             </div>
           </div>
           
-          <div className="form-group">
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>法定雇用者数</label>
-            <div style={{ 
-              padding: '8px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #e9ecef'
-            }}>
+            <div style={readonlyFieldStyle}>
               {localData.required_count} 名
             </div>
           </div>
           
-          <div className="form-group">
+          {/* 超過・未達 - 読み取り専用、色付き */}
+          <div style={formFieldStyle}>
             <label style={{ display: 'block', marginBottom: '5px' }}>超過・未達</label>
             <div style={{ 
-              padding: '8px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #e9ecef',
+              ...readonlyFieldStyle,
               color: localData.over_under_count < 0 ? 'red' : 'green'
             }}>
               {localData.over_under_count} 名

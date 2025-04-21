@@ -221,3 +221,175 @@ export const tabItems = [
 export const hasStatus = (data: any): data is { status: string } => {
   return data && 'status' in data;
 };
+
+// 共通スタイル定義
+// タブヘッダーのスタイル
+export const headerStyle = {
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'center', 
+  marginBottom: '15px'
+};
+// 標準ボタンのスタイル
+export const buttonStyle = {
+  padding: '8px 16px',
+  backgroundColor: '#6c757d',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer'
+};
+// プライマリーアクションボタンのスタイル
+export const primaryButtonStyle = {
+  padding: '8px 16px',
+  backgroundColor: '#3a66d4',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer'
+};
+// 成功アクションボタンのスタイル（確定など）
+export const successButtonStyle = {
+  padding: '8px 16px',
+  backgroundColor: '#28a745',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer'
+};
+// 編集モード中のインジケーターのスタイル
+export const editModeIndicatorStyle = {
+  backgroundColor: '#e6f7ff', 
+  padding: '10px', 
+  marginBottom: '15px', 
+  borderRadius: '4px',
+  borderLeft: '4px solid #1890ff'
+};
+// ボタンエリアのスタイル
+export const buttonAreaStyle = {
+  display: 'flex',
+  gap: '10px'
+};
+// エラーメッセージのスタイル
+export const errorMessageStyle = {
+  backgroundColor: '#f8d7da', 
+  color: '#721c24', 
+  padding: '10px', 
+  borderRadius: '4px', 
+  marginBottom: '15px'
+};
+// ローディングインジケーターのスタイル
+export const loadingIndicatorStyle = {
+  backgroundColor: '#e9ecef', 
+  padding: '10px', 
+  borderRadius: '4px', 
+  marginBottom: '15px',
+  textAlign: 'center' as const
+};
+// データなしメッセージのスタイル
+export const noDataMessageStyle = {
+  padding: '20px', 
+  textAlign: 'center' as const, 
+  color: '#888'
+};
+
+// 集計サマリーエリアのスタイル
+export const summaryBoxStyle = {
+  backgroundColor: '#f0f8ff',
+  padding: '15px',
+  borderRadius: '4px',
+  marginBottom: '20px',
+  borderLeft: '4px solid #1e88e5'
+};
+// タブのコンテナースタイル
+export const tabContainerStyle = {
+  display: 'flex',
+  borderBottom: '1px solid #dee2e6',
+  marginBottom: '20px'
+};
+// 非アクティブタブのスタイル
+export const tabStyle = {
+  padding: '10px 20px',
+  cursor: 'pointer',
+  borderBottom: '2px solid transparent'
+};
+// アクティブタブのスタイル
+export const activeTabStyle = {
+  ...tabStyle,
+  borderBottom: '2px solid #1e88e5',
+  color: '#1e88e5',
+  fontWeight: 'bold' as const
+};
+// テーブルコンテナスタイル
+export const tableContainerStyle = {
+  backgroundColor: 'white',
+  border: '1px solid #dee2e6',
+  borderRadius: '4px',
+  overflow: 'auto',
+  marginBottom: '20px'
+};
+// テーブルのスタイル
+export const tableStyle = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
+  fontSize: '13px'
+};
+// テーブルヘッダーのスタイル
+export const tableHeaderStyle = {
+  backgroundColor: '#f8f9fa',
+  borderBottom: '2px solid #dee2e6',
+  padding: '8px',
+  textAlign: 'left' as const
+};
+// テーブルセルのスタイル
+export const tableCellStyle = {
+  padding: '8px',
+  borderBottom: '1px solid #f0f0f0'
+};
+// 状態バッジのスタイル（在籍、確定済みなど）
+export const statusBadgeStyle = {
+  backgroundColor: '#4caf50',
+  color: 'white',
+  padding: '2px 6px',
+  borderRadius: '4px',
+  fontSize: '12px',
+  display: 'inline-block'
+};
+// 数値が負の場合のスタイル
+export const negativeValueStyle = {
+  color: 'red'
+};
+// アクションバーのスタイル（CSVエクスポート、印刷ボタンなど）
+export const actionBarStyle = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: '10px',
+  marginTop: '20px'
+};
+// フォームスタイル - 編集モード用
+export const formFieldStyle = {
+  marginBottom: '15px'
+};
+// 入力フィールドのスタイル
+export const inputStyle = {
+  width: '100%',
+  padding: '8px',
+  border: '1px solid #ced4da',
+  borderRadius: '4px'
+};
+// 読み取り専用フィールドのスタイル
+export const readonlyFieldStyle = {
+  padding: '8px',
+  backgroundColor: '#f8f9fa',
+  borderRadius: '4px',
+  border: '1px solid #e9ecef'
+};
+// セクションヘッダースタイル
+export const sectionHeaderStyle = {
+  borderBottom: '1px solid #dee2e6',
+  paddingBottom: '10px',
+  marginBottom: '15px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center'
+};
