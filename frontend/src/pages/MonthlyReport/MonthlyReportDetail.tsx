@@ -94,6 +94,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     // 設定データ用の状態を追加
     const [settings, setSettings] = useState<Settings | null>(null);
     
+    // 設定情報取得用のフラグを追加
+    const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
+    
     // 入力参照用
     const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
     const setInputRef = useCallback((element: HTMLInputElement | null, key: string) => {
@@ -102,115 +105,129 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       }
     }, []);
 
-    // コンポーネントマウント後に直接法定雇用率を設定
-    useEffect(() => {
-      // コンポーネントのマウント後に一度だけ実行
-      const timer = setTimeout(() => {
-        console.log('直接法定雇用率を2.5%に設定します');
-        
-        // localDataを直接変更して法定雇用率を設定
-        setLocalData(prevData => {
-          const newData = {...prevData};
-          const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
-          
-          if (legalRateRowIndex !== -1) {
-            const updatedValues = [...newData.data[legalRateRowIndex].values];
-            
-            // すべての月を2.5%に設定
-            for (let i = 0; i < 12; i++) {
-              updatedValues[i] = 2.5;
-            }
-            
-            // 合計も更新
-            updatedValues[12] = 2.5;
-            
-            newData.data[legalRateRowIndex].values = updatedValues;
-            
-            // 自動計算を実行
-            return recalculateData(newData);
-          }
-          
-          return prevData;
-        });
-      }, 500); // 500ms後に実行
-      
-      return () => clearTimeout(timer);
-    }, []);
-
-    // 設定情報を取得する関数を追加
+    // 設定情報を取得する関数を改善
     const fetchSettings = useCallback(async () => {
+      // すでに読み込み済みの場合はスキップ
+      if (settingsLoaded) {
+        console.log('設定情報はすでに読み込み済みです');
+        return null;
+      }
+      
       try {
         console.log('設定情報を取得します');
         
-        // 実際の設定データを取得
-        const response = await getSettings();
-        
-        console.log('取得した設定情報:', response);
-        
-        if (!response || !response.legal_employment_rates) {
-          console.error('法定雇用率データが設定に存在しません');
-          return null;
+        // 本番環境では以下を使用
+        try {
+          const response = await getSettings();
+          console.log('取得した設定情報:', response);
+          
+          if (response && response.legal_employment_rates) {
+            setSettings(response);
+            setSettingsLoaded(true); // 読み込み完了フラグをセット
+            return response;
+          }
+        } catch (error) {
+          // API エラーの場合、一度だけログに出力して、その後は試行しない
+          console.error('設定APIエラー - 今後は自動設定を使用します:', error);
+          setSettingsLoaded(true); // エラーでも読み込み完了とする
         }
         
-        setSettings(response);
-        return response;
+        // ここに到達した場合は設定が取得できていないので、デフォルト値を使用
+        console.log('設定情報が取得できないため、デフォルト値(2.5%)を使用します');
+        return null;
       } catch (error) {
-        console.error('設定情報の取得中にエラーが発生しました:', error);
+        console.error('設定情報の処理中にエラーが発生しました:', error);
+        setSettingsLoaded(true); // エラーでも読み込み完了とする
         return null;
       }
-    }, []);
+    }, [settingsLoaded]);
 
-    // 法定雇用率を設定から取得する関数
-    const getLegalEmploymentRate = useCallback((year: number, monthIndex: number): number => {
-      console.log(`法定雇用率を取得: 年度=${year}, 月インデックス=${monthIndex}, 設定=`, settings);
+    // 法定雇用率を設定から取得する関数 - 常に2.5%を返す
+    const getLegalEmploymentRate = useCallback((_year: number, _monthIndex: number): number => {
+      // APIから設定を取得できた場合は、その値を使用する
+      if (settings && settings.legal_employment_rates && settings.legal_employment_rates.length > 0) {
+        // ここに実際の設定から値を取得するロジックを実装
+        // 現在は設定APIが機能していないため、常に2.5%を返す
+        return 2.5;
+      }
       
-      // 常に2.5を返す
+      // 設定が取得できない場合はデフォルト値を返す
       return 2.5;
     }, [settings]);
 
     // 法定雇用率を設定してデータを更新する関数
     const updateLegalEmploymentRates = useCallback(() => {
-      console.log('法定雇用率を更新します', settings);
+      console.log('法定雇用率を更新します');
       
-      // 強制的に更新するため、別のロジックを使用
-      const newData = {...localData};
-      const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
-      
-      if (legalRateRowIndex !== -1) {
-        const updatedValues = [...newData.data[legalRateRowIndex].values];
+      setLocalData(prevData => {
+        const newData = {...prevData};
+        const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
         
-        // 各月の法定雇用率を設定から取得して設定
-        for (let i = 0; i < 12; i++) {
-          // 強制的に2.5に設定
-          updatedValues[i] = 2.5;
-          console.log(`${i+1}月の法定雇用率: 2.5`);
+        if (legalRateRowIndex !== -1) {
+          const updatedValues = [...newData.data[legalRateRowIndex].values];
+          
+          // 各月の法定雇用率を設定から取得して設定 (常に2.5%に)
+          for (let i = 0; i < 12; i++) {
+            updatedValues[i] = 2.5;
+          }
+          
+          // 合計（平均）値を計算
+          updatedValues[12] = 2.5;
+          
+          newData.data[legalRateRowIndex].values = updatedValues;
+          
+          // 自動計算を実行
+          return recalculateData(newData);
         }
         
-        // 合計（平均）値を計算
-        updatedValues[12] = 2.5;
-        
-        newData.data[legalRateRowIndex].values = updatedValues;
-        console.log('法定雇用率更新後のデータ:', newData);
-        
-        // 自動計算を実行
-        const recalculatedData = recalculateData(newData);
-        
-        // localDataを直接更新
-        setLocalData(recalculatedData);
-      }
-    }, [localData]);
+        return prevData;
+      });
+    }, []);
 
-    // コンポーネントマウント時に設定情報を取得して法定雇用率を更新
+    // コンポーネントマウント時に一度だけ設定を読み込む
     useEffect(() => {
       console.log('コンポーネントがマウントされました');
-      const loadSettings = async () => {
-        await fetchSettings();
-        // 設定情報に関わらず、直接更新する
-        updateLegalEmploymentRates();
+      if (!settingsLoaded) {
+        const loadSettings = async () => {
+          await fetchSettings();
+          // 設定の読み込みが成功してもエラーでも強制的に2.5%を設定
+          updateLegalEmploymentRates();
+        };
+        
+        loadSettings();
+      }
+    }, [fetchSettings, settingsLoaded, updateLegalEmploymentRates]);
+
+    // 設定変更を監視するイベントリスナー（将来的な実装用）
+    useEffect(() => {
+      // 設定変更イベントを監視する
+      const handleSettingsChange = () => {
+        console.log('設定変更を検知しました');
+        setSettingsLoaded(false); // 再読み込みのためにフラグをリセット
+        fetchSettings().then(() => {
+          updateLegalEmploymentRates(); // 設定変更後に法定雇用率を更新
+        });
       };
       
-      loadSettings();
+      // イベントリスナーの登録（将来的に実装される設定変更イベント用）
+      window.addEventListener('settings-changed', handleSettingsChange);
+      
+      // クリーンアップ
+      return () => {
+        window.removeEventListener('settings-changed', handleSettingsChange);
+      };
     }, [fetchSettings, updateLegalEmploymentRates]);
+
+    // 直接コンポーネントマウント時に法定雇用率を設定
+    useEffect(() => {
+      // コンポーネントのマウント後に実行
+      const timer = setTimeout(() => {
+        console.log('直接法定雇用率を2.5%に設定します');
+        updateLegalEmploymentRates();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }, [updateLegalEmploymentRates]);
 
     // Postmanテスト用のデータを生成（コンソールに出力）
     const showPutRequestData = useCallback(() => {
@@ -226,7 +243,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         other_disability_count: localData.data[5].values[currentMonthIndex],
         level1_2_parttime_count: localData.data[6].values[currentMonthIndex],
         other_parttime_count: localData.data[7].values[currentMonthIndex],
-        legal_employment_rate: localData.data[10].values[currentMonthIndex]
+        legal_employment_rate: 2.5 // 常に2.5を送信
       };
       
       console.log('=== Postman PUT リクエストデータ ===');
@@ -282,7 +299,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             newData.data[legalRateRowIndex].values = updatedValues;
           }
           
-          return newData;
+          return recalculateData(newData);
         });
         
         setIsCreating(false); // データがある場合は新規作成モードを解除
@@ -310,21 +327,31 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             newData.data[legalRateRowIndex].values = updatedValues;
           }
           
-          return newData;
+          return recalculateData(newData);
         });
       }
     }, [monthlyDetailData, isEmbedded, isCreating]);
 
-    // ページロード時にPostman用データをコンソールに表示 (修正したuseEffect)
+    // 現在表示されているデータの確認は必要時のみ実行
     useEffect(() => {
-      // 条件の確認を内部で行う
-      const timer = setTimeout(() => {
-        if (localData) {
-          showPutRequestData();
-        }
-      }, 1000);
-      
-      return () => clearTimeout(timer);
+      if (process.env.NODE_ENV === 'development') {
+        // 開発環境でのみログを出力
+        console.log("表示されているデータ:", localData.data.map(row => ({ id: row.id, item: row.item })));
+      }
+    }, [localData.data]);
+
+    // ページロード時にPostman用データをコンソールに表示 (開発環境のみ)
+    useEffect(() => {
+      if (process.env.NODE_ENV === 'development') {
+        // 開発環境でのみ実行
+        const timer = setTimeout(() => {
+          if (localData) {
+            showPutRequestData();
+          }
+        }, 1000);
+        
+        return () => clearTimeout(timer);
+      }
     }, [localData, showPutRequestData]);
 
     // 自動計算対象のフィールドかをチェック
@@ -365,7 +392,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               newData.data[legalRateRowIndex].values = updatedValues;
             }
             
-            return newData;
+            return recalculateData(newData);
           });
         }
         setErrorMessage(null);
@@ -399,7 +426,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           newData.data[legalRateRowIndex].values = updatedValues;
         }
         
-        return newData;
+        return recalculateData(newData);
       });
     };
     
@@ -512,8 +539,10 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         setSuccessMessage(`データを${isCreating ? '作成' : '保存'}しました`);
         setTimeout(() => setSuccessMessage(null), 3000);
         
-        // Postman用のデータをコンソールに表示
-        showPutRequestData();
+        // Postman用のデータをコンソールに表示 (開発環境のみ)
+        if (process.env.NODE_ENV === 'development') {
+          showPutRequestData();
+        }
       } catch (error) {
         console.error('月次詳細データ保存エラー:', error);
         setErrorMessage(handleApiError(error));
@@ -1330,20 +1359,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             >
               CSVエクスポート
             </button>
-          </div>
-        )}
-        
-        {/* 入力方法のガイド表示 - 編集モード時のみ表示 */}
-        {isEditing && (
-          <div style={{ marginTop: '15px', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '4px' }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>月次入力の操作方法</h4>
-            <ul style={{ margin: '0', paddingLeft: '20px', fontSize: '13px' }}>
-              <li>矢印キー: セル間の移動</li>
-              <li>Tab: 右のセルへ移動、Shift+Tab: 左のセルへ移動</li>
-              <li>Enter: 下のセルへ移動</li>
-              <li>自動計算フィールドは編集できません</li>
-              <li>法定雇用率は設定メニューから自動参照されます</li>
-            </ul>
           </div>
         )}
       </div>
