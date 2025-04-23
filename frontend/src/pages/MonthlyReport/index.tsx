@@ -91,9 +91,9 @@ const MonthlyReport: React.FC = () => {
   // 現在のタブ状態
   const [activeTab, setActiveTab] = useState<string>(tabFromUrl);
   
-  // 現在選択中の年度と月
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  // 現在選択中の年度と月（デフォルト値を設定）
+  const [selectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth] = useState<number>(new Date().getMonth() + 1);
 
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -128,8 +128,6 @@ const MonthlyReport: React.FC = () => {
         // 最新のレポートを取得
         if (data && data.length > 0) {
           const latestReport = data[0];
-          setSelectedYear(latestReport.fiscal_year);
-          setSelectedMonth(latestReport.month);
           // 最新レポートの詳細を取得
           queryClient.invalidateQueries(['monthlyReport', latestReport.fiscal_year, latestReport.month]);
         }
@@ -240,21 +238,6 @@ const MonthlyReport: React.FC = () => {
         detail: newDetail
       };
     });
-  };
-
-  // 年月変更ハンドラー
-  const handleYearMonthChange = (year: number, month: number) => {
-    setSelectedYear(year);
-    setSelectedMonth(month);
-    queryClient.invalidateQueries(['monthlyReport', year, month]);
-    refetchReportData();
-  };
-
-  // 表示ボタンハンドラー
-  const handleDisplayClick = () => {
-    console.log(`表示ボタンクリック: ${selectedYear}年${selectedMonth}月`);
-    queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
-    refetchReportData();
   };
 
   // データ再取得ハンドラー
@@ -402,12 +385,6 @@ const MonthlyReport: React.FC = () => {
     </div>
   ) : null;
 
-  const noSummaryElement = !summary && !isLoading ? (
-    <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>
-      表示するサマリーデータがありません。サマリータブで新規作成してください。
-    </div>
-  ) : null;
-
   const isConfirmedElement = isConfirmed ? (
     <span style={{ color: '#28a745', fontWeight: 'bold', marginLeft:'5px' }}> (確定済)</span>
   ) : null;
@@ -421,76 +398,10 @@ const MonthlyReport: React.FC = () => {
         {hasErrorElement}
         {isLoadingElement}
         
-        <div className="filter-container" style={{ 
-          marginBottom: '20px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px', 
-          flexWrap: 'wrap' 
-        }}>
-          <label htmlFor="year-select" style={{ fontWeight: 'bold' }}>対象月:</label>
-          <select
-            id="year-select"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-            disabled={isLoading}
-          >
-            {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-              <option key={year} value={year}>{year}年</option>
-            ))}
-          </select>
-
-          <select
-            id="month-select"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-            disabled={isLoading}
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-              <option key={month} value={month}>{month}月</option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleDisplayClick}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0056b3'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#007bff'}
-            disabled={isLoading}
-          >
-            表示
-          </button>
-
-          {isConfirmedElement}
-
-          <button 
-            onClick={handleRefreshData}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-            disabled={isLoading}
-          >
-            更新
-          </button>
-        </div>
+        {/* 「対象月」フィルター部分を削除 */}
         
         {summaryElement}
-        {noSummaryElement}
+        {/* noSummaryElement 削除 - 「表示するサマリーデータがありません」メッセージを削除 */}
         
         <div style={{
           display: 'flex',
