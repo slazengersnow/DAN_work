@@ -1,7 +1,7 @@
 // models/paymentReportModel.js
 
 const db = require('../config/db');
-const pool = db.pool;  // プールへの直接アクセスを追加
+const pool = db.pool;
 
 const paymentReportModel = {
   // 納付金レポートの取得

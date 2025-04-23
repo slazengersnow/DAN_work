@@ -1,38 +1,78 @@
 // src/pages/MonthlyReport/EmployeesTab.tsx
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Employee, MonthlyTotal } from './types';
-import { updateEmployeeData, handleApiError } from '../../api/reportApi';
-import { YearMonthContext } from './YearMonthContext'; // YearMonthContextのインポート方法を変更
-import { useYearMonth } from './YearMonthContext';  // カスタムフックを使用
+import { 
+  updateEmployeeData, 
+  createEmployeeDetail, // 新規追加
+  handleApiError 
+} from '../../api/reportApi';
+import { useYearMonth } from './YearMonthContext';
 
-
+// 親コンポーネントから受け取る props の型定義（オプショナルプロパティを含む）
 interface EmployeesTabProps {
   employees: Employee[];
   onEmployeeChange: (id: number, field: string, value: string) => void;
   summaryData: MonthlyTotal;
-  onRefreshData?: () => void; // データ更新後にリフレッシュを親コンポーネントに通知
+  onRefreshData?: () => void;
+  // オプショナルプロパティとして再定義
+  isEditing?: boolean;
+  onToggleEditMode?: () => void;
+  onSaveSuccess?: () => void;
+  editingStyles?: React.CSSProperties;
+  buttonStyles?: Record<string, React.CSSProperties>;
 }
+
+// 従業員データのデフォルト値
+const defaultEmployee: Omit<Employee, 'id'> = {
+  no: 0,
+  employee_id: '',
+  name: '',
+  disability_type: '',
+  disability: '',
+  grade: '',
+  hire_date: new Date().toISOString().split('T')[0].replace(/-/g, '/'),
+  status: '在籍',
+  monthlyStatus: Array(12).fill(1), // デフォルトは全ての月で1カウント
+  memo: '',  // ここにカンマを追加
+  count: 0 // count プロパティを追加
+};
 
 const EmployeesTab: React.FC<EmployeesTabProps> = ({
   employees,
   onEmployeeChange,
   summaryData,
-  onRefreshData
+  onRefreshData,
+  // デフォルト値を設定したオプショナルプロパティ
+  isEditing = false,
+  onToggleEditMode,
+  onSaveSuccess = () => {},
+  editingStyles = {},
+  buttonStyles = {}
 }) => {
   console.log('EmployeesTab.tsx loaded at:', new Date().toISOString());
   
-  // 年月コンテキストから現在の年月を取得（カスタムフックを使用）
+  // 年月コンテキストから現在の年月を取得
   const { fiscalYear, month } = useYearMonth();
   
-  // 編集モード状態
-  const [editMode, setEditMode] = useState(false);
-  console.log("EmployeesTab コンポーネントがマウントされました。editMode初期値:", false);
+  // 内部編集状態（親からisEditingが渡されない場合に使用）
+  const [internalIsEditing, setInternalIsEditing] = useState<boolean>(false);
+  
+  // 実際に使用する編集状態（親から渡された場合はそれを使用、そうでなければ内部状態を使用）
+  const actualIsEditing = isEditing !== undefined ? isEditing : internalIsEditing;
+  
+  // 新規作成関連の状態
+  const [isCreating, setIsCreating] = useState(false); // 新規作成モード
+  const [showForm, setShowForm] = useState(false); // フォーム表示状態
+  const [newEmployee, setNewEmployee] = useState<Omit<Employee, 'id'>>({...defaultEmployee});
   
   // ローカルの従業員データ
   const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
   
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // 成功メッセージ状態
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // ローディング状態
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -48,6 +88,24 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     setLocalEmployees(employees);
   }, [employees]);
 
+  // 内部編集モード切り替えハンドラー（親からonToggleEditModeが渡されていない場合に使用）
+  const handleToggleEditMode = () => {
+    if (onToggleEditMode) {
+      // 親から渡された関数を使用
+      onToggleEditMode();
+    } else {
+      // 内部状態を更新
+      if (internalIsEditing) {
+        // 編集モードを終了する場合、ローカルデータを元に戻す
+        setLocalEmployees(employees);
+        setErrorMessage(null);
+        setShowForm(false);
+        setIsCreating(false);
+      }
+      setInternalIsEditing(!internalIsEditing);
+    }
+  };
+
   // フィールド更新ハンドラー
   const handleFieldChange = (id: number, field: string, value: string) => {
     console.log(`フィールド変更: id=${id}, field=${field}, value=${value}`); // デバッグ用
@@ -56,6 +114,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         emp.id === id ? { ...emp, [field]: value } : emp
       )
     );
+  };
+
+  // 新規従業員フィールド更新ハンドラー
+  const handleNewEmployeeChange = (field: keyof typeof defaultEmployee, value: string) => {
+    setNewEmployee(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   // 月次ステータス更新ハンドラー
@@ -98,15 +164,86 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   };
 
-  // 編集モード切り替え
-  const toggleEditMode = () => {
-    console.log('編集モード切り替え'); // デバッグ用
-    if (editMode) {
-      // 編集モードを終了する場合、ローカルデータを元に戻す
-      setLocalEmployees(employees);
-      setErrorMessage(null);
+  // 新規従業員の月次ステータス更新ハンドラー
+  const handleNewEmployeeMonthlyStatusChange = (monthIndex: number, value: string) => {
+    // 値の検証 (0, 0.5, 1, 2のみ許可)
+    const numValue = parseFloat(value);
+    const validValues = [0, 0.5, 1, 2];
+    
+    if (value === "" || (isNaN(numValue)) || !validValues.includes(numValue)) {
+      setErrorMessage("月次ステータスには 0, 0.5, 1, 2 のいずれかを入力してください");
+      return;
     }
-    setEditMode(!editMode);
+    
+    setNewEmployee(prev => {
+      const newMonthlyStatus = [...(prev.monthlyStatus || Array(12).fill(1))];
+      newMonthlyStatus[monthIndex] = numValue;
+      return {
+        ...prev,
+        monthlyStatus: newMonthlyStatus
+      };
+    });
+    setErrorMessage(null);
+  };
+
+  // 新規作成ボタンのハンドラー
+  const handleCreateClick = () => {
+    setShowForm(true);
+    setIsCreating(true);
+    setNewEmployee({...defaultEmployee, no: localEmployees.length + 1});
+  };
+
+  // キャンセルボタンのハンドラー
+  const handleCancelCreate = () => {
+    setShowForm(false);
+    setIsCreating(false);
+    setErrorMessage(null);
+  };
+
+  // 新規作成のハンドラー
+  const handleCreate = async () => {
+    // バリデーション
+    if (!newEmployee.name) {
+      setErrorMessage("名前は必須です");
+      return;
+    }
+    
+    if (!newEmployee.employee_id) {
+      setErrorMessage("社員IDは必須です");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // API呼び出し
+      const createdEmployee = await createEmployeeDetail(fiscalYear, month, newEmployee);
+      
+      // ローカルデータに追加
+      setLocalEmployees(prev => [...prev, createdEmployee]);
+      
+      // フォームをリセット
+      setNewEmployee({...defaultEmployee, no: localEmployees.length + 2});
+      setErrorMessage(null);
+      
+      // 作成完了メッセージ
+      setSuccessMessage('従業員データを作成しました');
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+      // フォームを閉じる
+      setShowForm(false);
+      setIsCreating(false);
+      
+      // データ更新後に親コンポーネントに通知
+      if (onRefreshData) {
+        onRefreshData();
+      }
+    } catch (error) {
+      console.error('従業員作成エラー:', error);
+      setErrorMessage(handleApiError(error));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 保存ボタンのハンドラー
@@ -166,14 +303,23 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       }
       
       setErrorMessage(null);
-      setEditMode(false);
+      
+      // 編集モード終了を親に通知
+      onSaveSuccess();
+      
+      // 内部状態を更新（親からisEditingが渡されていない場合）
+      if (isEditing === undefined) {
+        setInternalIsEditing(false);
+      }
       
       // データ更新後に親コンポーネントに通知
       if (onRefreshData) {
         onRefreshData();
       }
       
-      alert('従業員データを保存しました');
+      // 成功メッセージを表示
+      setSuccessMessage('従業員データを保存しました');
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
       console.error('従業員データ保存エラー:', error);
       setErrorMessage(handleApiError(error));
@@ -192,7 +338,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     const currentEmpIndex = localEmployees.findIndex(emp => emp.id === empId);
     
     // 矢印キーによるナビゲーション
-    if (editMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    if (actualIsEditing && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
       
       let nextEmpIndex = currentEmpIndex;
@@ -224,7 +370,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
     
     // Enterキーでも次の行に移動
-    if (editMode && e.key === 'Enter') {
+    if (actualIsEditing && e.key === 'Enter') {
       e.preventDefault();
       
       if (currentEmpIndex < localEmployees.length - 1) {
@@ -242,7 +388,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
     
     // Tabキーで右に移動、Shift+Tabで左に移動
-    if (editMode && e.key === 'Tab') {
+    if (actualIsEditing && e.key === 'Tab') {
       e.preventDefault();
       
       let nextEmpIndex = currentEmpIndex;
@@ -283,13 +429,45 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   // ステータスの取得（確定状態のチェック）
   const currentStatus = summaryData.status || '未確定';
-  let isConfirmed = currentStatus === '確定済';
-  console.log('元のisConfirmed:', isConfirmed);
-  // 強制的にfalseに設定
-  isConfirmed = false;
+  const isConfirmed = currentStatus === '確定済';
   
   // 月名の配列
   const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
+
+  // デフォルトのボタンスタイル（親から渡されない場合に使用）
+  const defaultButtonStyles = {
+    primary: {
+      padding: '8px 16px',
+      backgroundColor: '#6c757d',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    },
+    secondary: {
+      padding: '8px 16px',
+      backgroundColor: '#dc3545',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    },
+    success: {
+      padding: '8px 16px',
+      backgroundColor: '#28a745',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer'
+    }
+  };
+
+  // 実際に使用するボタンスタイル
+  const actualButtonStyles = {
+    primary: buttonStyles.primary || defaultButtonStyles.primary,
+    secondary: buttonStyles.secondary || defaultButtonStyles.secondary,
+    success: buttonStyles.success || defaultButtonStyles.success
+  };
 
   return (
     <div className="employees-tab-container">
@@ -297,51 +475,61 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ margin: 0 }}>従業員詳細</h3>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              type="button"
-              id="editButtonEmployees"
-              onClick={() => {
-                // 直接状態を強制的に変更
-                const newEditingState = !editMode;
-                console.log(`編集状態を強制的に${newEditingState ? '有効' : '無効'}にします`);
-                setEditMode(newEditingState);
-                // デバッグ用の遅延処理
-                setTimeout(() => {
-                  console.log('現在の編集状態:', editMode);
-                }, 100);
-              }}
-              style={{ 
-                padding: '8px 16px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-              disabled={isLoading}
-            >
-              {editMode ? '編集中止' : '編集'}
-            </button>
+            {!isCreating && (
+              <button 
+                type="button"
+                id="editButtonEmployees"
+                onClick={handleToggleEditMode}
+                style={actualIsEditing ? actualButtonStyles.secondary : actualButtonStyles.primary}
+                disabled={isLoading || isConfirmed}
+              >
+                {actualIsEditing ? '編集中止' : '編集'}
+              </button>
+            )}
             
-            {/* 強制的に保存ボタンを表示 */}
-            <button 
-              type="button"
-              onClick={handleSave}
-              style={{ 
-                padding: '8px 16px',
-                backgroundColor: '#3a66d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                display: editMode ? 'block' : 'none' // これで条件表示
-              }}
-              disabled={isLoading}
-            >
-              {isLoading ? '保存中...' : '保存'}
-            </button>
+            {actualIsEditing && !isCreating && (
+              <button 
+                type="button"
+                onClick={handleSave}
+                style={actualButtonStyles.success}
+                disabled={isLoading}
+              >
+                {isLoading ? '保存中...' : '保存'}
+              </button>
+            )}
+
+            {actualIsEditing && !isCreating && !showForm && (
+              <button 
+                type="button"
+                onClick={handleCreateClick}
+                style={{ 
+                  padding: '8px 16px',
+                  backgroundColor: '#17a2b8',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                disabled={isLoading || isConfirmed}
+              >
+                新規追加
+              </button>
+            )}
           </div>
         </div>
+        
+        {/* 成功メッセージ表示エリア */}
+        {successMessage && (
+          <div style={{ 
+            backgroundColor: '#d4edda', 
+            color: '#155724', 
+            padding: '10px', 
+            borderRadius: '4px', 
+            marginBottom: '15px' 
+          }}>
+            {successMessage}
+          </div>
+        )}
         
         {/* エラーメッセージ表示エリア */}
         {errorMessage && (
@@ -368,224 +556,448 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             データを処理中...
           </div>
         )}
-        
-        {/* 横スクロール可能なテーブルコンテナ */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse',
-            fontSize: '13px',
-            whiteSpace: 'nowrap'  // テーブルが横スクロールするように
+
+        {/* 新規従業員追加フォーム */}
+        {showForm && (
+          <div style={{ 
+            marginBottom: '20px', 
+            padding: '15px', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '4px',
+            border: '1px solid #dee2e6'
           }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #dee2e6' }}>
-                <th style={{ padding: '8px', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>No.</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>社員ID</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>氏名</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>障害区分</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>障害</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>等級</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>採用日</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>状態</th>
+            <h4 style={{ margin: '0 0 15px 0' }}>新規従業員追加</h4>
+            
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(3, 1fr)', 
+              gap: '15px',
+              marginBottom: '15px'
+            }}>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>社員ID*</label>
+                <input 
+                  type="text" 
+                  value={newEmployee.employee_id}
+                  onChange={(e) => handleNewEmployeeChange('employee_id', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>氏名*</label>
+                <input 
+                  type="text" 
+                  value={newEmployee.name}
+                  onChange={(e) => handleNewEmployeeChange('name', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>障害区分</label>
+                <select 
+                  value={newEmployee.disability_type}
+                  onChange={(e) => handleNewEmployeeChange('disability_type', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <option value="">なし</option>
+                  <option value="身体障害">身体障害</option>
+                  <option value="知的障害">知的障害</option>
+                  <option value="精神障害">精神障害</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>障害</label>
+                <input 
+                  type="text" 
+                  value={newEmployee.disability}
+                  onChange={(e) => handleNewEmployeeChange('disability', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>等級</label>
+                <input 
+                  type="text" 
+                  value={newEmployee.grade}
+                  onChange={(e) => handleNewEmployeeChange('grade', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>採用日</label>
+                <input 
+                  type="date" 
+                  value={newEmployee.hire_date.split('/').join('-')}
+                  onChange={(e) => handleNewEmployeeChange('hire_date', e.target.value.split('-').join('/'))}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>状態</label>
+                <select 
+                  value={newEmployee.status}
+                  onChange={(e) => handleNewEmployeeChange('status', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <option value="在籍">在籍</option>
+                  <option value="休職">休職</option>
+                  <option value="退職">退職</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>備考</label>
+                <input 
+                  type="text" 
+                  value={newEmployee.memo || ''}
+                  onChange={(e) => handleNewEmployeeChange('memo', e.target.value)}
+                  style={{ 
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>月次ステータス</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 {months.map((month, index) => (
-                  <th key={`month-${index}`} style={{ padding: '8px', textAlign: 'center' }}>{month}</th>
+                  <div key={`new-monthly-${index}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', marginBottom: '2px' }}>{month}</span>
+                    <input 
+                      type="text" 
+                      value={(newEmployee.monthlyStatus || [])[index] || 1}
+                      onChange={(e) => handleNewEmployeeMonthlyStatusChange(index, e.target.value)}
+                      style={{ 
+                        width: '40px',
+                        padding: '5px',
+                        textAlign: 'center',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px'
+                      }}
+                    />
+                  </div>
                 ))}
-                <th style={{ padding: '8px', textAlign: 'left' }}>備考</th>
-              </tr>
-            </thead>
-            <tbody>
-              {localEmployees.map((employee) => (
-                <tr key={employee.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '8px', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>{employee.no}</td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <input 
-                        type="text" 
-                        value={employee.employee_id}
-                        onChange={(e) => handleFieldChange(employee.id, 'employee_id', e.target.value)}
-                        style={{ 
-                          width: '60px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.employee_id
-                    )}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <input 
-                        type="text" 
-                        value={employee.name}
-                        onChange={(e) => handleFieldChange(employee.id, 'name', e.target.value)}
-                        style={{ 
-                          width: '100px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.name
-                    )}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <select 
-                        value={employee.disability_type || ''}
-                        onChange={(e) => handleFieldChange(employee.id, 'disability_type', e.target.value)}
-                        style={{ 
-                          width: '100px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      >
-                        <option value="">なし</option>
-                        <option value="身体障害">身体障害</option>
-                        <option value="知的障害">知的障害</option>
-                        <option value="精神障害">精神障害</option>
-                      </select>
-                    ) : (
-                      employee.disability_type
-                    )}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <input 
-                        type="text" 
-                        value={employee.disability || ''}
-                        onChange={(e) => handleFieldChange(employee.id, 'disability', e.target.value)}
-                        style={{ 
-                          width: '80px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.disability
-                    )}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <input 
-                        type="text" 
-                        value={employee.grade || ''}
-                        onChange={(e) => handleFieldChange(employee.id, 'grade', e.target.value)}
-                        style={{ 
-                          width: '60px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.grade
-                    )}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <input 
-                        type="date"
-                        value={employee.hire_date.split('/').join('-')}
-                        onChange={(e) => handleFieldChange(employee.id, 'hire_date', e.target.value.split('-').join('/'))}
-                        style={{ 
-                          width: '120px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.hire_date
-                    )}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <select 
-                        value={employee.status}
-                        onChange={(e) => handleFieldChange(employee.id, 'status', e.target.value)}
-                        style={{ 
-                          width: '80px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      >
-                        <option value="在籍">在籍</option>
-                        <option value="休職">休職</option>
-                        <option value="退職">退職</option>
-                      </select>
-                    ) : (
-                      <span style={{ 
-                        backgroundColor: '#4caf50', 
-                        color: 'white', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px', 
-                        fontSize: '12px' 
-                      }}>
-                        {employee.status}
-                      </span>
-                    )}
-                  </td>
-                  {/* 月次ステータス入力欄 - 直接入力式に変更 */}
-                  {(employee.monthlyStatus || Array(12).fill(1)).map((status, monthIndex) => (
-                    <td key={`${employee.id}-month-${monthIndex}`} style={{ 
-                      padding: '4px', 
-                      textAlign: 'center',
-                      backgroundColor: activeCell?.empId === employee.id && activeCell?.monthIndex === monthIndex ? '#e9f2ff' : 'white'
-                    }}>
-                      {editMode ? (
+              </div>
+              <div style={{ fontSize: '0.8rem', marginTop: '5px', color: '#6c757d' }}>
+                入力できる値: 0, 0.5, 1, 2
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button 
+                type="button"
+                onClick={handleCancelCreate}
+                style={actualButtonStyles.secondary}
+              >
+                キャンセル
+              </button>
+              
+              <button 
+                type="button"
+                onClick={handleCreate}
+                style={actualButtonStyles.success}
+                disabled={isLoading}
+              >
+                {isLoading ? '作成中...' : '作成'}
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* テーブルコンテナにスタイルを適用 - データがない場合は別の表示 */}
+        {localEmployees.length > 0 ? (
+          <div style={{ 
+            ...editingStyles,
+            overflowX: 'auto',
+            backgroundColor: 'white',
+            borderRadius: '4px',
+            padding: '10px'
+          }}>
+            <table style={{ 
+              width: '100%', 
+              borderCollapse: 'collapse',
+              fontSize: '13px',
+              whiteSpace: 'nowrap'  // テーブルが横スクロールするように
+            }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #dee2e6' }}>
+                  <th style={{ padding: '8px', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>No.</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>社員ID</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>氏名</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>障害区分</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>障害</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>等級</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>採用日</th>
+                  <th style={{ padding: '8px', textAlign: 'left' }}>状態</th>
+                  {months.map((month, index) => (
+                    <th key={`month-${index}`} style={{ padding: '8px', textAlign: 'center' }}>{month}</th>
+                  ))}
+                  <th style={{ padding: '8px', textAlign: 'left' }}>備考</th>
+                </tr>
+              </thead>
+              <tbody>
+                {localEmployees.map((employee) => (
+                  <tr key={employee.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '8px', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>{employee.no}</td>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
                         <input 
-                          ref={(el: HTMLInputElement | null) => {
-                            inputRefs.current[`input-${employee.id}-${monthIndex}`] = el;
-                          }}
                           type="text" 
-                          value={status}
-                          onChange={(e) => handleMonthlyStatusChange(employee.id, monthIndex, e.target.value)}
-                          onFocus={() => handleCellFocus(employee.id, monthIndex)}
-                          onKeyDown={(e) => handleKeyDown(e, employee.id, monthIndex)}
+                          value={employee.employee_id}
+                          onChange={(e) => handleFieldChange(employee.id, 'employee_id', e.target.value)}
                           style={{ 
-                            width: '40px',
-                            padding: '2px',
+                            width: '60px',
+                            padding: '4px',
                             border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            textAlign: 'center'
+                            borderRadius: '4px'
                           }}
                         />
                       ) : (
-                        status
+                        employee.employee_id
                       )}
                     </td>
-                  ))}
-                  <td style={{ padding: '8px' }}>
-                    {editMode ? (
-                      <input 
-                        type="text" 
-                        value={employee.memo || ''}
-                        onChange={(e) => handleFieldChange(employee.id, 'memo', e.target.value)}
-                        style={{ 
-                          width: '150px',
-                          padding: '4px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px'
-                        }}
-                      />
-                    ) : (
-                      employee.memo
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <input 
+                          type="text" 
+                          value={employee.name}
+                          onChange={(e) => handleFieldChange(employee.id, 'name', e.target.value)}
+                          style={{ 
+                            width: '100px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      ) : (
+                        employee.name
+                      )}
+                    </td>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <select 
+                          value={employee.disability_type || ''}
+                          onChange={(e) => handleFieldChange(employee.id, 'disability_type', e.target.value)}
+                          style={{ 
+                            width: '100px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          <option value="">なし</option>
+                          <option value="身体障害">身体障害</option>
+                          <option value="知的障害">知的障害</option>
+                          <option value="精神障害">精神障害</option>
+                        </select>
+                      ) : (
+                        employee.disability_type
+                      )}
+                    </td>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <input 
+                          type="text" 
+                          value={employee.disability || ''}
+                          onChange={(e) => handleFieldChange(employee.id, 'disability', e.target.value)}
+                          style={{ 
+                            width: '80px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      ) : (
+                        employee.disability
+                      )}
+                    </td>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <input 
+                          type="text" 
+                          value={employee.grade || ''}
+                          onChange={(e) => handleFieldChange(employee.id, 'grade', e.target.value)}
+                          style={{ 
+                            width: '60px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      ) : (
+                        employee.grade
+                      )}
+                    </td>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <input 
+                          type="date"
+                          value={employee.hire_date.split('/').join('-')}
+                          onChange={(e) => handleFieldChange(employee.id, 'hire_date', e.target.value.split('-').join('/'))}
+                          style={{ 
+                            width: '120px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      ) : (
+                        employee.hire_date
+                      )}
+                    </td>
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <select 
+                          value={employee.status}
+                          onChange={(e) => handleFieldChange(employee.id, 'status', e.target.value)}
+                          style={{ 
+                            width: '80px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          <option value="在籍">在籍</option>
+                          <option value="休職">休職</option>
+                          <option value="退職">退職</option>
+                        </select>
+                      ) : (
+                        <span style={{ 
+                          backgroundColor: employee.status === '在籍' ? '#4caf50' : employee.status === '休職' ? '#ff9800' : '#f44336', 
+                          color: 'white', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px', 
+                          fontSize: '12px' 
+                        }}>
+                          {employee.status}
+                        </span>
+                      )}
+                    </td>
+                    {/* 月次ステータス入力欄 */}
+                    {(employee.monthlyStatus || Array(12).fill(1)).map((status, monthIndex) => (
+                      <td key={`${employee.id}-month-${monthIndex}`} style={{ 
+                        padding: '4px', 
+                        textAlign: 'center',
+                        backgroundColor: activeCell?.empId === employee.id && activeCell?.monthIndex === monthIndex ? '#e9f2ff' : 'white'
+                      }}>
+                        {actualIsEditing ? (
+                          <input 
+                            ref={(el: HTMLInputElement | null) => {
+                              inputRefs.current[`input-${employee.id}-${monthIndex}`] = el;
+                            }}
+                            type="text" 
+                            value={status}
+                            onChange={(e) => handleMonthlyStatusChange(employee.id, monthIndex, e.target.value)}
+                            onFocus={() => handleCellFocus(employee.id, monthIndex)}
+                            onKeyDown={(e) => handleKeyDown(e, employee.id, monthIndex)}
+                            style={{ 
+                              width: '40px',
+                              padding: '2px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              textAlign: 'center'
+                            }}
+                          />
+                        ) : (
+                          status
+                        )}
+                      </td>
+                    ))}
+                    <td style={{ padding: '8px' }}>
+                      {actualIsEditing ? (
+                        <input 
+                          type="text" 
+                          value={employee.memo || ''}
+                          onChange={(e) => handleFieldChange(employee.id, 'memo', e.target.value)}
+                          style={{ 
+                            width: '150px',
+                            padding: '4px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      ) : (
+                        employee.memo
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          !showForm && (
+            <div style={{ 
+              padding: '30px', 
+              textAlign: 'center', 
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #dee2e6',
+              marginBottom: '20px'
+            }}>
+              <p style={{ fontSize: '16px', color: '#666' }}>従業員データがありません。</p>
+              {actualIsEditing && (
+                <button 
+                  type="button"
+                  onClick={handleCreateClick}
+                  style={actualButtonStyles.success}
+                >
+                  従業員追加
+                </button>
+              )}
+            </div>
+          )
+        )}
         
         {/* 入力方法のガイド表示 - 編集モード時のみ表示 */}
-        {editMode && (
+        {actualIsEditing && localEmployees.length > 0 && !showForm && (
           <div style={{ marginTop: '15px', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '4px' }}>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>月次入力の操作方法</h4>
             <ul style={{ margin: '0', paddingLeft: '20px', fontSize: '13px' }}>
@@ -594,6 +1006,21 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <li>Tab: 右のセルへ移動、Shift+Tab: 左のセルへ移動</li>
               <li>Enter: 下のセルへ移動</li>
             </ul>
+          </div>
+        )}
+        
+        {/* デバッグ情報表示 - 開発環境でのみ表示 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="debug-info" style={{
+            position: 'fixed', 
+            bottom: 0, 
+            right: 0, 
+            background: '#f0f0f0', 
+            padding: '5px',
+            fontSize: '12px',
+            zIndex: 9999
+          }}>
+            編集モード: {actualIsEditing ? 'ON' : 'OFF'} | 作成モード: {isCreating ? 'ON' : 'OFF'}
           </div>
         )}
       </div>

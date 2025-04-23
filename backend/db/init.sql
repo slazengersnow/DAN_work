@@ -1,56 +1,116 @@
--- データベースの作成
-CREATE DATABASE disability_employment;
+-- backend/db/init.sql
+
+-- データベースの作成 (既に存在する場合はこのコマンドをスキップします)
+-- CREATE DATABASE disability_employment;
 
 -- データベースに接続
-\c disability_employment;
+-- \c disability_employment;
 
 -- 従業員テーブル
-CREATE TABLE employees (
+CREATE TABLE IF NOT EXISTS employees (
     id SERIAL PRIMARY KEY,
     employee_id VARCHAR(20) UNIQUE NOT NULL,  -- 従業員番号
     name VARCHAR(100) NOT NULL,               -- 氏名
+    name_kana VARCHAR(100),                   -- 氏名（カナ）
     gender VARCHAR(10),                       -- 性別
     birth_date DATE,                          -- 生年月日
     department VARCHAR(50),                   -- 所属部門
     position VARCHAR(50),                     -- 役職
-    employment_status VARCHAR(30),            -- 雇用形態
-    joining_date DATE,                        -- 入社日
-    leaving_date DATE,                        -- 退職日
+    employment_type VARCHAR(30),              -- 雇用形態
+    hire_date DATE,                           -- 入社日
+    resignation_date DATE,                    -- 退職日
+    status VARCHAR(20) DEFAULT '在籍中',      -- 在籍状況
+    count DECIMAL(3, 1) DEFAULT 1,            -- カウント数
     notes TEXT,                               -- 備考
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 障害情報テーブル
-CREATE TABLE disabilities (
-    disability_id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS disabilities (
+    id SERIAL PRIMARY KEY,
     employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
     disability_type VARCHAR(50),              -- 障害種別
-    disability_grade VARCHAR(20),             -- 障害等級
-    certificate_number VARCHAR(50),           -- 手帳番号
-    certificate_date DATE,                    -- 交付日
-    expiration_date DATE,                     -- 期限日
+    physical_verified BOOLEAN DEFAULT FALSE,   -- 身体障害確認済み
+    physical_degree_current VARCHAR(20),       -- 身体障害等級（現在）
+    physical_degree_original VARCHAR(20),      -- 身体障害等級（原級）
+    physical_certificate_number VARCHAR(50),   -- 身体障害者手帳番号
+    physical_certificate_date DATE,            -- 身体障害者手帳交付日
+    intellectual_verified BOOLEAN DEFAULT FALSE, -- 知的障害確認済み
+    intellectual_degree_current VARCHAR(20),    -- 知的障害等級（現在）
+    intellectual_certificate_number VARCHAR(50), -- 療育手帳番号
+    intellectual_certificate_date DATE,         -- 療育手帳交付日
+    mental_verified BOOLEAN DEFAULT FALSE,      -- 精神障害確認済み
+    mental_degree_current VARCHAR(20),          -- 精神障害等級（現在）
+    mental_certificate_number VARCHAR(50),      -- 精神障害者保健福祉手帳番号
+    mental_certificate_date DATE,               -- 精神障害者保健福祉手帳交付日
+    mental_certificate_expiration DATE,         -- 精神障害者保健福祉手帳有効期限
     notes TEXT,                               -- 備考
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 月次レポートテーブル
-CREATE TABLE monthly_reports (
+-- 月次レポートテーブル（新形式）
+CREATE TABLE IF NOT EXISTS monthly_reports (
     id SERIAL PRIMARY KEY,
-    year INTEGER NOT NULL,                    -- 年
+    fiscal_year INTEGER NOT NULL,             -- 年度
     month INTEGER NOT NULL,                   -- 月
-    total_employees INTEGER,                  -- 全従業員数
-    disabled_employees INTEGER,               -- 障害者数
-    employment_rate DECIMAL(5,2),             -- 雇用率
+    employees_count INTEGER DEFAULT 0,        -- 全従業員数
+    fulltime_count INTEGER DEFAULT 0,         -- 正社員数
+    parttime_count INTEGER DEFAULT 0,         -- パートタイム従業員数
+    level1_2_count INTEGER DEFAULT 0,         -- 重度障害者数（正社員）
+    other_disability_count INTEGER DEFAULT 0, -- その他障害者数（正社員）
+    level1_2_parttime_count INTEGER DEFAULT 0, -- 重度障害者数（パートタイム）
+    other_parttime_count INTEGER DEFAULT 0,   -- その他障害者数（パートタイム）
+    total_disability_count DECIMAL(10, 1) DEFAULT 0, -- 障害者数合計（カウント後）
+    employment_rate DECIMAL(10, 2) DEFAULT 0, -- 実雇用率
+    legal_employment_rate DECIMAL(10, 2) DEFAULT 2.3, -- 法定雇用率
+    required_count INTEGER DEFAULT 0,         -- 法定雇用数
+    over_under_count DECIMAL(10, 1) DEFAULT 0, -- 過不足数
+    status VARCHAR(10) DEFAULT '未確定',      -- 状態
     notes TEXT,                               -- 備考
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (year, month)
+    UNIQUE(fiscal_year, month)
+);
+
+-- 従業員月次状態テーブル
+CREATE TABLE IF NOT EXISTS employee_monthly_status (
+    id SERIAL PRIMARY KEY,
+    fiscal_year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    employee_id VARCHAR(50) NOT NULL,
+    no INTEGER,
+    name VARCHAR(100),
+    disability_type VARCHAR(50),
+    disability VARCHAR(100),
+    grade VARCHAR(50),
+    hire_date VARCHAR(20),
+    status VARCHAR(20) DEFAULT '在籍',
+    monthly_status JSON DEFAULT '{"status":[1,1,1,1,1,1,1,1,1,1,1,1]}',
+    memo TEXT,
+    count DECIMAL(3, 1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (fiscal_year, month) REFERENCES monthly_reports(fiscal_year, month) ON DELETE CASCADE
+);
+
+-- 月次勤務時間テーブル
+CREATE TABLE IF NOT EXISTS monthly_work_hours (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    scheduled_hours INTEGER DEFAULT 0,        -- 所定労働時間
+    actual_hours INTEGER DEFAULT 0,           -- 実労働時間
+    exception_reason TEXT,                    -- 特記事項
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, year, month)
 );
 
 -- 納付金レポートテーブル
-CREATE TABLE payment_reports (
+CREATE TABLE IF NOT EXISTS payment_reports (
     id SERIAL PRIMARY KEY,
     fiscal_year INTEGER NOT NULL UNIQUE,      -- 会計年度
     company_name VARCHAR(100),                -- 会社名
@@ -73,7 +133,7 @@ CREATE TABLE payment_reports (
 );
 
 -- 納付金月別データテーブル
-CREATE TABLE payment_monthly_data (
+CREATE TABLE IF NOT EXISTS payment_monthly_data (
     id SERIAL PRIMARY KEY,
     payment_report_id INTEGER REFERENCES payment_reports(id) ON DELETE CASCADE,
     month INTEGER NOT NULL,                   -- 月
@@ -86,7 +146,7 @@ CREATE TABLE payment_monthly_data (
 );
 
 -- 部門マスターテーブル
-CREATE TABLE departments (
+CREATE TABLE IF NOT EXISTS departments (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,         -- 部門名
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -94,7 +154,7 @@ CREATE TABLE departments (
 );
 
 -- 雇用形態マスターテーブル
-CREATE TABLE employment_statuses (
+CREATE TABLE IF NOT EXISTS employment_types (
     id SERIAL PRIMARY KEY,
     name VARCHAR(30) UNIQUE NOT NULL,         -- 雇用形態名
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -102,78 +162,81 @@ CREATE TABLE employment_statuses (
 );
 
 -- 障害種別マスターテーブル
-CREATE TABLE disability_types (
+CREATE TABLE IF NOT EXISTS disability_types (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,         -- 障害種別名
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- システム設定テーブル
-CREATE TABLE settings (
+-- 会社設定テーブル
+CREATE TABLE IF NOT EXISTS company_settings (
     id INTEGER PRIMARY KEY DEFAULT 1,
     company_name VARCHAR(100),                -- 会社名
     company_address TEXT,                     -- 会社住所
     representative_name VARCHAR(100),         -- 代表者名
-    legal_employment_rate DECIMAL(3,1),       -- 法定雇用率
-    fiscal_year_start_month INTEGER,          -- 会計年度開始月
+    legal_rate DECIMAL(3,1) DEFAULT 2.3,      -- 法定雇用率
+    fiscal_start_month INTEGER DEFAULT 4,     -- 会計年度開始月
     contact_person VARCHAR(100),              -- 担当者名
     phone_number VARCHAR(20),                 -- 電話番号
     email VARCHAR(100),                       -- メールアドレス
+    logo_path VARCHAR(200),                   -- ロゴパス
+    business_goals TEXT,                      -- 事業目標
+    disability_goals TEXT,                    -- 障害者雇用目標
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT single_row CHECK (id = 1)
 );
 
--- マスターデータの初期値設定
-INSERT INTO departments (name) VALUES
-('経営企画部'),
-('総務部'),
-('人事部'),
-('経理部'),
-('営業部'),
-('マーケティング部'),
-('開発部'),
-('生産部'),
-('品質管理部'),
-('カスタマーサポート部');
-
-INSERT INTO employment_statuses (name) VALUES
-('正社員'),
-('契約社員'),
-('パートタイム'),
-('アルバイト'),
-('派遣社員'),
-('嘱託社員');
-
-INSERT INTO disability_types (name) VALUES
-('身体障害'),
-('知的障害'),
-('精神障害'),
-('発達障害'),
-('難病');
-
--- 初期設定データ
-INSERT INTO settings (
-    company_name, company_address, representative_name,
-    legal_employment_rate, fiscal_year_start_month,
-    contact_person, phone_number, email
-) VALUES (
-    '株式会社サンプル',
-    '東京都千代田区サンプル1-1-1',
-    '代表 太郎',
-    2.3,
-    4,
-    '担当 花子',
-    '03-1234-5678',
-    'contact@sample.co.jp'
+-- ユーザーテーブル
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    role VARCHAR(20) DEFAULT 'user',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- マスターデータの初期値設定（テーブルが空の場合のみ挿入）
+INSERT INTO departments (name)
+SELECT d FROM (VALUES ('経営企画部'), ('総務部'), ('人事部'), ('経理部'), ('営業部'), 
+                      ('マーケティング部'), ('開発部'), ('生産部'), ('品質管理部'), ('カスタマーサポート部')) AS t(d)
+WHERE NOT EXISTS (SELECT 1 FROM departments LIMIT 1);
+
+INSERT INTO employment_types (name)
+SELECT e FROM (VALUES ('正社員'), ('契約社員'), ('パートタイム'), ('アルバイト'), 
+                      ('派遣社員'), ('嘱託社員')) AS t(e)
+WHERE NOT EXISTS (SELECT 1 FROM employment_types LIMIT 1);
+
+INSERT INTO disability_types (name)
+SELECT d FROM (VALUES ('身体障害'), ('知的障害'), ('精神障害'), ('発達障害'), ('難病')) AS t(d)
+WHERE NOT EXISTS (SELECT 1 FROM disability_types LIMIT 1);
+
+-- 初期設定データ（テーブルが空の場合のみ挿入）
+INSERT INTO company_settings (
+    company_name, company_address, representative_name,
+    legal_rate, fiscal_start_month,
+    contact_person, phone_number, email
+)
+SELECT 
+    '株式会社サンプル', 
+    '東京都千代田区サンプル1-1-1', 
+    '代表 太郎', 
+    2.3, 
+    4, 
+    '担当 花子', 
+    '03-1234-5678', 
+    'contact@sample.co.jp'
+WHERE NOT EXISTS (SELECT 1 FROM company_settings LIMIT 1);
+
 -- インデックス作成
-CREATE INDEX idx_employees_department ON employees(department);
-CREATE INDEX idx_employees_employment_status ON employees(employment_status);
-CREATE INDEX idx_disabilities_employee_id ON disabilities(employee_id);
-CREATE INDEX idx_disabilities_disability_type ON disabilities(disability_type);
-CREATE INDEX idx_monthly_reports_year_month ON monthly_reports(year, month);
-CREATE INDEX idx_payment_reports_fiscal_year ON payment_reports(fiscal_year);
-CREATE INDEX idx_payment_monthly_data_report_id ON payment_monthly_data(payment_report_id);
+CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department);
+CREATE INDEX IF NOT EXISTS idx_employees_employment_type ON employees(employment_type);
+CREATE INDEX IF NOT EXISTS idx_disabilities_employee_id ON disabilities(employee_id);
+CREATE INDEX IF NOT EXISTS idx_disabilities_disability_type ON disabilities(disability_type);
+CREATE INDEX IF NOT EXISTS idx_monthly_reports_fiscal_year_month ON monthly_reports(fiscal_year, month);
+CREATE INDEX IF NOT EXISTS idx_payment_reports_fiscal_year ON payment_reports(fiscal_year);
+CREATE INDEX IF NOT EXISTS idx_payment_monthly_data_report_id ON payment_monthly_data(payment_report_id);
+CREATE INDEX IF NOT EXISTS idx_employee_monthly_status_fiscal_year_month ON employee_monthly_status(fiscal_year, month);

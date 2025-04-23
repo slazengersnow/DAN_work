@@ -174,6 +174,13 @@ const MonthlyReport: React.FC = () => {
             employees: data.employees || [],
             detail: detailData
           });
+        } else {
+          // データがない場合は空の状態にリセット
+          setCurrentReport({
+            summary: null,
+            employees: [],
+            detail: null
+          });
         }
       },
       enabled: !!selectedYear && !!selectedMonth, // 年月が設定されている場合のみクエリを実行
@@ -289,7 +296,7 @@ const MonthlyReport: React.FC = () => {
 
   // タブコンテンツをレンダリングするための関数
   const renderTabContent = () => {
-    if (activeTab === 'summary' && summary) {
+    if (activeTab === 'summary') {
       return (
         <SummaryTab 
           summaryData={summary} 
@@ -310,39 +317,19 @@ const MonthlyReport: React.FC = () => {
       );
     }
     
-    if (activeTab === 'monthly' && summary && detail) {
+    if (activeTab === 'monthly') {
       return (
         <MonthlyReportDetail 
           isEmbedded={true}
-          summaryData={summary}
-          monthlyDetailData={detail}
+          summaryData={summary || undefined}
+          monthlyDetailData={detail || undefined}
           onDetailCellChange={handleDetailCellChange}
           onRefreshData={handleRefreshData}
         />
       );
     }
     
-    if (activeTab === 'monthly' && !detail && !isLoading) {
-      return <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>月次詳細データがありません。</div>;
-    }
-    
-    if (activeTab === 'employees' && employees.length === 0 && !isLoading) {
-      return <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>従業員データがありません。</div>;
-    }
-    
-    if (!isLoading && !summary) {
-      return (
-        <div style={{ 
-          padding: '20px', 
-          textAlign: 'center', 
-          backgroundColor: '#f8f9fa',
-          borderRadius: '4px'
-        }}>
-          表示するデータがありません。
-        </div>
-      );
-    }
-    
+    // データがない場合、各タブで新規作成UIを表示するためにnullを返す
     return null;
   };
 
@@ -417,7 +404,7 @@ const MonthlyReport: React.FC = () => {
 
   const noSummaryElement = !summary && !isLoading ? (
     <div style={{ padding: '20px', textAlign:'center', color:'#888'}}>
-      表示するサマリーデータがありません。
+      表示するサマリーデータがありません。サマリータブで新規作成してください。
     </div>
   ) : null;
 

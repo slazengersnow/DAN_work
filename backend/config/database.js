@@ -1,12 +1,26 @@
+// backend/config/database.js
 const { Pool } = require('pg');
-require('dotenv').config();
 
+// PostgreSQL接続設定
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'disability_employment',
+  user: process.env.PGUSER || 'postgres',
+  host: process.env.PGHOST || 'localhost',
+  database: process.env.PGDATABASE || 'disability_system',
+  password: process.env.PGPASSWORD || 'postgres',
+  port: process.env.PGPORT || 5432,
 });
 
-module.exports = pool;
+// 単純化したインターフェース
+const connectDB = async () => {
+  try {
+    const client = await pool.connect();
+    console.log('PostgreSQLデータベースに接続しました');
+    client.release();
+    return pool;
+  } catch (err) {
+    console.error('PostgreSQLへの接続に失敗しました:', err);
+    process.exit(1);
+  }
+};
+
+module.exports = { pool, connectDB };
