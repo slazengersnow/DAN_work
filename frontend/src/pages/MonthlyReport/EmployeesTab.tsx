@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Employee, MonthlyTotal } from './types';
 import { 
   updateEmployeeData, 
-  createEmployeeDetail, // 新規追加
+  createEmployeeDetail,
   handleApiError 
 } from '../../api/reportApi';
 import { useYearMonth } from './YearMonthContext';
@@ -33,14 +33,14 @@ const defaultEmployee: Omit<Employee, 'id'> = {
   hire_date: new Date().toISOString().split('T')[0].replace(/-/g, '/'),
   status: '在籍',
   monthlyStatus: Array(12).fill(1), // デフォルトは全ての月で1カウント
-  memo: '',  // ここにカンマを追加
-  count: 0 // count プロパティを追加
+  memo: '',
+  count: 0
 };
 
 const EmployeesTab: React.FC<EmployeesTabProps> = ({
-  employees,
+  employees = [], // デフォルト値を設定
   onEmployeeChange,
-  summaryData,
+  summaryData = {}, // デフォルト値を設定
   onRefreshData,
   // デフォルト値を設定したオプショナルプロパティ
   isEditing = false,
@@ -66,7 +66,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const [newEmployee, setNewEmployee] = useState<Omit<Employee, 'id'>>({...defaultEmployee});
   
   // ローカルの従業員データ
-  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees);
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(employees || []);
   
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -85,7 +85,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   
   // props変更時にローカルデータを更新
   useEffect(() => {
-    setLocalEmployees(employees);
+    setLocalEmployees(employees || []);
   }, [employees]);
 
   // 内部編集モード切り替えハンドラー（親からonToggleEditModeが渡されていない場合に使用）
@@ -97,7 +97,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       // 内部状態を更新
       if (internalIsEditing) {
         // 編集モードを終了する場合、ローカルデータを元に戻す
-        setLocalEmployees(employees);
+        setLocalEmployees(employees || []);
         setErrorMessage(null);
         setShowForm(false);
         setIsCreating(false);
@@ -428,7 +428,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   };
 
   // ステータスの取得（確定状態のチェック）
-  const currentStatus = summaryData.status || '未確定';
+  const currentStatus = summaryData?.status || '未確定';
   const isConfirmed = currentStatus === '確定済';
   
   // 月名の配列
@@ -480,7 +480,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 type="button"
                 id="editButtonEmployees"
                 onClick={handleToggleEditMode}
-                style={actualIsEditing ? actualButtonStyles.secondary : actualButtonStyles.primary}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: actualIsEditing ? '#dc3545' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
                 disabled={isLoading || isConfirmed}
               >
                 {actualIsEditing ? '編集中止' : '編集'}
@@ -491,7 +498,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <button 
                 type="button"
                 onClick={handleSave}
-                style={actualButtonStyles.success}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
                 disabled={isLoading}
               >
                 {isLoading ? '保存中...' : '保存'}
@@ -750,21 +764,41 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </div>
           </div>
         )}
-        
-        {/* テーブルコンテナにスタイルを適用 - データがない場合は別の表示 */}
-        {localEmployees.length > 0 ? (
-          <div style={{ 
-            ...editingStyles,
-            overflowX: 'auto',
-            backgroundColor: 'white',
-            borderRadius: '4px',
-            padding: '10px'
-          }}>
+
+        {/* テーブルコンテナ */}
+        <div style={{ 
+          ...editingStyles,
+          overflowX: 'auto',
+          backgroundColor: 'white',
+          borderRadius: '4px',
+          border: '1px solid #dee2e6',
+          padding: '10px',
+          marginBottom: '20px'
+        }}>
+          {/* データがない場合のメッセージ */}
+          {(!localEmployees || localEmployees.length === 0) && !showForm ? (
+            <div style={{ 
+              padding: '30px', 
+              textAlign: 'center' 
+            }}>
+              <p style={{ fontSize: '16px', color: '#666' }}>従業員データがありません。</p>
+              {actualIsEditing && (
+                <button 
+                  type="button"
+                  onClick={handleCreateClick}
+                  style={actualButtonStyles.success}
+                >
+                  従業員追加
+                </button>
+              )}
+            </div>
+          ) : (
+            /* 従業員データテーブル */
             <table style={{ 
               width: '100%', 
               borderCollapse: 'collapse',
               fontSize: '13px',
-              whiteSpace: 'nowrap'  // テーブルが横スクロールするように
+              whiteSpace: 'nowrap'
             }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #dee2e6' }}>
@@ -785,12 +819,12 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <tbody>
                 {localEmployees.map((employee) => (
                   <tr key={employee.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '8px', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>{employee.no}</td>
+                    <td style={{ padding: '8px', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>{employee.no || '-'}</td>
                     <td style={{ padding: '8px' }}>
                       {actualIsEditing ? (
                         <input 
                           type="text" 
-                          value={employee.employee_id}
+                          value={employee.employee_id || ''}
                           onChange={(e) => handleFieldChange(employee.id, 'employee_id', e.target.value)}
                           style={{ 
                             width: '60px',
@@ -800,14 +834,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           }}
                         />
                       ) : (
-                        employee.employee_id
+                        employee.employee_id || '-'
                       )}
                     </td>
                     <td style={{ padding: '8px' }}>
                       {actualIsEditing ? (
                         <input 
                           type="text" 
-                          value={employee.name}
+                          value={employee.name || ''}
                           onChange={(e) => handleFieldChange(employee.id, 'name', e.target.value)}
                           style={{ 
                             width: '100px',
@@ -817,7 +851,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           }}
                         />
                       ) : (
-                        employee.name
+                        employee.name || '-'
                       )}
                     </td>
                     <td style={{ padding: '8px' }}>
@@ -838,7 +872,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           <option value="精神障害">精神障害</option>
                         </select>
                       ) : (
-                        employee.disability_type
+                        employee.disability_type || '-'
                       )}
                     </td>
                     <td style={{ padding: '8px' }}>
@@ -855,7 +889,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           }}
                         />
                       ) : (
-                        employee.disability
+                        employee.disability || '-'
                       )}
                     </td>
                     <td style={{ padding: '8px' }}>
@@ -872,14 +906,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           }}
                         />
                       ) : (
-                        employee.grade
+                        employee.grade || '-'
                       )}
                     </td>
                     <td style={{ padding: '8px' }}>
                       {actualIsEditing ? (
                         <input 
                           type="date"
-                          value={employee.hire_date.split('/').join('-')}
+                          value={(employee.hire_date || '').split('/').join('-')}
                           onChange={(e) => handleFieldChange(employee.id, 'hire_date', e.target.value.split('-').join('/'))}
                           style={{ 
                             width: '120px',
@@ -889,13 +923,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           }}
                         />
                       ) : (
-                        employee.hire_date
+                        employee.hire_date || '-'
                       )}
                     </td>
                     <td style={{ padding: '8px' }}>
                       {actualIsEditing ? (
                         <select 
-                          value={employee.status}
+                          value={employee.status || '在籍'}
                           onChange={(e) => handleFieldChange(employee.id, 'status', e.target.value)}
                           style={{ 
                             width: '80px',
@@ -910,13 +944,16 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                         </select>
                       ) : (
                         <span style={{ 
-                          backgroundColor: employee.status === '在籍' ? '#4caf50' : employee.status === '休職' ? '#ff9800' : '#f44336', 
+                          backgroundColor: 
+                            employee.status === '在籍' ? '#4caf50' : 
+                            employee.status === '休職' ? '#ff9800' : 
+                            employee.status === '退職' ? '#f44336' : '#999',
                           color: 'white', 
                           padding: '2px 6px', 
                           borderRadius: '4px', 
                           fontSize: '12px' 
                         }}>
-                          {employee.status}
+                          {employee.status || '不明'}
                         </span>
                       )}
                     </td>
@@ -964,40 +1001,18 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                           }}
                         />
                       ) : (
-                        employee.memo
+                        employee.memo || '-'
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        ) : (
-          !showForm && (
-            <div style={{ 
-              padding: '30px', 
-              textAlign: 'center', 
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #dee2e6',
-              marginBottom: '20px'
-            }}>
-              <p style={{ fontSize: '16px', color: '#666' }}>従業員データがありません。</p>
-              {actualIsEditing && (
-                <button 
-                  type="button"
-                  onClick={handleCreateClick}
-                  style={actualButtonStyles.success}
-                >
-                  従業員追加
-                </button>
-              )}
-            </div>
-          )
-        )}
+          )}
+        </div>
         
         {/* 入力方法のガイド表示 - 編集モード時のみ表示 */}
-        {actualIsEditing && localEmployees.length > 0 && !showForm && (
+        {actualIsEditing && localEmployees && localEmployees.length > 0 && !showForm && (
           <div style={{ marginTop: '15px', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '4px' }}>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>月次入力の操作方法</h4>
             <ul style={{ margin: '0', paddingLeft: '20px', fontSize: '13px' }}>
@@ -1020,7 +1035,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             fontSize: '12px',
             zIndex: 9999
           }}>
-            編集モード: {actualIsEditing ? 'ON' : 'OFF'} | 作成モード: {isCreating ? 'ON' : 'OFF'}
+            編集モード: {actualIsEditing ? 'ON' : 'OFF'} | 作成モード: {isCreating ? 'ON' : 'OFF'} | 従業員数: {localEmployees?.length || 0}
           </div>
         )}
       </div>

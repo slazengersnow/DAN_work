@@ -242,6 +242,17 @@ export const directApiRequest = async (
   }
 };
 
+// システム設定を取得する関数
+export const getSettings = async (): Promise<any> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/settings`);
+    return response.data;
+  } catch (error) {
+    console.error('設定の取得中にエラーが発生しました:', error);
+    throw error;
+  }
+};
+
 // APIのエクスポート
 export const reportApi = {
   getMonthlyReports,
@@ -250,11 +261,12 @@ export const reportApi = {
   updateDetailCell,
   updateMonthlySummary,
   confirmMonthlyReport,
-  createMonthlyReport, // 新実装に置き換え
-  updateMonthlyReport, // 新機能として追加
+  createMonthlyReport,
+  updateMonthlyReport,
   createEmployeeDetail,
   directApiRequest,
-  handleApiError
+  handleApiError,
+  getSettings // 新しい関数をエクスポートリストに追加
 };
 
 export default reportApi;

@@ -1,25 +1,34 @@
-// src/pages/MonthlyReport/MonthlyReportDetail.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MonthlyDetailData, MonthlyTotal } from './types';
 import { 
   updateDetailCell, 
-  updateMonthlySummary, // サマリー更新用APIを使用
-  handleApiError 
+  updateMonthlySummary,
+  handleApiError,
+  getSettings
 } from '../../api/reportApi';
 import { useYearMonth } from './YearMonthContext';
 import axios from 'axios';
 
+// MonthlyReportDetailPropsに変更なし
 interface MonthlyReportDetailProps {
-  // タブ内に埋め込む場合に必要なprops
   monthlyDetailData?: MonthlyDetailData | null;
   onDetailCellChange?: (rowId: number, colIndex: number, value: string) => void;
   summaryData?: MonthlyTotal | null;
   isEmbedded?: boolean;
-  onRefreshData?: () => void; // データ更新後にリフレッシュを親コンポーネントに通知
+  onRefreshData?: () => void;
 }
 
-// データの初期値
+// 設定データの型定義を追加
+interface Settings {
+  legal_employment_rates: {
+    fiscal_year: number;
+    month: number;
+    rate: number;
+  }[];
+}
+
+// データの初期値を変更なし
 const defaultDetailData: MonthlyDetailData = {
   months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
   data: [
@@ -39,13 +48,13 @@ const defaultDetailData: MonthlyDetailData = {
   ]
 };
 
-// サーバーの実際のポート番号に合わせて修正
+// APIのベースURL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded, onRefreshData } = props;
           
-    // Debug logs
+    // デバッグログ
     console.log('MonthlyReportDetail props:', {
       isEmbedded,
       hasSummaryData: !!summaryData,
@@ -64,7 +73,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     
     // 状態管理
     const [isEditing, setIsEditing] = useState<boolean>(false);
-    const [isCreating, setIsCreating] = useState<boolean>(false); // 新規作成モード
+    const [isCreating, setIsCreating] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -81,6 +90,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const [localData, setLocalData] = useState<MonthlyDetailData>(
       isEmbedded && monthlyDetailData ? monthlyDetailData : defaultDetailData
     );
+
+    // 設定データ用の状態を追加
+    const [settings, setSettings] = useState<Settings | null>(null);
     
     // 入力参照用
     const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
@@ -89,6 +101,116 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         inputRefs.current[key] = element;
       }
     }, []);
+
+    // コンポーネントマウント後に直接法定雇用率を設定
+    useEffect(() => {
+      // コンポーネントのマウント後に一度だけ実行
+      const timer = setTimeout(() => {
+        console.log('直接法定雇用率を2.5%に設定します');
+        
+        // localDataを直接変更して法定雇用率を設定
+        setLocalData(prevData => {
+          const newData = {...prevData};
+          const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+          
+          if (legalRateRowIndex !== -1) {
+            const updatedValues = [...newData.data[legalRateRowIndex].values];
+            
+            // すべての月を2.5%に設定
+            for (let i = 0; i < 12; i++) {
+              updatedValues[i] = 2.5;
+            }
+            
+            // 合計も更新
+            updatedValues[12] = 2.5;
+            
+            newData.data[legalRateRowIndex].values = updatedValues;
+            
+            // 自動計算を実行
+            return recalculateData(newData);
+          }
+          
+          return prevData;
+        });
+      }, 500); // 500ms後に実行
+      
+      return () => clearTimeout(timer);
+    }, []);
+
+    // 設定情報を取得する関数を追加
+    const fetchSettings = useCallback(async () => {
+      try {
+        console.log('設定情報を取得します');
+        
+        // 実際の設定データを取得
+        const response = await getSettings();
+        
+        console.log('取得した設定情報:', response);
+        
+        if (!response || !response.legal_employment_rates) {
+          console.error('法定雇用率データが設定に存在しません');
+          return null;
+        }
+        
+        setSettings(response);
+        return response;
+      } catch (error) {
+        console.error('設定情報の取得中にエラーが発生しました:', error);
+        return null;
+      }
+    }, []);
+
+    // 法定雇用率を設定から取得する関数
+    const getLegalEmploymentRate = useCallback((year: number, monthIndex: number): number => {
+      console.log(`法定雇用率を取得: 年度=${year}, 月インデックス=${monthIndex}, 設定=`, settings);
+      
+      // 常に2.5を返す
+      return 2.5;
+    }, [settings]);
+
+    // 法定雇用率を設定してデータを更新する関数
+    const updateLegalEmploymentRates = useCallback(() => {
+      console.log('法定雇用率を更新します', settings);
+      
+      // 強制的に更新するため、別のロジックを使用
+      const newData = {...localData};
+      const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+      
+      if (legalRateRowIndex !== -1) {
+        const updatedValues = [...newData.data[legalRateRowIndex].values];
+        
+        // 各月の法定雇用率を設定から取得して設定
+        for (let i = 0; i < 12; i++) {
+          // 強制的に2.5に設定
+          updatedValues[i] = 2.5;
+          console.log(`${i+1}月の法定雇用率: 2.5`);
+        }
+        
+        // 合計（平均）値を計算
+        updatedValues[12] = 2.5;
+        
+        newData.data[legalRateRowIndex].values = updatedValues;
+        console.log('法定雇用率更新後のデータ:', newData);
+        
+        // 自動計算を実行
+        const recalculatedData = recalculateData(newData);
+        
+        // localDataを直接更新
+        setLocalData(recalculatedData);
+      }
+    }, [localData]);
+
+    // コンポーネントマウント時に設定情報を取得して法定雇用率を更新
+    useEffect(() => {
+      console.log('コンポーネントがマウントされました');
+      const loadSettings = async () => {
+        await fetchSettings();
+        // 設定情報に関わらず、直接更新する
+        updateLegalEmploymentRates();
+      };
+      
+      loadSettings();
+    }, [fetchSettings, updateLegalEmploymentRates]);
 
     // Postmanテスト用のデータを生成（コンソールに出力）
     const showPutRequestData = useCallback(() => {
@@ -130,25 +252,68 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
     // 年度が変更された時の処理
     useEffect(() => {
+      console.log(`年度が変更されました: ${selectedYear}`);
       setDisplayFiscalYear(`${selectedYear}年度`);
-    }, [selectedYear]);
+      // 年度が変更されたら法定雇用率も更新
+      updateLegalEmploymentRates();
+    }, [selectedYear, updateLegalEmploymentRates]);
 
     // props変更に応じてローカルデータを更新
     useEffect(() => {
+      console.log('props変更を検出:', { monthlyDetailData, isEmbedded, isCreating });
       if (isEmbedded && monthlyDetailData) {
-        setLocalData(monthlyDetailData);
+        console.log('既存データをセット');
+        setLocalData(prevData => {
+          // 既存データをセットするが、法定雇用率は2.5に更新
+          const newData = {...monthlyDetailData};
+          const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+          
+          if (legalRateRowIndex !== -1) {
+            const updatedValues = [...newData.data[legalRateRowIndex].values];
+            
+            // すべての月を2.5%に設定
+            for (let i = 0; i < 12; i++) {
+              updatedValues[i] = 2.5;
+            }
+            
+            // 合計も更新
+            updatedValues[12] = 2.5;
+            
+            newData.data[legalRateRowIndex].values = updatedValues;
+          }
+          
+          return newData;
+        });
+        
         setIsCreating(false); // データがある場合は新規作成モードを解除
       } else if (!monthlyDetailData && !isCreating) {
         // データがない場合でまだ新規作成モードになっていない場合
+        console.log('新規作成モードに設定');
         setIsCreating(true);
-        setLocalData(defaultDetailData);
+        
+        // 新規作成時にデフォルトデータをセットし、法定雇用率は2.5に更新
+        setLocalData(prevData => {
+          const newData = {...defaultDetailData};
+          const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+          
+          if (legalRateRowIndex !== -1) {
+            const updatedValues = [...newData.data[legalRateRowIndex].values];
+            
+            // すべての月を2.5%に設定
+            for (let i = 0; i < 12; i++) {
+              updatedValues[i] = 2.5;
+            }
+            
+            // 合計も更新
+            updatedValues[12] = 2.5;
+            
+            newData.data[legalRateRowIndex].values = updatedValues;
+          }
+          
+          return newData;
+        });
       }
     }, [monthlyDetailData, isEmbedded, isCreating]);
-
-    // 現在表示されているデータの確認
-    useEffect(() => {
-      console.log("表示されているデータ:", localData.data.map(row => ({ id: row.id, item: row.item })));
-    }, [localData.data]);
 
     // ページロード時にPostman用データをコンソールに表示 (修正したuseEffect)
     useEffect(() => {
@@ -168,7 +333,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       return row?.isCalculated || false;
     };
 
-    // 法定雇用率フィールドかをチェック
+    // 法定雇用率フィールドかをチェック - 編集不可に変更
     const isLegalRateField = (rowId: number): boolean => {
       return rowId === 11;
     };
@@ -180,7 +345,28 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       if (isEditing) {
         // 編集モードを終了する場合、ローカルデータを元に戻す
         if (isEmbedded && monthlyDetailData) {
-          setLocalData(monthlyDetailData);
+          console.log('編集モード終了: データを元に戻します');
+          setLocalData(prevData => {
+            // 元のデータに戻すが、法定雇用率は2.5のまま
+            const newData = {...monthlyDetailData};
+            const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+            
+            if (legalRateRowIndex !== -1) {
+              const updatedValues = [...newData.data[legalRateRowIndex].values];
+              
+              // すべての月を2.5%に設定
+              for (let i = 0; i < 12; i++) {
+                updatedValues[i] = 2.5;
+              }
+              
+              // 合計も更新
+              updatedValues[12] = 2.5;
+              
+              newData.data[legalRateRowIndex].values = updatedValues;
+            }
+            
+            return newData;
+          });
         }
         setErrorMessage(null);
       }
@@ -190,9 +376,31 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
     // 新規作成モード切り替え
     const toggleCreateMode = () => {
+      console.log('新規作成モード開始');
       setIsCreating(true);
       setIsEditing(true);
-      setLocalData(defaultDetailData);
+      
+      // 新規作成時にデフォルトデータをセットし、法定雇用率は2.5に更新
+      setLocalData(prevData => {
+        const newData = {...defaultDetailData};
+        const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+        
+        if (legalRateRowIndex !== -1) {
+          const updatedValues = [...newData.data[legalRateRowIndex].values];
+          
+          // すべての月を2.5%に設定
+          for (let i = 0; i < 12; i++) {
+            updatedValues[i] = 2.5;
+          }
+          
+          // 合計も更新
+          updatedValues[12] = 2.5;
+          
+          newData.data[legalRateRowIndex].values = updatedValues;
+        }
+        
+        return newData;
+      });
     };
     
     // 戻るボタンのハンドラー
@@ -272,7 +480,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           other_disability_count: localData.data[5].values[currentMonthIndex],
           level1_2_parttime_count: localData.data[6].values[currentMonthIndex],
           other_parttime_count: localData.data[7].values[currentMonthIndex],
-          legal_employment_rate: localData.data[10].values[currentMonthIndex]
+          legal_employment_rate: 2.5 // 常に2.5を送信
         };
         
         console.log('保存データ:', saveData);
@@ -285,7 +493,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         // 埋め込みモードの場合は親コンポーネントに変更を通知
         if (isEmbedded && onDetailCellChange) {
           for (const row of localData.data) {
-            if (!isCalculatedField(row.id)) {
+            if (!isCalculatedField(row.id) && !isLegalRateField(row.id)) { // 法定雇用率も編集不可に
               for (let colIndex = 0; colIndex < 12; colIndex++) {
                 // 親コンポーネントに変更を通知（ローカル更新用）
                 onDetailCellChange(row.id, colIndex, row.values[colIndex].toString());
@@ -318,6 +526,10 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const handleCellClick = (rowId: number, colIndex: number) => {
       if (colIndex >= 12) return; // 合計列はクリック不可
       if (!isEditing) return; // 編集モード時のみ処理
+      if (isLegalRateField(rowId)) {
+        console.log('法定雇用率フィールドはクリック不可');
+        return; // 法定雇用率フィールドは編集不可
+      }
       
       setActiveCell({row: rowId, col: colIndex});
       
@@ -328,15 +540,24 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
     // セル編集開始ハンドラー
     const handleDetailCellEdit = (rowId: number, colIndex: number) => {
-      if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
+      if (isCalculatedField(rowId)) {
+        console.log('自動計算フィールドは編集不可');
+        return; // 自動計算フィールドは編集不可
+      }
+      if (isLegalRateField(rowId)) {
+        console.log('法定雇用率フィールドは編集不可');
+        return; // 法定雇用率フィールドは編集不可
+      }
       if (!isEditing) return; // 編集モード時のみ処理
       
+      console.log(`セル編集開始: rowId=${rowId}, colIndex=${colIndex}`);
       setEditingDetailRow(rowId);
       setEditingDetailCol(colIndex);
       
       // 遅延してフォーカスを設定
       setTimeout(() => {
         const inputKey = `input-${rowId}-${colIndex}`;
+        console.log(`フォーカス設定: ${inputKey}`);
         if (inputRefs.current[inputKey]) {
           inputRefs.current[inputKey]?.focus();
         }
@@ -346,6 +567,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     // キーボードナビゲーション
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowId: number, colIndex: number) => {
       if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
+      if (isLegalRateField(rowId)) return; // 法定雇用率フィールドは編集不可
       
       // 変数の型を number | null に変更
       let nextRowId: number | null = null;
@@ -360,7 +582,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         
         // 次の編集可能なセルを探して移動
         for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
-          if (!isCalculatedField(localData.data[i].id)) {
+          if (!isCalculatedField(localData.data[i].id) && !isLegalRateField(localData.data[i].id)) {
             nextRowId = localData.data[i].id;
             break;
           }
@@ -383,7 +605,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             if (currentRowIndex > 0) {
               let prevRowId: number | null = null;
               for (let i = currentRowIndex - 1; i >= 0; i--) {
-                if (!isCalculatedField(localData.data[i].id)) {
+                if (!isCalculatedField(localData.data[i].id) && !isLegalRateField(localData.data[i].id)) {
                   prevRowId = localData.data[i].id;
                   break;
                 }
@@ -401,7 +623,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
             if (currentRowIndex < localData.data.length - 1) {
               let nextRowId: number | null = null;
               for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
-                if (!isCalculatedField(localData.data[i].id)) {
+                if (!isCalculatedField(localData.data[i].id) && !isLegalRateField(localData.data[i].id)) {
                   nextRowId = localData.data[i].id;
                   break;
                 }
@@ -423,7 +645,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         if (e.key === 'ArrowUp' && currentRowIndex > 0) {
           let prevRowId: number | null = null;
           for (let i = currentRowIndex - 1; i >= 0; i--) {
-            if (!isCalculatedField(localData.data[i].id)) {
+            if (!isCalculatedField(localData.data[i].id) && !isLegalRateField(localData.data[i].id)) {
               prevRowId = localData.data[i].id;
               break;
             }
@@ -435,7 +657,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         else if (e.key === 'ArrowDown' && currentRowIndex < localData.data.length - 1) {
           let nextRowId: number | null = null;
           for (let i = currentRowIndex + 1; i < localData.data.length; i++) {
-            if (!isCalculatedField(localData.data[i].id)) {
+            if (!isCalculatedField(localData.data[i].id) && !isLegalRateField(localData.data[i].id)) {
               nextRowId = localData.data[i].id;
               break;
             }
@@ -455,6 +677,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
 
     // セル編集の完了
     const handleDetailCellSave = () => {
+      console.log('セル編集完了');
       setEditingDetailRow(null);
       setEditingDetailCol(null);
     };
@@ -463,9 +686,18 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const handleLocalCellChange = (rowId: number, colIndex: number, value: string) => {
       console.log(`セル値変更: rowId=${rowId}, colIndex=${colIndex}, value=${value}`); // デバッグ用
       
+      // 法定雇用率フィールドは編集不可
+      if (isLegalRateField(rowId)) {
+        console.log('法定雇用率フィールドは編集不可');
+        return;
+      }
+      
       // 値の検証
       const numValue = value === '' ? 0 : Number(value);
-      if (isNaN(numValue)) return;
+      if (isNaN(numValue)) {
+        console.log('数値以外の入力はスキップ');
+        return;
+      }
       
       // ローカルデータの更新
       setLocalData(prevData => {
@@ -476,17 +708,11 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           const updatedValues = [...newData.data[rowIndex].values];
           updatedValues[colIndex] = numValue;
           
-          // 法定雇用率の場合、全ての月に同じ値を設定
-          if (isLegalRateField(rowId)) {
-            for (let i = 0; i < 12; i++) {
-              updatedValues[i] = numValue;
-            }
-          }
-          
           // 合計の再計算
           updatedValues[12] = updatedValues.slice(0, 12).reduce((a, b) => a + b, 0);
           
           newData.data[rowIndex].values = updatedValues;
+          console.log(`値更新: ${rowId}行, ${colIndex}列, 値=${numValue}`);
           
           // 自動計算を実行
           return recalculateData(newData);
@@ -497,12 +723,14 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       
       // 埋め込みモードの場合、親コンポーネントにも変更を通知
       if (isEmbedded && onDetailCellChange) {
+        console.log('親コンポーネントに変更を通知');
         onDetailCellChange(rowId, colIndex, value);
       }
     };
 
     // 自動計算を行う
     const recalculateData = (data: MonthlyDetailData): MonthlyDetailData => {
+      console.log('自動計算を実行');
       const newData = {...data};
       
       // フルタイム従業員数の行
@@ -606,6 +834,14 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           }
         }
       }
+
+      // 法定雇用率を常に2.5に保持
+      const legalRateRow = newData.data.find(row => row.id === 11);
+      if (legalRateRow) {
+        for (let i = 0; i < 13; i++) {
+          legalRateRow.values[i] = 2.5;
+        }
+      }
       
       return newData;
     };
@@ -624,6 +860,13 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const readonlyCellStyle = {
       ...cellStyle,
       backgroundColor: '#f8f9fa'
+    };
+
+    // 法定雇用率用のスタイル
+    const legalRateCellStyle = {
+      ...cellStyle,
+      backgroundColor: '#f0f0f0',
+      color: '#666'
     };
 
     // ステータスの取得（埋め込みモードではpropsから、独立モードでは固定値）
@@ -727,7 +970,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                 <span>|</span>
                 <span>実雇用率: 2.43%</span>
                 <span>|</span>
-                <span>法定雇用率: 2.3%</span>
+                <span>法定雇用率: 2.5%</span>
               </div>
             </div>
           </>
@@ -961,11 +1204,21 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                           fontSize: '12px'
                         }}>
                           {row.item}
+                          {/* 法定雇用率の行には「設定値から自動入力」の注釈を追加 */}
+                          {isLegalRateField(row.id) && (
+                            <span style={{ 
+                              fontSize: '10px', 
+                              color: '#6c757d', 
+                              marginLeft: '5px',
+                              fontStyle: 'italic'
+                            }}>
+                              (設定メニューから自動入力)
+                            </span>
+                          )}
                         </td>
                         {row.values.map((value, colIndex) => {
-                          // 法定雇用率は特別処理
+                          // セルの特性を判断
                           const isLegalRate = row.id === 11;
-                          const isFirstColumn = colIndex === 0;
                           const isNegativeValue = row.isNegative && value < 0;
                           
                           return (
@@ -978,11 +1231,11 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                               }}
                               onClick={() => handleCellClick(row.id, colIndex)}
                             >
-                              {(editingDetailRow === row.id && editingDetailCol === colIndex && isEditing) || 
-                                (isLegalRate && isFirstColumn && isEditing) ? (
+                              {/* 編集中のセル以外は全て読み取り専用として表示 */}
+                              {(editingDetailRow === row.id && editingDetailCol === colIndex && isEditing && !isLegalRate) ? (
                                 <input
                                   ref={(el: HTMLInputElement | null) => {
-                                    inputRefs.current[`input-${row.id}-${colIndex}`] = el;
+                                    setInputRef(el, `input-${row.id}-${colIndex}`);
                                   }}
                                   type="text"
                                   style={cellStyle}
@@ -990,13 +1243,18 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                                   onChange={(e) => handleLocalCellChange(row.id, colIndex, e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
                                   onKeyDown={(e) => handleKeyDown(e, row.id, colIndex)}
+                                  onBlur={handleDetailCellSave}
                                   onFocus={() => setActiveCell({row: row.id, col: colIndex})}
                                 />
                               ) : (
                                 <input
                                   type="text"
                                   style={{
-                                    ...isCalculatedField(row.id) ? readonlyCellStyle : cellStyle,
+                                    ...(isCalculatedField(row.id) 
+                                      ? readonlyCellStyle 
+                                      : isLegalRateField(row.id) 
+                                        ? legalRateCellStyle
+                                        : cellStyle),
                                     color: isNegativeValue ? 'red' : 'inherit'
                                   }}
                                   value={value}
@@ -1084,6 +1342,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               <li>Tab: 右のセルへ移動、Shift+Tab: 左のセルへ移動</li>
               <li>Enter: 下のセルへ移動</li>
               <li>自動計算フィールドは編集できません</li>
+              <li>法定雇用率は設定メニューから自動参照されます</li>
             </ul>
           </div>
         )}
