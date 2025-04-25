@@ -307,7 +307,19 @@ const MonthlyReport: React.FC = () => {
           summaryData={summary || undefined}
           monthlyDetailData={detail || undefined}
           onDetailCellChange={handleDetailCellChange}
-          onRefreshData={handleRefreshData}
+          onRefreshData={() => {
+            // 強制的にデータを再取得しステートを更新
+            queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
+            refetchReportData().then(response => {
+              if (response && response.data) {
+                // ここで明示的にdetailを更新
+                setCurrentReport(prev => ({
+                  ...prev,
+                  detail: response.data.detail || formatYearlyDataForUI([response.data.summary])
+                }));
+              }
+            });
+          }}
         />
       );
     }

@@ -5,30 +5,27 @@ import client from './client';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
-// エラーハンドリング関数
+// handleApiError 関数の強化
 export const handleApiError = (error: any): string => {
   if (axios.isAxiosError(error)) {
-    if (error.response) {
-      // サーバーからのレスポンスがある場合
-      const { status, data } = error.response;
-      console.error('API Error Response:', status, data); // 詳細ログ追加
-      if (typeof data === 'string') {
-        return `エラー (${status}): ${data}`;
-      } else if (data && data.message) {
-        return `エラー (${status}): ${data.message}`;
-      } else {
-        return `エラー (${status}): サーバーエラーが発生しました`;
+    // 特定のエラーパターンに対する処理
+    if (error.response && error.response.status === 500) {
+      // バックエンドエラーの場合
+      if (error.response.data && error.response.data.error &&
+          error.response.data.error.includes('column "notes" of relation "monthly_reports" does not exist')) {
+        return '現在のデータベーススキーマでは "notes" フィールドがサポートされていません。データを保存できません。';
       }
-    } else if (error.request) {
-      // リクエストは送信されたがレスポンスがない場合
-      console.error('API No Response:', error.request); // 詳細ログ追加
-      return 'サーバーに接続できません。ネットワーク接続を確認してください。';
-    } else {
-      // リクエスト設定時にエラーが発生した場合
-      return `エラー: ${error.message}`;
+      return 'サーバーエラーが発生しました。しばらく経ってから再試行してください。';
+    } else if (error.code === 'ECONNABORTED') {
+      return 'リクエストがタイムアウトしました。ネットワーク接続を確認してください。';
+    } else if (!error.response) {
+      return 'サーバーに接続できませんでした。ネットワーク接続を確認してください。';
     }
+    
+    return `エラー (${error.response?.status || 'unknown'}): ${error.response?.data?.message || error.message}`;
   }
-  return `予期せぬエラーが発生しました: ${error}`;
+  
+  return `予期せぬエラーが発生しました: ${error.message || error}`;
 };
 
 // 月次報告一覧を取得
@@ -96,10 +93,14 @@ export const updateDetailCell = async (
 export const updateMonthlySummary = async (
   year: number,
   month: number,
-  data: Partial<MonthlyTotal>
+  data: Partial<MonthlyTotal> & { notes?: string }
 ) => {
   try {
-    console.log(`API呼び出し: ${year}年${month}月のデータを更新します`, data);
+    // notesフィールドを除去（型を拡張してnotesを許可）
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { notes, ...cleanedData } = data as any;
+    
+    console.log(`API呼び出し: ${year}年${month}月のデータを更新します`, cleanedData);
     
     // 現在のデータを取得（データが存在するかチェック）
     let existingData;
@@ -113,6 +114,7 @@ export const updateMonthlySummary = async (
     // データの存在によってエンドポイントを切り替え
     let endpoint;
     let method;
+    let requestData = { ...cleanedData };
     
     if (existingData && existingData.summary) {
       // データが存在する場合は更新
@@ -124,20 +126,20 @@ export const updateMonthlySummary = async (
       method = 'POST';
       
       // 新規作成の場合はfiscal_yearとmonthを追加
-      data = {
-        ...data,
+      requestData = {
+        ...cleanedData,
         fiscal_year: year,
         month: month
       };
     }
     
-    console.log(`APIリクエスト: ${method} ${endpoint}`, data);
+    console.log(`APIリクエスト: ${method} ${endpoint}`, requestData);
     
     // APIリクエスト
     const response = await axios({
       method: method,
       url: endpoint,
-      data: data
+      data: requestData
     });
     
     console.log('API応答:', response.data);
@@ -249,7 +251,7 @@ export const getSettings = async (): Promise<any> => {
     return response.data;
   } catch (error) {
     console.error('設定の取得中にエラーが発生しました:', error);
-    throw error;
+    throw new Error(handleApiError(error));
   }
 };
 

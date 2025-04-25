@@ -51,6 +51,36 @@ const defaultDetailData: MonthlyDetailData = {
 // APIのベースURL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
+// メモリストレージ（フォールバック用）
+const memoryStorage = new Map();
+
+// ストレージアクセスのラッパー関数
+const safeStorage = {
+  setItem: (key: string, value: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      // ストレージアクセスエラー時はメモリストレージを使用
+      console.warn('ローカルストレージアクセスエラー - メモリストレージを使用:', e);
+      memoryStorage.set(key, value);
+    }
+  },
+  
+  getItem: (key: string) => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : null;
+    } catch (e) {
+      // エラー時はメモリストレージから取得
+      console.warn('ローカルストレージアクセスエラー - メモリストレージを使用:', e);
+      return memoryStorage.get(key) || null;
+    }
+  }
+};
+
+// 年度データキー生成関数
+const getYearDataKey = (year: number, month: number) => `fiscal_${year}_month_${month}`;
+
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded, onRefreshData } = props;
           
@@ -104,6 +134,143 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         inputRefs.current[key] = element;
       }
     }, []);
+
+    // props変更時のuseEffect修正
+    useEffect(() => {
+      console.log('props変更を検出:', { monthlyDetailData, isEmbedded, isCreating });
+      
+      if (isEmbedded) {
+        if (monthlyDetailData) {
+          // 親からデータが渡された場合
+          setLocalData(monthlyDetailData);
+          setIsCreating(false);
+        } else {
+          // データがない場合は常にデフォルト表示
+          setLocalData(defaultDetailData);
+          if (!isCreating) {
+            setIsCreating(true);
+          }
+        }
+      }
+    }, [monthlyDetailData, isEmbedded, isCreating]);
+
+    // 自動計算を行う関数
+    const recalculateData = (data: MonthlyDetailData): MonthlyDetailData => {
+      console.log('自動計算を実行');
+      const newData = {...data};
+      
+      // フルタイム従業員数の行
+      const fullTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 2);
+      // パートタイム従業員数の行
+      const partTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 3);
+      // トータル従業員数の行
+      const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === 4);
+      
+      // Level 1 & 2 の行
+      const level1And2RowIndex = newData.data.findIndex(row => row.id === 5);
+      // その他の行
+      const otherRowIndex = newData.data.findIndex(row => row.id === 6);
+      // Level 1 & 2 (パートタイム)の行
+      const level1And2PartTimeRowIndex = newData.data.findIndex(row => row.id === 7);
+      // その他 (パートタイム)の行
+      const otherPartTimeRowIndex = newData.data.findIndex(row => row.id === 8);
+      // トータル障がい者数の行
+      const totalDisabledRowIndex = newData.data.findIndex(row => row.id === 9);
+      
+      // 法定雇用率の行
+      const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+      
+      // トータル従業員数の計算（フルタイム + パートタイム×0.5）
+      if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
+        const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
+        const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
+        
+        for (let i = 0; i < 13; i++) {
+          if (i < 12) {
+            // 各月のデータを計算
+            newData.data[totalEmployeesRowIndex].values[i] = 
+              fullTimeValues[i] + (partTimeValues[i] * 0.5);
+          } else {
+            // 合計値は各月の合計として再計算
+            newData.data[totalEmployeesRowIndex].values[i] = 
+              newData.data[totalEmployeesRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
+          }
+        }
+      }
+      
+      // トータル障がい者数の計算（各障がい者カテゴリの合計）
+      if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
+          level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
+          totalDisabledRowIndex !== -1) {
+          
+        const level1And2Values = newData.data[level1And2RowIndex].values;
+        const otherValues = newData.data[otherRowIndex].values;
+        const level1And2PartTimeValues = newData.data[level1And2PartTimeRowIndex].values;
+        const otherPartTimeValues = newData.data[otherPartTimeRowIndex].values;
+        
+        for (let i = 0; i < 13; i++) {
+          // 各月または合計の障がい者数を計算
+          newData.data[totalDisabledRowIndex].values[i] = 
+            level1And2Values[i] * 2 + otherValues[i] + 
+            level1And2PartTimeValues[i] + otherPartTimeValues[i] * 0.5;
+        }
+      }
+      
+      if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
+        const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
+        const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
+        const legalRateValues = newData.data[legalRateRowIndex].values;
+        
+        // 実雇用率の計算 (障がい者数/従業員数 * 100)
+        const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
+        if (actualRateRowIndex !== -1) {
+          for (let i = 0; i < 13; i++) {
+            if (totalEmployeeValues[i] > 0) {
+              newData.data[actualRateRowIndex].values[i] = 
+                Number(((totalDisabledValues[i] / totalEmployeeValues[i]) * 100).toFixed(2));
+            } else {
+              newData.data[actualRateRowIndex].values[i] = 0;
+            }
+          }
+        }
+        
+        // 法定雇用者数の計算 (法定雇用率 * 従業員数 / 100)
+        const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
+        if (legalCountRowIndex !== -1) {
+          for (let i = 0; i < 13; i++) {
+            if (i < 12) {
+              // 各月の法定雇用者数を計算（小数点以下切り捨て）
+              newData.data[legalCountRowIndex].values[i] = 
+                Math.floor((legalRateValues[i] * totalEmployeeValues[i]) / 100);
+            } else {
+              // 合計は各月の合計として再計算
+              newData.data[legalCountRowIndex].values[i] = 
+                newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
+            }
+          }
+        }
+        
+        // 超過・未達の計算 (障がい者数 - 法定雇用者数)
+        const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
+        if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
+          const legalCountValues = newData.data[legalCountRowIndex].values;
+          for (let i = 0; i < 13; i++) {
+            newData.data[overUnderRowIndex].values[i] = 
+              totalDisabledValues[i] - legalCountValues[i];
+          }
+        }
+      }
+
+      // 法定雇用率を常に2.5に保持
+      const legalRateRow = newData.data.find(row => row.id === 11);
+      if (legalRateRow) {
+        for (let i = 0; i < 13; i++) {
+          legalRateRow.values[i] = 2.5;
+        }
+      }
+      
+      return newData;
+    };
 
     // 設定情報を取得する関数を改善
     const fetchSettings = useCallback(async () => {
@@ -229,6 +396,31 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       return () => clearTimeout(timer);
     }, [updateLegalEmploymentRates]);
 
+    // 年度変更時のデータ保存・復元
+    useEffect(() => {
+      console.log(`年度が変更されました: ${selectedYear}`);
+      setDisplayFiscalYear(`${selectedYear}年度`);
+      
+      // 現在のデータを安全にキャッシュ（現在の年度・月と前回のをそれぞれ保存）
+      if (localData) {
+        safeStorage.setItem(getYearDataKey(selectedYear, month), localData);
+      }
+      
+      // 新しい年度のデータを読み込み試行
+      const savedData = safeStorage.getItem(getYearDataKey(selectedYear, month));
+      
+      if (savedData) {
+        // 保存されていたデータがあれば復元
+        setLocalData(savedData);
+        console.log(`${selectedYear}年度のデータを読み込みました`);
+      } else {
+        console.log(`デフォルトデータを使用: ${selectedYear}年度`);
+      }
+      
+      // 法定雇用率も更新
+      updateLegalEmploymentRates();
+    }, [selectedYear, month, updateLegalEmploymentRates]);
+
     // Postmanテスト用のデータを生成（コンソールに出力）
     const showPutRequestData = useCallback(() => {
       const currentMonthIndex = month - 1; // 0ベースにするために-1
@@ -266,71 +458,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         }
       }
     }, [id]);
-
-    // 年度が変更された時の処理
-    useEffect(() => {
-      console.log(`年度が変更されました: ${selectedYear}`);
-      setDisplayFiscalYear(`${selectedYear}年度`);
-      // 年度が変更されたら法定雇用率も更新
-      updateLegalEmploymentRates();
-    }, [selectedYear, updateLegalEmploymentRates]);
-
-    // props変更に応じてローカルデータを更新
-    useEffect(() => {
-      console.log('props変更を検出:', { monthlyDetailData, isEmbedded, isCreating });
-      if (isEmbedded && monthlyDetailData) {
-        console.log('既存データをセット');
-        setLocalData(prevData => {
-          // 既存データをセットするが、法定雇用率は2.5に更新
-          const newData = {...monthlyDetailData};
-          const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
-          
-          if (legalRateRowIndex !== -1) {
-            const updatedValues = [...newData.data[legalRateRowIndex].values];
-            
-            // すべての月を2.5%に設定
-            for (let i = 0; i < 12; i++) {
-              updatedValues[i] = 2.5;
-            }
-            
-            // 合計も更新
-            updatedValues[12] = 2.5;
-            
-            newData.data[legalRateRowIndex].values = updatedValues;
-          }
-          
-          return recalculateData(newData);
-        });
-        
-        setIsCreating(false); // データがある場合は新規作成モードを解除
-      } else if (!monthlyDetailData && !isCreating) {
-        // データがない場合でまだ新規作成モードになっていない場合
-        console.log('新規作成モードに設定');
-        setIsCreating(true);
-        
-        // 新規作成時にデフォルトデータをセットし、法定雇用率は2.5に更新
-        setLocalData(prevData => {
-          const newData = {...defaultDetailData};
-          const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
-          
-          if (legalRateRowIndex !== -1) {
-            const updatedValues = [...newData.data[legalRateRowIndex].values];
-            
-            // すべての月を2.5%に設定
-            for (let i = 0; i < 12; i++) {
-              updatedValues[i] = 2.5;
-            }
-            
-            // 合計も更新
-            updatedValues[12] = 2.5;
-            
-            newData.data[legalRateRowIndex].values = updatedValues;
-          }
-          
-          return recalculateData(newData);
-        });
-      }
-    }, [monthlyDetailData, isEmbedded, isCreating]);
 
     // 現在表示されているデータの確認は必要時のみ実行
     useEffect(() => {
@@ -486,17 +613,18 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       }
     };
     
-    // 保存ボタンのハンドラー - 直接APIを呼び出し
+    // 保存ボタンのハンドラー - 修正版
     const handleSave = async () => {
-      console.log('保存ボタンクリック'); 
+      console.log('保存ボタンクリック');
       
       setIsLoading(true);
       setErrorMessage(null);
       
       try {
-        // データを準備
-        const currentMonthIndex = month - 1; // 0ベースにするために-1
+        // 現在の月のインデックス（0ベース）
+        const currentMonthIndex = month - 1;
         
+        // 重要：localDataから現在の値を取得
         const saveData = {
           fiscal_year: selectedYear,
           month: month,
@@ -507,7 +635,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           other_disability_count: localData.data[5].values[currentMonthIndex],
           level1_2_parttime_count: localData.data[6].values[currentMonthIndex],
           other_parttime_count: localData.data[7].values[currentMonthIndex],
-          legal_employment_rate: 2.5 // 常に2.5を送信
+          legal_employment_rate: 2.5
         };
         
         console.log('保存データ:', saveData);
@@ -517,20 +645,8 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         
         console.log('保存成功:', result);
         
-        // 埋め込みモードの場合は親コンポーネントに変更を通知
-        if (isEmbedded && onDetailCellChange) {
-          for (const row of localData.data) {
-            if (!isCalculatedField(row.id) && !isLegalRateField(row.id)) { // 法定雇用率も編集不可に
-              for (let colIndex = 0; colIndex < 12; colIndex++) {
-                // 親コンポーネントに変更を通知（ローカル更新用）
-                onDetailCellChange(row.id, colIndex, row.values[colIndex].toString());
-              }
-            }
-          }
-        }
-        
-        // データ更新後に親コンポーネントに通知
-        if (onRefreshData) {
+        // 親コンポーネントに強制的に通知
+        if (isEmbedded && onRefreshData) {
           onRefreshData();
         }
         
@@ -539,10 +655,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         setSuccessMessage(`データを${isCreating ? '作成' : '保存'}しました`);
         setTimeout(() => setSuccessMessage(null), 3000);
         
-        // Postman用のデータをコンソールに表示 (開発環境のみ)
-        if (process.env.NODE_ENV === 'development') {
-          showPutRequestData();
-        }
       } catch (error) {
         console.error('月次詳細データ保存エラー:', error);
         setErrorMessage(handleApiError(error));
@@ -755,124 +867,6 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         console.log('親コンポーネントに変更を通知');
         onDetailCellChange(rowId, colIndex, value);
       }
-    };
-
-    // 自動計算を行う
-    const recalculateData = (data: MonthlyDetailData): MonthlyDetailData => {
-      console.log('自動計算を実行');
-      const newData = {...data};
-      
-      // フルタイム従業員数の行
-      const fullTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 2);
-      // パートタイム従業員数の行
-      const partTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 3);
-      // トータル従業員数の行
-      const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === 4);
-      
-      // Level 1 & 2 の行
-      const level1And2RowIndex = newData.data.findIndex(row => row.id === 5);
-      // その他の行
-      const otherRowIndex = newData.data.findIndex(row => row.id === 6);
-      // Level 1 & 2 (パートタイム)の行
-      const level1And2PartTimeRowIndex = newData.data.findIndex(row => row.id === 7);
-      // その他 (パートタイム)の行
-      const otherPartTimeRowIndex = newData.data.findIndex(row => row.id === 8);
-      // トータル障がい者数の行
-      const totalDisabledRowIndex = newData.data.findIndex(row => row.id === 9);
-      
-      // 法定雇用率の行
-      const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
-      
-      // トータル従業員数の計算（フルタイム + パートタイム×0.5）
-      if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
-        const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
-        const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
-        
-        for (let i = 0; i < 13; i++) {
-          if (i < 12) {
-            // 各月のデータを計算
-            newData.data[totalEmployeesRowIndex].values[i] = 
-              fullTimeValues[i] + (partTimeValues[i] * 0.5);
-          } else {
-            // 合計値は各月の合計として再計算
-            newData.data[totalEmployeesRowIndex].values[i] = 
-              newData.data[totalEmployeesRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
-          }
-        }
-      }
-      
-      // トータル障がい者数の計算（各障がい者カテゴリの合計）
-      if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
-          level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
-          totalDisabledRowIndex !== -1) {
-          
-        const level1And2Values = newData.data[level1And2RowIndex].values;
-        const otherValues = newData.data[otherRowIndex].values;
-        const level1And2PartTimeValues = newData.data[level1And2PartTimeRowIndex].values;
-        const otherPartTimeValues = newData.data[otherPartTimeRowIndex].values;
-        
-        for (let i = 0; i < 13; i++) {
-          // 各月または合計の障がい者数を計算
-          newData.data[totalDisabledRowIndex].values[i] = 
-            level1And2Values[i] * 2 + otherValues[i] + 
-            level1And2PartTimeValues[i] + otherPartTimeValues[i] * 0.5;
-        }
-      }
-      
-      if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
-        const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
-        const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
-        const legalRateValues = newData.data[legalRateRowIndex].values;
-        
-        // 実雇用率の計算 (障がい者数/従業員数 * 100)
-        const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
-        if (actualRateRowIndex !== -1) {
-          for (let i = 0; i < 13; i++) {
-            if (totalEmployeeValues[i] > 0) {
-              newData.data[actualRateRowIndex].values[i] = 
-                Number(((totalDisabledValues[i] / totalEmployeeValues[i]) * 100).toFixed(2));
-            } else {
-              newData.data[actualRateRowIndex].values[i] = 0;
-            }
-          }
-        }
-        
-        // 法定雇用者数の計算 (法定雇用率 * 従業員数 / 100)
-        const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
-        if (legalCountRowIndex !== -1) {
-          for (let i = 0; i < 13; i++) {
-            if (i < 12) {
-              // 各月の法定雇用者数を計算（小数点以下切り捨て）
-              newData.data[legalCountRowIndex].values[i] = 
-                Math.floor((legalRateValues[i] * totalEmployeeValues[i]) / 100);
-            } else {
-              // 合計は各月の合計として再計算
-              newData.data[legalCountRowIndex].values[i] = 
-                newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
-            }
-          }
-        }
-        
-        // 超過・未達の計算 (障がい者数 - 法定雇用者数)
-        const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
-        if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
-          const legalCountValues = newData.data[legalCountRowIndex].values;
-          for (let i = 0; i < 13; i++) {
-            newData.data[overUnderRowIndex].values[i] = 
-              totalDisabledValues[i] - legalCountValues[i];
-          }
-        }
-      }
-
-      // 法定雇用率を常に2.5に保持
-      const legalRateRow = newData.data.find(row => row.id === 11);
-      if (legalRateRow) {
-        for (let i = 0; i < 13; i++) {
-          legalRateRow.values[i] = 2.5;
-        }
-      }
-      
-      return newData;
     };
 
     // スタイル定義
