@@ -1,4 +1,3 @@
-// src/pages/MonthlyReport/index.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -31,6 +30,14 @@ export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetail
   const monthsInFiscalYear = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
   const getMonthlyValue = (data: MonthlyTotal[], month: number, key: keyof MonthlyTotal, defaultValue: number = 0): number => {
     const report = data.find(d => d.month === month);
+    
+    // 特定のキーが法定雇用率の場合、小数点以下2桁で表示
+    if (key === 'legal_employment_rate' || key === 'employment_rate') {
+      const value = report ? safeNumber(report[key]) : defaultValue;
+      // 小数点以下2桁まで保持
+      return parseFloat(value.toFixed(2));
+    }
+    
     return report ? safeNumber(report[key]) : defaultValue;
   };
 
@@ -56,8 +63,8 @@ export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetail
   const sumLevel1_2ParttimeCount = level1_2ParttimeCountValues.reduce((sum, val) => sum + val, 0);
   const sumOtherParttimeCount = otherParttimeCountValues.reduce((sum, val) => sum + val, 0);
   const sumTotalDisabilityCount = totalDisabilityCountValues.reduce((sum, val) => sum + val, 0);
-  const avgActualRate = actualRateValues.reduce((sum, val) => sum + val, 0) / (orderedData.length || 1);
-  const avgLegalRate = legalRateValues.reduce((sum, val) => sum + val, 0) / (orderedData.length || 1);
+  const avgActualRate = parseFloat((actualRateValues.reduce((sum, val) => sum + val, 0) / (orderedData.length || 1)).toFixed(2));
+  const avgLegalRate = parseFloat((legalRateValues.reduce((sum, val) => sum + val, 0) / (orderedData.length || 1)).toFixed(2));
   const sumLegalCount = legalCountValues.reduce((sum, val) => sum + val, 0);
   const sumOverUnder = overUnderValues.reduce((sum, val) => sum + val, 0);
 
@@ -68,13 +75,14 @@ export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetail
       { id: 1, item: '従業員数', values: [...totalEmployeesValues, sumTotalEmployees], suffix: '名' },
       { id: 2, item: 'フルタイム従業員数', values: [...fullTimeEmployeesValues, sumFullTimeEmployees], suffix: '名' },
       { id: 3, item: 'パートタイム従業員数', values: [...partTimeEmployeesValues, sumPartTimeEmployees], suffix: '名' },
+      { id: 4, item: 'トータル従業員数', values: [...totalEmployeesValues.map((v, i) => v + (partTimeEmployeesValues[i] * 0.5)), sumTotalEmployees + (sumPartTimeEmployees * 0.5)], suffix: '名', isCalculated: true },
       { id: 5, item: '重度身体障がい者・重度知的障がい者', values: [...level1_2CountValues, sumLevel1_2Count], suffix: '名', isDisability: true },
       { id: 6, item: 'その他障がい者', values: [...otherDisabilityCountValues, sumOtherDisabilityCount], suffix: '名', isDisability: true },
       { id: 7, item: '重度身体障がい者・重度知的障がい者(パートタイム)', values: [...level1_2ParttimeCountValues, sumLevel1_2ParttimeCount], suffix: '名', isDisability: true },
       { id: 8, item: 'その他障がい者(パートタイム)', values: [...otherParttimeCountValues, sumOtherParttimeCount], suffix: '名', isDisability: true },
-      { id: 9, item: '障がい者合計', values: [...totalDisabilityCountValues, sumTotalDisabilityCount], suffix: '名', isDisability: true },
-      { id: 10, item: '実雇用率', values: [...actualRateValues.map(r => parseFloat(r.toFixed(2))), parseFloat(avgActualRate.toFixed(2))], suffix: '%', isRatio: true, isCalculated: true },
-      { id: 11, item: '法定雇用率', values: [...legalRateValues.map(r => parseFloat(r.toFixed(2))), parseFloat(avgLegalRate.toFixed(2))], suffix: '%', isRatio: true },
+      { id: 9, item: '障がい者合計', values: [...totalDisabilityCountValues, sumTotalDisabilityCount], suffix: '名', isDisability: true, isCalculated: true },
+      { id: 10, item: '実雇用率', values: [...actualRateValues, avgActualRate], suffix: '%', isRatio: true, isCalculated: true },
+      { id: 11, item: '法定雇用率', values: [...legalRateValues, avgLegalRate], suffix: '%', isRatio: true },
       { id: 12, item: '法定雇用者数', values: [...legalCountValues, sumLegalCount], suffix: '名', isCalculated: true },
       { id: 13, item: '超過・未達', values: [...overUnderValues, sumOverUnder], isNegative: true, isCalculated: true, suffix: '名' }
     ]
@@ -223,12 +231,31 @@ const MonthlyReport: React.FC = () => {
       const rowIndex = newDetail.data.findIndex(row => row.id === rowId);
       
       if (rowIndex !== -1 && colIndex < 12) {
-        const numValue = value === '' ? 0 : Number(value);
+        // 法定雇用率フィールドの特別処理
+        const isLegalRateField = rowId === 11;
+        let numValue: number;
+        
+        if (isLegalRateField) {
+          // 小数点を含む値の処理
+          if (value === '' || value === '.') {
+            numValue = 0;
+          } else if (value.endsWith('.')) {
+            numValue = parseFloat(value + '0');
+          } else {
+            numValue = parseFloat(value);
+          }
+        } else {
+          // 通常の数値変換
+          numValue = value === '' ? 0 : Number(value);
+        }
+        
         if (!isNaN(numValue)) {
           const updatedValues = [...newDetail.data[rowIndex].values];
           updatedValues[colIndex] = numValue;
+          
           // 合計の再計算
           updatedValues[12] = updatedValues.slice(0, 12).reduce((a, b) => a + b, 0);
+          
           newDetail.data[rowIndex].values = updatedValues;
         }
       }
@@ -308,17 +335,43 @@ const MonthlyReport: React.FC = () => {
           monthlyDetailData={detail || undefined}
           onDetailCellChange={handleDetailCellChange}
           onRefreshData={() => {
-            // 強制的にデータを再取得しステートを更新
+            console.log('親コンポーネントでデータ再取得を実行');
+            
+            // React Query キャッシュを強制的に無効化
             queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
-            refetchReportData().then(response => {
-              if (response && response.data) {
-                // ここで明示的にdetailを更新
-                setCurrentReport(prev => ({
-                  ...prev,
-                  detail: response.data.detail || formatYearlyDataForUI([response.data.summary])
-                }));
-              }
-            });
+            
+            // データを明示的に再取得
+            refetchReportData()
+              .then(response => {
+                console.log('データ再取得成功:', response);
+                
+                if (response && response.data) {
+                  // 直接的にステートを更新
+                  setCurrentReport(prev => {
+                    // 再取得したデータからdetailを生成（データがない場合は既存データを使用）
+                    const newDetail = response.data.detail || 
+                                    (response.data.summary ? formatYearlyDataForUI([response.data.summary]) : prev.detail);
+                    
+                    return {
+                      ...prev,
+                      summary: response.data.summary || prev.summary,
+                      employees: response.data.employees || prev.employees,
+                      detail: newDetail
+                    };
+                  });
+                  
+                  // React Queryキャッシュを更新
+                  queryClient.setQueryData(
+                    ['monthlyReport', selectedYear, selectedMonth],
+                    response.data
+                  );
+                  
+                  console.log('ステート更新完了');
+                }
+              })
+              .catch(error => {
+                console.error('データ再取得エラー:', error);
+              });
           }}
         />
       );
