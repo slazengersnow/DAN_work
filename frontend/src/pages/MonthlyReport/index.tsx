@@ -14,6 +14,10 @@ import {
 import { safeNumber, processEmployeeData } from './utils';
 import Spinner from '../../components/common/Spinner';
 import ErrorMessage from '../../components/common/ErrorMessage';
+import axios from 'axios';
+
+// API base URL
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // 年間データをUI用の月次詳細形式に変換する関数
 export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetailData => {
@@ -100,11 +104,13 @@ const MonthlyReport: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(tabFromUrl);
   
   // 現在選択中の年度と月（デフォルト値を設定）
-  const [selectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 新規作成フラグ
+  const [isCreatingNewReport, setIsCreatingNewReport] = useState<boolean>(false);
 
   // データ状態
   const [currentReport, setCurrentReport] = useState<{
@@ -156,10 +162,32 @@ const MonthlyReport: React.FC = () => {
       // 年月が有効値であることを確認
       const validYear = selectedYear || new Date().getFullYear();
       const validMonth = selectedMonth || new Date().getMonth() + 1;
-      return getMonthlyReport(validYear, validMonth);
+      
+      return getMonthlyReport(validYear, validMonth)
+        .catch(error => {
+          // 404エラーの場合、新規作成モードを有効化
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            console.log(`${validYear}年${validMonth}月のデータが存在しません。新規作成モードに切替`);
+            setIsCreatingNewReport(true);
+            
+            // デフォルトの空データを返す
+            return {
+              success: true,
+              message: 'デフォルトデータを表示',
+              data: null
+            };
+          }
+          // その他のエラーは再スロー
+          throw error;
+        });
     },
     {
       onSuccess: (data) => {
+        // 新規作成モードの場合はリセット
+        if (isCreatingNewReport && data && data.success) {
+          setIsCreatingNewReport(false);
+        }
+        
         if (data) {
           // サマリーデータの安全な処理
           const summaryData = data.summary || null;
@@ -189,9 +217,22 @@ const MonthlyReport: React.FC = () => {
           });
         }
       },
+      onError: (error) => {
+        console.error("月次レポートデータ取得エラー:", error);
+        // エラーメッセージを表示（オプション）
+        // setErrorMessage('データの取得中にエラーが発生しました。');
+      },
       enabled: !!selectedYear && !!selectedMonth, // 年月が設定されている場合のみクエリを実行
       staleTime: 5 * 60 * 1000,
       cacheTime: 10 * 60 * 1000,
+      retry: (failureCount, error) => {
+        // 404エラーの場合はリトライしない（存在しないデータ）
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return false;
+        }
+        // その他のエラーは3回までリトライ
+        return failureCount < 3;
+      }
     }
   );
 
@@ -273,6 +314,116 @@ const MonthlyReport: React.FC = () => {
     refetchReportData();
   };
 
+  // レポートの存在チェック関数
+  const checkIfReportExists = async (year: number, month: number): Promise<boolean> => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
+      return !!response.data && !!response.data.success;
+    } catch (error) {
+      // 404エラーは存在しないことを意味する
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return false;
+      }
+      console.error('レポート存在チェックエラー:', error);
+      return false;
+    }
+  };
+
+  // 年度変更ハンドラー - MonthlyReportDetailからの通知を受け取る
+  const handleYearChange = (year: number) => {
+    console.log(`親コンポーネントで年度変更を検知: ${selectedYear} → ${year}`);
+    
+    // 年度を更新
+    setSelectedYear(year);
+    
+    // 年度変更時のエラー処理を改善
+    const checkAndCreateReportIfNeeded = async () => {
+      try {
+        // データの存在チェック
+        const exists = await checkIfReportExists(year, selectedMonth);
+        
+        if (!exists) {
+          // データが存在しない場合は新規作成を試みる
+          console.log(`${year}年度のデータが存在しないため、新規作成します`);
+          
+          // デフォルトデータを準備
+          const defaultReport = {
+            fiscal_year: year,
+            month: selectedMonth,
+            employees_count: 0,
+            fulltime_count: 0,
+            parttime_count: 0,
+            level1_2_count: 0,
+            other_disability_count: 0,
+            level1_2_parttime_count: 0,
+            other_parttime_count: 0,
+            legal_employment_rate: 2.3 // デフォルト値
+          };
+          
+          try {
+            // 新規レポート作成
+            await axios.post(`${API_BASE_URL}/monthly-reports`, defaultReport);
+            console.log(`${year}年度${selectedMonth}月のデータを新規作成しました`);
+          } catch (error) {
+            console.error('新規レポート作成エラー:', error);
+            // エラーを無視して続行
+          }
+        }
+        
+        // キャッシュと状態を更新
+        queryClient.invalidateQueries(['monthlyReport', year, selectedMonth]);
+        
+        // データを明示的に再取得
+        setTimeout(() => {
+          refetchReportData().then(response => {
+            if (response && response.data) {
+              // 直接的にステートを更新
+              setCurrentReport(prev => {
+                const newDetail = response.data.detail || 
+                              (response.data.summary ? formatYearlyDataForUI([response.data.summary]) : prev.detail);
+                
+                return {
+                  ...prev,
+                  summary: response.data.summary || prev.summary,
+                  employees: response.data.employees || prev.employees,
+                  detail: newDetail
+                };
+              });
+            }
+          }).catch(error => {
+            console.error('データ再取得エラー:', error);
+            // エラーが発生した場合はデフォルトの状態を設定
+            setCurrentReport(prev => ({
+              ...prev,
+              detail: prev.detail || formatYearlyDataForUI([{
+                fiscal_year: year,
+                month: selectedMonth,
+                employees_count: 0,
+                fulltime_count: 0,
+                parttime_count: 0,
+                level1_2_count: 0,
+                other_disability_count: 0,
+                level1_2_parttime_count: 0,
+                other_parttime_count: 0,
+                legal_employment_rate: 2.3,
+                employment_rate: 0,
+                total_disability_count: 0,
+                required_count: 0,
+                over_under_count: 0,
+                status: '未確定',
+                id: 0
+              }])
+            }));
+          });
+        }, 300);
+      } catch (error) {
+        console.error('年度変更処理中にエラーが発生しました:', error);
+      }
+    };
+    
+    checkAndCreateReportIfNeeded();
+  };
+
   // タブ切り替えハンドラー
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -334,15 +485,33 @@ const MonthlyReport: React.FC = () => {
           summaryData={summary || undefined}
           monthlyDetailData={detail || undefined}
           onDetailCellChange={handleDetailCellChange}
+          onYearChange={handleYearChange}
           onRefreshData={() => {
             console.log('親コンポーネントでデータ再取得を実行');
             
-            // React Query キャッシュを強制的に無効化
-            queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
-            
-            // データを明示的に再取得
-            refetchReportData()
-              .then(response => {
+            // エラーハンドリングを強化した再取得処理
+            const fetchDataWithErrorHandling = async () => {
+              try {
+                // React Query キャッシュを強制的に無効化
+                queryClient.invalidateQueries(['monthlyReport', selectedYear, selectedMonth]);
+                
+                // データ存在チェック
+                const exists = await checkIfReportExists(selectedYear, selectedMonth);
+                
+                if (!exists) {
+                  console.log(`${selectedYear}年度のデータが存在しないため、処理をスキップします`);
+                  // データが存在しない場合はデフォルト状態を設定
+                  setCurrentReport(prev => ({
+                    ...prev,
+                    summary: null,
+                    employees: [],
+                    detail: null
+                  }));
+                  return;
+                }
+                
+                // データを明示的に再取得
+                const response = await refetchReportData();
                 console.log('データ再取得成功:', response);
                 
                 if (response && response.data) {
@@ -368,10 +537,14 @@ const MonthlyReport: React.FC = () => {
                   
                   console.log('ステート更新完了');
                 }
-              })
-              .catch(error => {
+              } catch (error) {
                 console.error('データ再取得エラー:', error);
-              });
+                // エラーメッセージを表示（オプション）
+                // setErrorMessage('データの再取得中にエラーが発生しました。');
+              }
+            };
+            
+            fetchDataWithErrorHandling();
           }}
         />
       );

@@ -16,6 +16,7 @@ interface MonthlyReportDetailProps {
   summaryData?: MonthlyTotal | null;
   isEmbedded?: boolean;
   onRefreshData?: () => void;
+  onYearChange?: (year: number) => void; // 年度変更通知用の新しいprop
 }
 
 interface Settings {
@@ -48,7 +49,7 @@ const defaultDetailData: MonthlyDetailData = {
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
-    const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded, onRefreshData } = props;
+    const { monthlyDetailData, onDetailCellChange, summaryData, isEmbedded, onRefreshData, onYearChange } = props;
           
     console.log('MonthlyReportDetail props:', {
       isEmbedded,
@@ -59,6 +60,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     
     const { fiscalYear, month } = useYearMonth();
     const [selectedYear, setSelectedYear] = useState<number>(fiscalYear);
+    
+    // 年度変更追跡用のref
+    const prevSelectedYear = useRef<number>(selectedYear);
     
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
@@ -91,15 +95,15 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     }, []);
 
     // フィールド名と行IDのマッピング
-    const rowFieldMap = {
-      1: 'employees_count',
-      2: 'fulltime_count',
-      3: 'parttime_count',
-      5: 'level1_2_count',
-      6: 'other_disability_count',
-      7: 'level1_2_parttime_count',
-      8: 'other_parttime_count',
-      11: 'legal_employment_rate'
+    const rowFieldMap: {[key: string]: string} = {
+      '1': 'employees_count',
+      '2': 'fulltime_count',
+      '3': 'parttime_count',
+      '5': 'level1_2_count',
+      '6': 'other_disability_count',
+      '7': 'level1_2_parttime_count',
+      '8': 'other_parttime_count',
+      '11': 'legal_employment_rate'
     };
 
     // 月のインデックス計算（4月始まりの会計年度）
@@ -298,10 +302,28 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       return () => clearTimeout(timer);
     }, []);
 
+    // 年度変更時の処理を強化
     useEffect(() => {
       console.log(`年度が変更されました: ${selectedYear}`);
       setDisplayFiscalYear(`${selectedYear}年度`);
-    }, [selectedYear, month]);
+      
+      // 年度変更時に親コンポーネントに通知する処理を追加
+      if (isEmbedded && onYearChange && prevSelectedYear.current !== selectedYear) {
+        console.log(`年度変更による再取得: ${prevSelectedYear.current} → ${selectedYear}`);
+        prevSelectedYear.current = selectedYear;
+        
+        // 新年度の場合はエラー処理を改善
+        try {
+          // 親コンポーネントに年度変更を通知
+          onYearChange(selectedYear);
+        } catch (error) {
+          // エラーハンドリング
+          console.log('年度変更通知中のエラーを処理しました:', error);
+          // 必要に応じてデフォルトデータを設定
+          setLocalData(defaultDetailData);
+        }
+      }
+    }, [selectedYear, isEmbedded, onYearChange, defaultDetailData]);
 
     const showPutRequestData = useCallback(() => {
       // 4月始まりの会計年度に合わせたインデックス計算
@@ -402,28 +424,38 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       window.print();
     };
 
+    // 存在チェックの実装
+    const checkIfReportExists = async (year: number, month: number): Promise<boolean> => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
+        return !!response.data && !!response.data.success;
+      } catch (error) {
+        // 404エラーは存在しないことを意味する
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return false;
+        }
+        // その他のエラーの場合は再スロー
+        console.error('レポート存在チェックエラー:', error);
+        return false;
+      }
+    };
+
+    // データの直接保存機能を改善
     const directSave = async (data: any) => {
       console.log('直接保存を実行します:', data);
       
       try {
-        let exists = false;
-        try {
-          // 既存データの確認
-          const checkResponse = await axios.get(`${API_BASE_URL}/monthly-reports/${selectedYear}/${month}`);
-          exists = !!checkResponse.data && !!checkResponse.data.success;
-        } catch (error) {
-          console.log('既存データのチェック中にエラー:', error);
-          exists = false;
-        }
+        // 既存データの確認
+        const exists = await checkIfReportExists(data.fiscal_year, data.month);
         
         let response;
         
         try {
           if (exists) {
             // 更新処理
-            console.log('PUT リクエスト実行:', `${API_BASE_URL}/monthly-reports/${selectedYear}/${month}`);
+            console.log('PUT リクエスト実行:', `${API_BASE_URL}/monthly-reports/${data.fiscal_year}/${data.month}`);
             response = await axios.put(
-              `${API_BASE_URL}/monthly-reports/${selectedYear}/${month}`, 
+              `${API_BASE_URL}/monthly-reports/${data.fiscal_year}/${data.month}`, 
               data
             );
           } else {
@@ -522,7 +554,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         console.log("保存時の editedValues:", editedValues);
         
         // 現在の値を収集
-        const currentValues = {
+        const currentValues: {[key: string]: number} = {
           employees_count: 0,
           fulltime_count: 0,
           parttime_count: 0,
@@ -768,23 +800,24 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       }
     };
 
+    // 法定雇用率フィールドの小数点入力の問題を修正
     const handleLocalCellChange = (rowId: number, colIndex: number, value: string) => {
       console.log(`セル値変更: rowId=${rowId}, colIndex=${colIndex}, value=${value}`);
       
-      // 空の入力は0として扱う
-      if (value === '') {
-        value = '0';
-      }
-      
-      // 法定雇用率フィールド専用の入力判定（より柔軟に）
+      // 法定雇用率フィールド専用の入力判定
       const isLegalRate = isLegalRateField(rowId);
       
-      // 小数点入力パターンチェック
-      // 通常の数値フィールドは整数のみ許可、法定雇用率フィールドは小数点を許可
+      // 小数点入力パターンチェック - 法定雇用率フィールドのみ特別扱い
       const pattern = isLegalRate 
         ? /^[0-9]*\.?[0-9]*$/ // 法定雇用率フィールド用 - 小数点を許可
         : /^[0-9]+$/;         // その他フィールド用 - 整数のみ
       
+      // 空の入力を許可
+      if (value === '') {
+        value = '0';
+      }
+      
+      // パターンチェック
       if (!pattern.test(value)) {
         console.log(`無効な入力はスキップ: ${isLegalRate ? '数値または小数点を含む数値' : '整数'}のみ許可`);
         return;
@@ -801,32 +834,44 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           numValue = 0;
           displayValue = '0.0';
         } else if (value.endsWith('.')) {
-          // 末尾が小数点の場合は小数点以下を0として扱う
+          // 末尾が小数点の場合は小数点以下を0として扱うが、表示は小数点付きのまま
           numValue = parseFloat(value + '0');
-          displayValue = value + '0';
         } else {
           numValue = parseFloat(value);
         }
+        
+        // 月インデックス計算
+        const monthIndex = getMonthIndex(month);
+        
+        // 現在の月のセルを編集している場合は編集値を記録
+        if (colIndex === monthIndex && rowFieldMap[rowId.toString()]) {
+          console.log(`編集値を記録: ${rowFieldMap[rowId.toString()]} = ${numValue} (表示: ${displayValue})`);
+          
+          // 小数点表記を保持するための特別な状態
+          setEditedValues(prev => ({
+            ...prev,
+            [rowFieldMap[rowId.toString()]]: numValue,
+            [`${rowFieldMap[rowId.toString()]}_display`]: displayValue  // 表示用の値を別途保存
+          }));
+        }
       } else {
-        // 通常フィールドは整数変換
+        // 通常の数値変換
         numValue = parseInt(value, 10);
         if (isNaN(numValue)) numValue = 0;
-      }
-      
-      // 月インデックス計算
-      const monthIndex = getMonthIndex(month);
-      
-      // 現在の月のセルを編集している場合は編集値を記録
-      if (colIndex === monthIndex && rowFieldMap[rowId]) {
-        console.log(`編集値を記録: ${rowFieldMap[rowId]} = ${numValue} (表示: ${displayValue})`);
         
-        // 編集値を保存
-        setEditedValues(prev => ({
-          ...prev,
-          [rowFieldMap[rowId]]: numValue,
-          // 法定雇用率の場合は表示値も保持
-          ...(isLegalRate ? { [`${rowFieldMap[rowId]}_display`]: displayValue } : {})
-        }));
+        // 月インデックス計算
+        const monthIndex = getMonthIndex(month);
+        
+        // 現在の月のセルを編集している場合は編集値を記録
+        if (colIndex === monthIndex && rowFieldMap[rowId.toString()]) {
+          console.log(`編集値を記録: ${rowFieldMap[rowId.toString()]} = ${numValue} (表示: ${displayValue})`);
+          
+          // 通常フィールドの編集値を保存
+          setEditedValues(prev => ({
+            ...prev,
+            [rowFieldMap[rowId.toString()]]: numValue
+          }));
+        }
       }
       
       // ローカルデータの更新
@@ -901,6 +946,35 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         月インデックス: {getMonthIndex(month)}
       </div>
     ) : null;
+
+    // 年度変更時のエラー処理を改善
+    const handleYearSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newYear = Number(e.target.value);
+      console.log(`年度選択変更: ${selectedYear} → ${newYear}`);
+      
+      // 先に現在の年度の値を保存
+      setSelectedYear(newYear);
+      
+      // 年度変更を親コンポーネントに通知
+      if (onYearChange) {
+        try {
+          onYearChange(newYear);
+        } catch (error) {
+          console.error('年度変更通知中にエラーが発生しました:', error);
+          
+          // エラーが発生した場合でも、新しい年度のデフォルトデータを表示
+          setLocalData(prevData => {
+            const newData = {...defaultDetailData};
+            // 年度情報を更新
+            return newData;
+          });
+          
+          // 仮のエラー処理
+          setErrorMessage('新しい年度のデータを読み込めませんでした。デフォルト値を表示しています。');
+          setTimeout(() => setErrorMessage(null), 5000);
+        }
+      }
+    };
 
     if (!monthlyDetailData && !isCreating && isEmbedded) {
       return (
@@ -1027,7 +1101,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
               <select
                 id="fiscal-year-select"
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                onChange={handleYearSelectChange}
                 style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
                 disabled={isLoading || isEditing}
               >
