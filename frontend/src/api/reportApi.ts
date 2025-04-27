@@ -1,11 +1,10 @@
-// src/api/reportApi.ts
 import axios from 'axios';
 import { MonthlyTotal, MonthlyDetailData, Employee } from '../pages/MonthlyReport/types';
 import client from './client';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
-// エラーハンドリング関数
+// エラーハンドリング関数 - ブラウザストレージエラー対応を追加
 export const handleApiError = (error: any): string => {
   // ブラウザストレージアクセスエラーの特別処理
   if (error instanceof Error && 
@@ -51,7 +50,7 @@ export const getMonthlyReports = async () => {
   }
 };
 
-// 特定の年月の月次報告を取得（年月が指定されない場合は現在の年月を使用）
+// 特定の年月の月次報告を取得（エラーハンドリング強化）
 export const getMonthlyReport = async (year?: number, month?: number) => {
   try {
     // 年度または月が未定義の場合のデフォルト値を設定
@@ -62,12 +61,11 @@ export const getMonthlyReport = async (year?: number, month?: number) => {
     const response = await axios.get(`${API_BASE_URL}/monthly-reports/${validYear}/${validMonth}`);
     return response.data;
   } catch (error) {
-    // 404エラーの特別処理 - 呼び出し元でハンドリングできるようにスロー
+    // 404エラーの場合は明示的にエラーメッセージを設定
     if (axios.isAxiosError(error) && error.response?.status === 404) {
       console.error(`指定された月次レポートが見つかりません: ${year}年${month}月`);
-      throw new Error(handleApiError(error));
+      throw new Error(`指定された月次レポート (${year}年${month}月) が見つかりません。`);
     }
-
     throw new Error(handleApiError(error));
   }
 };
@@ -182,9 +180,25 @@ export const confirmMonthlyReport = async (year: number, month: number) => {
   }
 };
 
-// 月次レポートを新規作成する関数 (新実装)
-export const createMonthlyReport = async (fiscalYear: number, month: number, data: any) => {
+// 月次レポートを新規作成する関数 - 改善版
+export const createMonthlyReport = async (year: number, month: number, data: any) => {
   try {
+    // データチェック
+    if (!data.fiscal_year) {
+      data.fiscal_year = year;
+    }
+    if (!data.month) {
+      data.month = month;
+    }
+    
+    // 小数点表示の修正
+    if (data.legal_employment_rate !== undefined && typeof data.legal_employment_rate === 'number') {
+      // 小数点以下が0なら追加
+      if (data.legal_employment_rate === Math.floor(data.legal_employment_rate)) {
+        data.legal_employment_rate = parseFloat(data.legal_employment_rate.toFixed(1));
+      }
+    }
+    
     const response = await axios.post(`${API_BASE_URL}/monthly-reports`, data);
     return response.data;
   } catch (error) {
@@ -192,13 +206,18 @@ export const createMonthlyReport = async (fiscalYear: number, month: number, dat
   }
 };
 
-// 月次レポートを更新する関数 (新実装)
-export const updateMonthlyReport = async (fiscalYear: number, month: number, data: any) => {
+// 月次レポートを更新する関数 - 改善版
+export const updateMonthlyReport = async (year: number, month: number, data: any) => {
   try {
-    const response = await axios.put(
-      `${API_BASE_URL}/monthly-reports/${fiscalYear}/${month}`, 
-      data
-    );
+    // 小数点表示の修正
+    if (data.legal_employment_rate !== undefined && typeof data.legal_employment_rate === 'number') {
+      // 小数点以下が0なら追加
+      if (data.legal_employment_rate === Math.floor(data.legal_employment_rate)) {
+        data.legal_employment_rate = parseFloat(data.legal_employment_rate.toFixed(1));
+      }
+    }
+    
+    const response = await axios.put(`${API_BASE_URL}/monthly-reports/${year}/${month}`, data);
     return response.data;
   } catch (error) {
     throw new Error(handleApiError(error));
@@ -219,6 +238,20 @@ export const createEmployeeDetail = async (
     return response.data;
   } catch (error) {
     throw new Error(handleApiError(error));
+  }
+};
+
+// データ存在チェック（新規追加）
+export const checkReportExists = async (year: number, month: number): Promise<boolean> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
+    return !!response.data && !!response.data.success;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return false;
+    }
+    console.error('データ存在チェックエラー:', error);
+    return false;
   }
 };
 
@@ -253,20 +286,6 @@ export const getSettings = async (): Promise<any> => {
   } catch (error) {
     console.error('設定の取得中にエラーが発生しました:', error);
     throw new Error(handleApiError(error));
-  }
-};
-
-// データ存在チェック（新規追加）
-export const checkReportExists = async (year: number, month: number): Promise<boolean> => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
-    return response.data && response.data.success;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return false;
-    }
-    console.error('データ存在チェックエラー:', error);
-    return false;
   }
 };
 
