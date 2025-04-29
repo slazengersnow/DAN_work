@@ -187,7 +187,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     };
   }, []);
 
-  // recalculateData関数を先に定義
+  // recalculateData関数内の一部
   const recalculateData = useCallback((data: MonthlyDetailData): MonthlyDetailData => {
     const newData = {...data};
     
@@ -203,21 +203,30 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     
     const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
     
+    // 各行の合計を正しく計算 - 各基本項目の合計欄を計算
+    for (let rowIndex = 0; rowIndex < newData.data.length; rowIndex++) {
+      const row = newData.data[rowIndex];
+      // 合計行の計算対象となる基本項目かどうか
+      const isBasicRow = [1, 2, 3, 5, 6, 7, 8].includes(row.id);
+      
+      if (isBasicRow) {
+        // 合計欄（インデックス12）の値を計算
+        row.values[12] = row.values.slice(0, 12).reduce((sum, value) => sum + value, 0);
+      }
+    }
+    
+    // トータル従業員数の計算
     if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
       const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
       const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
       
       for (let i = 0; i < 13; i++) {
-        if (i < 12) {
-          newData.data[totalEmployeesRowIndex].values[i] = 
-            fullTimeValues[i] + (partTimeValues[i] * 0.5);
-        } else {
-          newData.data[totalEmployeesRowIndex].values[i] = 
-            newData.data[totalEmployeesRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
-        }
+        newData.data[totalEmployeesRowIndex].values[i] = 
+          fullTimeValues[i] + (partTimeValues[i] * 0.5);
       }
     }
     
+    // 障がい者合計の計算
     if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
         level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
         totalDisabledRowIndex !== -1) {
@@ -234,6 +243,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       }
     }
     
+    // 実雇用率、法定雇用者数、超過・未達の計算
     if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
       const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
       const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
@@ -241,37 +251,53 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       
       const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
       if (actualRateRowIndex !== -1) {
-        for (let i = 0; i < 13; i++) {
+        for (let i = 0; i < 12; i++) { // 0-11は通常の月
           if (totalEmployeeValues[i] > 0) {
-            // 重要な修正: 実雇用率の計算を小数点第2位で切り上げに変更
+            // 実雇用率の計算を小数点第2位で切り上げに変更
             const rawRate = (totalDisabledValues[i] / totalEmployeeValues[i]) * 100;
             newData.data[actualRateRowIndex].values[i] = Math.ceil(rawRate * 10) / 10;
           } else {
             newData.data[actualRateRowIndex].values[i] = 0;
           }
         }
+        
+        // 合計欄の実雇用率は、合計障がい者数 / 合計従業員数で計算
+        if (totalEmployeeValues[12] > 0) {
+          const totalRawRate = (totalDisabledValues[12] / totalEmployeeValues[12]) * 100;
+          newData.data[actualRateRowIndex].values[12] = Math.ceil(totalRawRate * 10) / 10;
+        } else {
+          newData.data[actualRateRowIndex].values[12] = 0;
+        }
       }
       
       const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
       if (legalCountRowIndex !== -1) {
-        for (let i = 0; i < 13; i++) {
-          if (i < 12) {
-            newData.data[legalCountRowIndex].values[i] = 
-              Math.ceil((legalRateValues[i] * totalEmployeeValues[i]) / 100);
-          } else {
-            newData.data[legalCountRowIndex].values[i] = 
-              newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
-          }
+        for (let i = 0; i < 12; i++) { // 0-11は通常の月
+          newData.data[legalCountRowIndex].values[i] = 
+            Math.ceil((legalRateValues[i] * totalEmployeeValues[i]) / 100);
         }
+        
+        // 合計欄の法定雇用者数も計算
+        newData.data[legalCountRowIndex].values[12] = 
+          Math.ceil((legalRateValues[12] * totalEmployeeValues[12]) / 100);
       }
       
       const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
       if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
         const legalCountValues = newData.data[legalCountRowIndex].values;
-        for (let i = 0; i < 13; i++) {
+        
+        // 0-11（4月から3月まで）のデータを個別に計算
+        for (let i = 0; i < 12; i++) {
           newData.data[overUnderRowIndex].values[i] = 
             totalDisabledValues[i] - legalCountValues[i];
         }
+        
+        // 合計欄（12）は、4月から3月までの超過・未達の単純合計
+        const totalOverUnder = newData.data[overUnderRowIndex].values.slice(0, 12)
+          .reduce((sum, value) => sum + value, 0);
+          
+        // 合計値をセット
+        newData.data[overUnderRowIndex].values[12] = totalOverUnder;
       }
     }
     
