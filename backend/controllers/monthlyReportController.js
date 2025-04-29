@@ -621,41 +621,272 @@ exports.createEmployeeDetail = async (req, res) => {
     const { year, month } = req.params;
     const employeeData = req.body;
     
+    console.log('Request Body:', JSON.stringify(employeeData, null, 2));
+    
     // 必須フィールドの検証
-    if (!employeeData.employee_id) {
+    if (!employeeData.name) {
       return res.status(400).json({
         success: false,
-        message: '従業員IDは必須です'
+        message: '従業員名は必須です'
       });
     }
     
-    // パラメータをPostgreSQLに合わせて処理
-    const createdDetail = await MonthlyReport.createEmployeeDetail(
-      parseInt(year),
-      parseInt(month),
-      employeeData
-    );
+    if (!employeeData.employee_id) {
+      return res.status(400).json({
+        success: false,
+        message: '社員IDは必須です'
+      });
+    }
     
-    // 更新後のレポートを取得
-    const updatedReport = await MonthlyReport.findOne({
+    // MonthlyReportが存在するか確認
+    const report = await MonthlyReport.findOne({
       fiscal_year: parseInt(year),
       month: parseInt(month)
     });
     
-    if (!updatedReport) {
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: `${year}年${month}月の月次レポートが見つかりません。`
+      });
+    }
+    
+    // 従業員データの作成処理
+    // 注: ここでは簡素化のためデータベースに直接アクセスする形で実装
+    // 実際のアプリケーションではモデルメソッドを使用することを推奨
+    
+    // 同じ社員IDが既に存在するか確認
+    const existingEmployeeWithSameId = await Employee.findOne({
+      report_id: report.id,
+      employee_id: employeeData.employee_id
+    });
+    
+    if (existingEmployeeWithSameId) {
+      return res.status(409).json({
+        success: false,
+        message: '指定された社員IDは既に登録されています'
+      });
+    }
+    
+    // 新規従業員レコードを作成
+    const newEmployee = await Employee.create({
+      report_id: report.id,
+      no: employeeData.no || 0,
+      employee_id: employeeData.employee_id,
+      name: employeeData.name,
+      disability_type: employeeData.disability_type || '',
+      disability: employeeData.disability || '',
+      grade: employeeData.grade || '',
+      hire_date: employeeData.hire_date || new Date().toISOString().split('T')[0].replace(/-/g, '/'),
+      status: employeeData.status || '在籍',
+      monthlyStatus: employeeData.monthlyStatus || Array(12).fill(1),
+      memo: employeeData.memo || '',
+      count: employeeData.count || 0
+    });
+    
+    // 集計値を更新（オプション）
+    // ここで必要に応じてレポートの合計値を再計算
+    
+    res.status(201).json({
+      success: true,
+      message: '従業員データを作成しました',
+      data: newEmployee
+    });
+  } catch (error) {
+    console.error('従業員詳細作成エラー:', error);
+    res.status(500).json({
+      success: false,
+      message: 'サーバーエラーが発生しました',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// monthlyReportController.js に追加する関数
+
+// 詳細セルを更新
+exports.updateDetailCell = async (req, res) => {
+  try {
+    const { year, month, id } = req.params;
+    const updateData = req.body;
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '更新するデータが指定されていません'
+      });
+    }
+    
+    // 既存レポートの確認
+    const report = await MonthlyReport.findOne({
+      fiscal_year: parseInt(year),
+      month: parseInt(month)
+    });
+    
+    if (!report) {
       return res.status(404).json({
         success: false,
         message: '指定された月次レポートが見つかりません'
       });
     }
     
-    res.status(201).json({
+    // 詳細データの更新処理（実際の実装はデータ構造に依存）
+    // この例では、詳細データがMonthlyReportモデルの一部として保存されていると仮定
+    const updatedReport = await MonthlyReport.findOneAndUpdate(
+      { fiscal_year: parseInt(year), month: parseInt(month) },
+      { $set: { [`details.${id}`]: updateData } },
+      { new: true }
+    );
+    
+    res.json({
       success: true,
-      message: '従業員詳細が作成されました',
+      message: '詳細データが更新されました',
       data: updatedReport
     });
   } catch (error) {
-    console.error('従業員詳細作成エラー:', error);
+    console.error('詳細データ更新エラー:', error);
+    res.status(500).json({
+      success: false,
+      message: 'サーバーエラーが発生しました'
+    });
+  }
+};
+
+// 従業員詳細を削除
+exports.deleteEmployeeDetail = async (req, res) => {
+  try {
+    const { year, month, id } = req.params;
+    
+    // 既存レポートの確認
+    const report = await MonthlyReport.findOne({
+      fiscal_year: parseInt(year),
+      month: parseInt(month)
+    });
+    
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: '指定された月次レポートが見つかりません'
+      });
+    }
+    
+    // 従業員データの存在確認と削除
+    const employeeExists = await Employee.findOne({
+      report_id: report.id,
+      id: parseInt(id)
+    });
+    
+    if (!employeeExists) {
+      return res.status(404).json({
+        success: false,
+        message: '指定された従業員データが見つかりません'
+      });
+    }
+    
+    // 従業員データを削除
+    await Employee.deleteOne({
+      report_id: report.id,
+      id: parseInt(id)
+    });
+    
+    res.json({
+      success: true,
+      message: '従業員データが削除されました'
+    });
+  } catch (error) {
+    console.error('従業員データ削除エラー:', error);
+    res.status(500).json({
+      success: false,
+      message: 'サーバーエラーが発生しました'
+    });
+  }
+};
+
+// CSVインポート
+exports.importEmployeesFromCSV = async (req, res) => {
+  try {
+    const { year, month } = req.params;
+    
+    // ファイルがアップロードされていないか確認
+    if (!req.files || !req.files.csv) {
+      return res.status(400).json({
+        success: false,
+        message: 'CSVファイルがアップロードされていません'
+      });
+    }
+    
+    const csvFile = req.files.csv;
+    
+    // 既存レポートの確認
+    const report = await MonthlyReport.findOne({
+      fiscal_year: parseInt(year),
+      month: parseInt(month)
+    });
+    
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: '指定された月次レポートが見つかりません'
+      });
+    }
+    
+    // CSVをパースして従業員データに変換（ファイル処理の実装はライブラリに依存）
+    // ここではサンプルとして簡略化
+    const csvData = csvFile.data.toString('utf8');
+    const parsedData = parseCSV(csvData); // parseCSV関数は別途実装が必要
+    
+    // 従業員データの一括登録
+    const createdEmployees = [];
+    for (const employeeData of parsedData) {
+      const newEmployee = await Employee.create({
+        report_id: report.id,
+        ...employeeData
+      });
+      createdEmployees.push(newEmployee);
+    }
+    
+    res.status(201).json({
+      success: true,
+      message: `${createdEmployees.length}件の従業員データをインポートしました`,
+      data: createdEmployees
+    });
+  } catch (error) {
+    console.error('CSVインポートエラー:', error);
+    res.status(500).json({
+      success: false,
+      message: 'サーバーエラーが発生しました'
+    });
+  }
+};
+
+// システム設定を取得
+exports.getSettings = async (req, res) => {
+  try {
+    // システム設定を取得（実際の実装はデータベースや設定ファイルに依存）
+    // この例では、ハードコードされた設定を返す
+    const settings = {
+      company: {
+        name: '株式会社サンプル',
+        address: '東京都千代田区1-1-1',
+        phone: '03-1234-5678'
+      },
+      reporting: {
+        legal_employment_rate: 2.3, // 法定雇用率のデフォルト値
+        fiscal_year_start_month: 4  // 会計年度開始月
+      },
+      ui: {
+        theme: 'light',
+        language: 'ja'
+      },
+      // その他の設定...
+    };
+    
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    console.error('設定取得エラー:', error);
     res.status(500).json({
       success: false,
       message: 'サーバーエラーが発生しました'

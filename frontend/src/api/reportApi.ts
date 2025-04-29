@@ -1,7 +1,8 @@
-import axios from 'axios';
-import { MonthlyTotal, MonthlyDetailData, Employee } from '../pages/MonthlyReport/types';
-import client from './client';
+// src/api/reportApi.ts
+import axios, { AxiosError } from 'axios';
+import { MonthlyTotal, Employee } from '../pages/MonthlyReport/types';
 
+// API base URL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // エラーハンドリング関数 - ブラウザストレージエラー対応を追加
@@ -17,7 +18,6 @@ export const handleApiError = (error: any): string => {
   if (axios.isAxiosError(error)) {
     // 特定のエラーパターンに対する処理
     if (error.response && error.response.status === 500) {
-      // バックエンドエラーの場合
       if (error.response.data && error.response.data.error &&
           error.response.data.error.includes('column "notes" of relation "monthly_reports" does not exist')) {
         return '現在のデータベーススキーマでは "notes" フィールドがサポートされていません。データを保存できません。';
@@ -44,13 +44,14 @@ export const handleApiError = (error: any): string => {
 export const getMonthlyReports = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/monthly-reports`);
-    return response.data;
+    return response.data.data || [];
   } catch (error) {
-    throw new Error(handleApiError(error));
+    console.error('月次レポート一覧取得エラー:', error);
+    throw error;
   }
 };
 
-// 特定の年月の月次報告を取得（エラーハンドリング強化）
+// 特定の年月の月次報告を取得
 export const getMonthlyReport = async (year?: number, month?: number) => {
   try {
     // 年度または月が未定義の場合のデフォルト値を設定
@@ -59,55 +60,170 @@ export const getMonthlyReport = async (year?: number, month?: number) => {
     
     console.log(`\n        \n        \n       GET ${API_BASE_URL}/monthly-reports/${validYear}/${validMonth}`);
     const response = await axios.get(`${API_BASE_URL}/monthly-reports/${validYear}/${validMonth}`);
+    
     return response.data;
   } catch (error) {
-    // 404エラーの場合は明示的にエラーメッセージを設定
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      console.error(`指定された月次レポートが見つかりません: ${year}年${month}月`);
-      throw new Error(`指定された月次レポート (${year}年${month}月) が見つかりません。`);
+    console.error(`${year}年${month}月のレポート取得エラー:`, error);
+    throw error;
+  }
+};
+
+// 月次レポートを作成
+export const createMonthlyReport = async (year: number, month: number, data: any) => {
+  try {
+    // データチェック
+    if (!data.fiscal_year) {
+      data.fiscal_year = year;
     }
-    throw new Error(handleApiError(error));
-  }
-};
-
-// 従業員データを更新
-export const updateEmployeeData = async (
-  year: number,
-  month: number,
-  employee_id: number,
-  data: Partial<MonthlyTotal>
-) => {
-  try {
-    const response = await axios.put(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employee_id}`,
-      data
-    );
+    if (!data.month) {
+      data.month = month;
+    }
+    
+    // 小数点表示の修正
+    if (data.legal_employment_rate !== undefined && typeof data.legal_employment_rate === 'number') {
+      // 小数点以下が0なら追加
+      if (data.legal_employment_rate === Math.floor(data.legal_employment_rate)) {
+        data.legal_employment_rate = parseFloat(data.legal_employment_rate.toFixed(1));
+      }
+    }
+    
+    const response = await axios.post(`${API_BASE_URL}/monthly-reports`, data);
     return response.data;
   } catch (error) {
-    throw new Error(handleApiError(error));
+    console.error(`${year}年${month}月のレポート作成エラー:`, error);
+    throw error;
   }
 };
 
-// 詳細セルを更新
-export const updateDetailCell = async (
-  year: number,
-  month: number,
-  detailId: number,
-  field: string,
-  value: any
-) => {
+// 月次レポートを更新
+export const updateMonthlyReport = async (year: number, month: number, data: any) => {
   try {
-    const response = await axios.put(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/details/${detailId}`,
-      { [field]: value }
-    );
+    // 小数点表示の修正
+    if (data.legal_employment_rate !== undefined && typeof data.legal_employment_rate === 'number') {
+      // 小数点以下が0なら追加
+      if (data.legal_employment_rate === Math.floor(data.legal_employment_rate)) {
+        data.legal_employment_rate = parseFloat(data.legal_employment_rate.toFixed(1));
+      }
+    }
+    
+    const response = await axios.put(`${API_BASE_URL}/monthly-reports/${year}/${month}`, data);
     return response.data;
   } catch (error) {
-    throw new Error(handleApiError(error));
+    console.error(`${year}年${month}月のレポート更新エラー:`, error);
+    throw error;
   }
 };
 
-// 月次サマリーを更新（強化版）
+// 月次レポートのステータス更新（確定/未確定）
+export const updateReportStatus = async (year: number, month: number, status: string) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/monthly-reports/${year}/${month}/confirm`, { status });
+    return response.data;
+  } catch (error) {
+    console.error(`${year}年${month}月のレポートステータス更新エラー:`, error);
+    throw error;
+  }
+};
+
+// 従業員データの更新
+export const updateEmployeeData = async (year: number, month: number, employeeId: number, data: Record<string, string>) => {
+  try {
+    const response = await axios.patch(`${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employeeId}`, data);
+    
+    if (response.data && response.data.success) {
+      return response.data.data || null;
+    }
+    
+    throw new Error(response.data?.message || 'データの更新に失敗しました。');
+  } catch (error) {
+    console.error(`従業員ID ${employeeId} の更新エラー:`, error);
+    throw error;
+  }
+};
+
+// 従業員データの作成
+export const createEmployeeDetail = async (year: number, month: number, employeeData: Omit<Employee, 'id'>) => {
+  try {
+    console.log(`
+        
+        
+       POST ${API_BASE_URL}/monthly-reports/${year}/${month}/employees`);
+    console.log('Request Body:', JSON.stringify(employeeData, null, 2));
+    
+    const response = await axios.post(`${API_BASE_URL}/monthly-reports/${year}/${month}/employees`, employeeData);
+    
+    if (response.data && response.data.success) {
+      return response.data.data || null;
+    }
+    
+    throw new Error(response.data?.message || 'データの作成に失敗しました。');
+  } catch (error) {
+    console.error('従業員作成エラー:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      if (error.response.status === 404) {
+        throw new Error('APIエンドポイントが見つかりません。バックエンドサービスを確認してください。');
+      }
+      throw new Error(error.response.data?.message || '従業員データの作成に失敗しました。');
+    }
+    throw error;
+  }
+};
+
+// データ存在チェック
+export const checkReportExists = async (year: number, month: number): Promise<boolean> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
+    return !!response.data && !!response.data.success;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return false;
+    }
+    console.error('データ存在チェックエラー:', error);
+    return false;
+  }
+};
+
+// 従業員データの削除
+export const deleteEmployeeData = async (year: number, month: number, employeeId: number) => {
+  try {
+    const response = await axios.delete(`${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employeeId}`);
+    
+    if (response.data && response.data.success) {
+      return true;
+    }
+    
+    throw new Error(response.data?.message || 'データの削除に失敗しました。');
+  } catch (error) {
+    console.error(`従業員ID ${employeeId} の削除エラー:`, error);
+    throw error;
+  }
+};
+
+// CSVインポート
+export const importEmployeesFromCSV = async (year: number, month: number, fileData: FormData) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/import`, 
+      fileData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    
+    if (response.data && response.data.success) {
+      return response.data.data || null;
+    }
+    
+    throw new Error(response.data?.message || 'CSVインポートに失敗しました。');
+  } catch (error) {
+    console.error('CSVインポートエラー:', error);
+    throw error;
+  }
+};
+
+// 月次サマリーを更新
 export const updateMonthlySummary = async (
   year: number,
   month: number,
@@ -168,7 +284,27 @@ export const updateMonthlySummary = async (
   }
 };
 
-// 月次報告を確認（確定）
+// 詳細セルを更新 - エラーで不足していた関数を追加
+export const updateDetailCell = async (
+  year: number,
+  month: number,
+  detailId: number,
+  field: string,
+  value: any
+) => {
+  try {
+    const response = await axios.put(
+      `${API_BASE_URL}/monthly-reports/${year}/${month}/details/${detailId}`,
+      { [field]: value }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`詳細セル更新エラー:`, error);
+    throw new Error(handleApiError(error));
+  }
+};
+
+// 月次レポートを確認（確定） - エラーで不足していた関数を追加
 export const confirmMonthlyReport = async (year: number, month: number) => {
   try {
     const response = await axios.post(
@@ -176,109 +312,12 @@ export const confirmMonthlyReport = async (year: number, month: number) => {
     );
     return response.data;
   } catch (error) {
+    console.error(`レポート確定エラー:`, error);
     throw new Error(handleApiError(error));
   }
 };
 
-// 月次レポートを新規作成する関数 - 改善版
-export const createMonthlyReport = async (year: number, month: number, data: any) => {
-  try {
-    // データチェック
-    if (!data.fiscal_year) {
-      data.fiscal_year = year;
-    }
-    if (!data.month) {
-      data.month = month;
-    }
-    
-    // 小数点表示の修正
-    if (data.legal_employment_rate !== undefined && typeof data.legal_employment_rate === 'number') {
-      // 小数点以下が0なら追加
-      if (data.legal_employment_rate === Math.floor(data.legal_employment_rate)) {
-        data.legal_employment_rate = parseFloat(data.legal_employment_rate.toFixed(1));
-      }
-    }
-    
-    const response = await axios.post(`${API_BASE_URL}/monthly-reports`, data);
-    return response.data;
-  } catch (error) {
-    throw new Error(handleApiError(error));
-  }
-};
-
-// 月次レポートを更新する関数 - 改善版
-export const updateMonthlyReport = async (year: number, month: number, data: any) => {
-  try {
-    // 小数点表示の修正
-    if (data.legal_employment_rate !== undefined && typeof data.legal_employment_rate === 'number') {
-      // 小数点以下が0なら追加
-      if (data.legal_employment_rate === Math.floor(data.legal_employment_rate)) {
-        data.legal_employment_rate = parseFloat(data.legal_employment_rate.toFixed(1));
-      }
-    }
-    
-    const response = await axios.put(`${API_BASE_URL}/monthly-reports/${year}/${month}`, data);
-    return response.data;
-  } catch (error) {
-    throw new Error(handleApiError(error));
-  }
-};
-
-// 新規従業員詳細の作成
-export const createEmployeeDetail = async (
-  year: number,
-  month: number,
-  employeeData: Partial<Employee>
-) => {
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/create`,
-      employeeData
-    );
-    return response.data;
-  } catch (error) {
-    throw new Error(handleApiError(error));
-  }
-};
-
-// データ存在チェック（新規追加）
-export const checkReportExists = async (year: number, month: number): Promise<boolean> => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
-    return !!response.data && !!response.data.success;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return false;
-    }
-    console.error('データ存在チェックエラー:', error);
-    return false;
-  }
-};
-
-// 直接PUT/POSTリクエストを作成する関数（デバッグおよびテスト用）
-export const directApiRequest = async (
-  method: string,
-  url: string,
-  data: any
-) => {
-  try {
-    console.log(`直接APIリクエスト: ${method} ${url}`, data);
-    
-    const response = await axios({
-      method: method,
-      url: url,
-      data: data
-    });
-    
-    console.log('API応答:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('直接API呼び出しエラー:', error);
-    throw new Error(handleApiError(error));
-  }
-};
-
-// システム設定を取得する関数
+// システム設定を取得する関数 - エラーで不足していた関数を追加
 export const getSettings = async (): Promise<any> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/settings`);
@@ -294,16 +333,18 @@ export const reportApi = {
   getMonthlyReports,
   getMonthlyReport,
   updateEmployeeData,
-  updateDetailCell,
+  updateReportStatus,
   updateMonthlySummary,
-  confirmMonthlyReport,
   createMonthlyReport,
   updateMonthlyReport,
   createEmployeeDetail,
-  directApiRequest,
+  checkReportExists,
+  deleteEmployeeData,
+  importEmployeesFromCSV,
   handleApiError,
-  getSettings,
-  checkReportExists
+  updateDetailCell,   // 追加
+  confirmMonthlyReport, // 追加
+  getSettings         // 追加
 };
 
 export default reportApi;

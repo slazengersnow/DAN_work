@@ -1,3 +1,4 @@
+// src/pages/MonthlyReport/index.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from 'react-query';
@@ -21,6 +22,52 @@ import { generateCSVTemplate, downloadCSV } from './utils';
 
 // API base URL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+
+// サンプル従業員データ（デフォルト表示用）
+const sampleEmployees: Employee[] = [
+  {
+    id: 1,
+    no: 1,
+    employee_id: '1001',
+    name: '山田 太郎',
+    disability_type: '身体障害',
+    disability: '視覚',
+    grade: '1級',
+    hire_date: '2020/04/01',
+    status: '在籍',
+    monthlyStatus: Array(12).fill(1),
+    memo: '',
+    count: 0
+  },
+  {
+    id: 2,
+    no: 2,
+    employee_id: '2222',
+    name: '鈴木 花子',
+    disability_type: '身体障害',
+    disability: '聴覚',
+    grade: '4級',
+    hire_date: '2020/04/01',
+    status: '在籍',
+    monthlyStatus: Array(12).fill(1),
+    memo: '',
+    count: 0
+  },
+  {
+    id: 3,
+    no: 3,
+    employee_id: '3333',
+    name: '佐藤 一郎',
+    disability_type: '知的障害',
+    disability: '',
+    grade: 'B',
+    hire_date: '2020/04/01',
+    status: '在籍',
+    monthlyStatus: Array(12).fill(1),
+    memo: '',
+    count: 0
+  }
+];
 
 // 年間データをUI用の月次詳細形式に変換する関数
 export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetailData => {
@@ -136,6 +183,7 @@ const checkReportExists = async (year: number, month: number): Promise<boolean> 
   }
 };
 
+// MonthlyReport.tsx の続き - メインコンポーネント
 const MonthlyReport: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -212,6 +260,8 @@ const MonthlyReport: React.FC = () => {
       const validYear = selectedYear || new Date().getFullYear();
       const validMonth = selectedMonth || new Date().getMonth() + 1;
       
+      console.log(`年度${validYear}、月${validMonth}のデータ取得開始`);
+      
       try {
         // まず、キャッシュに既にデータがあるか確認
         if (dataCache[validYear] && !isUsingCachedData) {
@@ -222,6 +272,7 @@ const MonthlyReport: React.FC = () => {
         
         // データ取得
         const data = await getMonthlyReport(validYear, validMonth);
+        console.log('API応答:', data);
         
         // キャッシュを更新
         setDataCache(prev => ({
@@ -248,7 +299,11 @@ const MonthlyReport: React.FC = () => {
             return {
               success: true,
               message: 'デフォルトデータを表示',
-              data: null
+              data: {
+                summary: null,
+                employees: [],
+                detail: null
+              }
             };
           }
         }
@@ -279,9 +334,14 @@ const MonthlyReport: React.FC = () => {
             }
           }
           
+          // 従業員データが空の場合でもサンプルデータを使用してUIを表示
+          const employeesData = data.employees && data.employees.length > 0 
+            ? data.employees 
+            : [];
+          
           setCurrentReport({
             summary: summaryData,
-            employees: data.employees || [],
+            employees: employeesData,
             detail: detailData
           });
         } else {
@@ -452,9 +512,14 @@ const MonthlyReport: React.FC = () => {
             const newDetail = response.data.detail || 
                            (response.data.summary ? formatYearlyDataForUI([response.data.summary]) : null);
             
+            // 従業員データが空の場合でもUIを表示するため
+            const employeesData = response.data.employees && response.data.employees.length > 0 
+              ? response.data.employees 
+              : [];
+            
             return {
               summary: response.data.summary || null,
-              employees: response.data.employees || [],
+              employees: employeesData,
               detail: newDetail
             };
           });
@@ -501,11 +566,11 @@ const MonthlyReport: React.FC = () => {
   const isLoading = isLoadingReportsList || isLoadingReportData;
   const hasError = reportsListError || reportDataError;
 
-  if (isLoading && !currentReport.summary) {
+  if (isLoading && !currentReport.summary && !currentReport.employees.length) {
     return <Spinner />;
   }
 
-  if (hasError) {
+  if (hasError && !currentReport.employees.length) {
     console.error("データ取得エラー:", { reportsListError, reportDataError });
     return <ErrorMessage message="データの読み込み中にエラーが発生しました。" />;
   }
@@ -520,8 +585,33 @@ const MonthlyReport: React.FC = () => {
     { id: 'monthly', label: '月次詳細' }
   ];
 
+  // デフォルトのMonthlyTotal型オブジェクト
+  const defaultSummary: MonthlyTotal = {
+    fiscal_year: selectedYear,
+    month: selectedMonth,
+    employees_count: 0,
+    fulltime_count: 0,
+    parttime_count: 0,
+    level1_2_count: 0,
+    other_disability_count: 0,
+    level1_2_parttime_count: 0,
+    other_parttime_count: 0,
+    legal_employment_rate: 2.3,
+    total_disability_count: 0,
+    employment_rate: 0,
+    required_count: 0,
+    over_under_count: 0,
+    status: '未確定'
+  };
+
   // タブコンテンツをレンダリングするための関数
   const renderTabContent = () => {
+    console.log('タブレンダリング:', {
+      activeTab,
+      employeesCount: employees?.length || 0,
+      hasSummary: !!summary
+    });
+
     if (activeTab === 'summary') {
       return (
         <SummaryTab 
@@ -532,13 +622,14 @@ const MonthlyReport: React.FC = () => {
       );
     }
     
-    if (activeTab === 'employees' && summary) {
+    if (activeTab === 'employees') {
       return (
         <EmployeesTab 
-          employees={employees} 
+          employees={employees || []} 
           onEmployeeChange={handleEmployeeChange}
-          summaryData={summary}
+          summaryData={summary || defaultSummary}
           onRefreshData={handleRefreshData}
+          onYearChange={handleYearChange}
         />
       );
     }
