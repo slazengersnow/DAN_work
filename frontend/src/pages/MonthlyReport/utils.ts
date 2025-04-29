@@ -45,59 +45,80 @@ export const processEmployeeData = (apiEmployeeData: any[], selectedYear?: numbe
  * 年間データをUI表示用に変換する
  */
 export const formatYearlyDataForUI = (yearlyData: MonthlyTotal[]): MonthlyDetailData => {
-  // 月別に並べ替え（4月始まり）
+  // 無効なデータをフィルタリング
+  const validData = yearlyData.filter(d => d != null);
+  
+  // 月別に並べ替え（4月始まり会計年度を想定）
   const orderedData = [
-    ...yearlyData.filter(d => d.month >= 4).sort((a, b) => a.month - b.month),
-    ...yearlyData.filter(d => d.month <= 3).sort((a, b) => a.month - b.month)
+    ...validData.filter(d => d.month >= 4).sort((a, b) => a.month - b.month),
+    ...validData.filter(d => d.month <= 3).sort((a, b) => a.month - b.month)
   ];
+
+  // 各月のデータが存在するか確認し、不足している月のデータを補完
+  const fullYearData: MonthlyTotal[] = [];
+  const monthsInFiscalYear = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
   
+  // 必要に応じて全ての月のデータを用意
+  const fiscalYear = orderedData.length > 0 ? orderedData[0].fiscal_year : new Date().getFullYear();
+  
+  monthsInFiscalYear.forEach(month => {
+    const existingData = orderedData.find(d => d.month === month);
+    if (existingData) {
+      fullYearData.push(existingData);
+    } else {
+      // 存在しない月のデータを空データで補完
+      fullYearData.push({
+        id: 0,
+        fiscal_year: fiscalYear,
+        month: month,
+        employees_count: 0,
+        fulltime_count: 0,
+        parttime_count: 0,
+        level1_2_count: 0,
+        other_disability_count: 0,
+        level1_2_parttime_count: 0,
+        other_parttime_count: 0,
+        legal_employment_rate: 2.3,
+        total_disability_count: 0,
+        employment_rate: 0,
+        required_count: 0,
+        over_under_count: 0,
+        status: ''
+      });
+    }
+  });
+
   // 各値の合計を計算
-  const sumTotalEmployees = orderedData.reduce((sum, d) => sum + safeNumber(d.total_employees), 0);
-  const sumFullTimeEmployees = orderedData.reduce((sum, d) => sum + safeNumber(d.full_time_employees), 0);
-  const sumPartTimeEmployees = orderedData.reduce((sum, d) => sum + safeNumber(d.part_time_employees), 0);
-  const sumDisabledEmployees = orderedData.reduce((sum, d) => sum + safeNumber(d.disabled_employees), 0);
-  const avgActualRate = orderedData.reduce((sum, d) => sum + safeNumber(d.actual_rate), 0) / orderedData.length;
-  const avgLegalRate = orderedData.reduce((sum, d) => sum + safeNumber(d.legal_rate), 0) / orderedData.length;
-  const sumLegalCount = orderedData.reduce((sum, d) => sum + safeNumber(d.legal_count || 0), 0);
-  const sumShortage = orderedData.reduce((sum, d) => sum + safeNumber(d.shortage || 0), 0);
-  
+  const sumTotalEmployees = fullYearData.reduce((sum, d) => sum + safeNumber(d.employees_count), 0);
+  const sumFullTimeEmployees = fullYearData.reduce((sum, d) => sum + safeNumber(d.fulltime_count), 0);
+  const sumPartTimeEmployees = fullYearData.reduce((sum, d) => sum + safeNumber(d.parttime_count), 0);
+  const sumLevel1_2Count = fullYearData.reduce((sum, d) => sum + safeNumber(d.level1_2_count), 0);
+  const sumOtherDisabilityCount = fullYearData.reduce((sum, d) => sum + safeNumber(d.other_disability_count), 0);
+  const sumLevel1_2ParttimeCount = fullYearData.reduce((sum, d) => sum + safeNumber(d.level1_2_parttime_count), 0);
+  const sumOtherParttimeCount = fullYearData.reduce((sum, d) => sum + safeNumber(d.other_parttime_count), 0);
+  const sumTotalDisabilityCount = fullYearData.reduce((sum, d) => sum + safeNumber(d.total_disability_count), 0);
+  const avgActualRate = parseFloat((fullYearData.reduce((sum, d) => sum + safeNumber(d.employment_rate), 0) / fullYearData.length).toFixed(1));
+  const avgLegalRate = parseFloat((fullYearData.reduce((sum, d) => sum + safeNumber(d.legal_employment_rate), 0) / fullYearData.length).toFixed(1));
+  const sumLegalCount = fullYearData.reduce((sum, d) => sum + safeNumber(d.required_count), 0);
+  const sumOverUnder = fullYearData.reduce((sum, d) => sum + safeNumber(d.over_under_count), 0);
+
   // UI表示用のデータ形式に変換
   return {
     months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
     data: [
-      { id: 1, item: '従業員数', values: [...orderedData.map(d => safeNumber(d.total_employees)), sumTotalEmployees] },
-      { id: 2, item: 'フルタイム従業員数', values: [...orderedData.map(d => safeNumber(d.full_time_employees)), sumFullTimeEmployees] },
-      { id: 3, item: 'パートタイム従業員数', values: [...orderedData.map(d => safeNumber(d.part_time_employees)), sumPartTimeEmployees] },
-      { id: 4, item: 'トータル従業員数', values: [...orderedData.map(d => safeNumber(d.total_employees)), sumTotalEmployees] },
-      { id: 9, item: 'トータル障がい者数', values: [...orderedData.map(d => safeNumber(d.disabled_employees)), sumDisabledEmployees], isDisability: true },
-      { 
-        id: 10, 
-        item: '実雇用率', 
-        values: [...orderedData.map(d => safeNumber(d.actual_rate)), avgActualRate], 
-        suffix: '%', 
-        isRatio: true, 
-        isCalculated: true 
-      },
-      { 
-        id: 11, 
-        item: '法定雇用率', 
-        values: [...orderedData.map(d => safeNumber(d.legal_rate)), avgLegalRate], 
-        suffix: '%', 
-        isRatio: true 
-      },
-      { 
-        id: 12, 
-        item: '法定雇用者数', 
-        values: [...orderedData.map(d => safeNumber(d.legal_count || 0)), sumLegalCount], 
-        isCalculated: true 
-      },
-      { 
-        id: 13, 
-        item: '超過・未達', 
-        values: [...orderedData.map(d => safeNumber(d.shortage || 0)), sumShortage], 
-        isNegative: true, 
-        isCalculated: true 
-      }
+      { id: 1, item: '従業員数', values: [...fullYearData.map(d => safeNumber(d.employees_count)), sumTotalEmployees], suffix: '名' },
+      { id: 2, item: 'フルタイム従業員数', values: [...fullYearData.map(d => safeNumber(d.fulltime_count)), sumFullTimeEmployees], suffix: '名' },
+      { id: 3, item: 'パートタイム従業員数', values: [...fullYearData.map(d => safeNumber(d.parttime_count)), sumPartTimeEmployees], suffix: '名' },
+      { id: 4, item: 'トータル従業員数', values: [...fullYearData.map(d => safeNumber(d.employees_count)), sumTotalEmployees], suffix: '名', isCalculated: true },
+      { id: 5, item: '1級・2級の障がい者', values: [...fullYearData.map(d => safeNumber(d.level1_2_count)), sumLevel1_2Count], suffix: '名', isDisability: true },
+      { id: 6, item: 'その他障がい者', values: [...fullYearData.map(d => safeNumber(d.other_disability_count)), sumOtherDisabilityCount], suffix: '名', isDisability: true },
+      { id: 7, item: '1級・2級の障がい者(パートタイム)', values: [...fullYearData.map(d => safeNumber(d.level1_2_parttime_count)), sumLevel1_2ParttimeCount], suffix: '名', isDisability: true },
+      { id: 8, item: 'その他障がい者(パートタイム)', values: [...fullYearData.map(d => safeNumber(d.other_parttime_count)), sumOtherParttimeCount], suffix: '名', isDisability: true },
+      { id: 9, item: '障がい者合計', values: [...fullYearData.map(d => safeNumber(d.total_disability_count)), sumTotalDisabilityCount], suffix: '名', isDisability: true, isCalculated: true },
+      { id: 10, item: '実雇用率', values: [...fullYearData.map(d => safeNumber(d.employment_rate)), avgActualRate], suffix: '%', isRatio: true, isCalculated: true },
+      { id: 11, item: '法定雇用率', values: [...fullYearData.map(d => safeNumber(d.legal_employment_rate)), avgLegalRate], suffix: '%', isRatio: true },
+      { id: 12, item: '法定雇用者数', values: [...fullYearData.map(d => safeNumber(d.required_count)), sumLegalCount], suffix: '名', isCalculated: true },
+      { id: 13, item: '超過・未達', values: [...fullYearData.map(d => safeNumber(d.over_under_count)), sumOverUnder], isNegative: true, isCalculated: true, suffix: '名' }
     ]
   };
 };
@@ -121,8 +142,49 @@ export interface MonthlyCSVData {
 }
 
 /**
+ * CSVデータ項目と内部APIフィールドの対応マッピング
+ */
+const CSV_TO_API_FIELD_MAPPING: { [key: string]: string } = {
+  // 従業員データ
+  '従業員数': 'employees_count',  
+  '従業員数 (名)': 'employees_count',
+  'フルタイム従業員数': 'fulltime_count',
+  'フルタイム従業員数 (名)': 'fulltime_count',
+  'パートタイム従業員数': 'parttime_count',
+  'パートタイム従業員数 (名)': 'parttime_count',
+  'トータル従業員数': 'total_employees_count',
+  'トータル従業員数 (名)': 'total_employees_count',
+  
+  // 障がい者データ
+  '1級・2級の障がい者': 'level1_2_count',
+  '1級・2級の障がい者 (名)': 'level1_2_count',
+  'その他障がい者': 'other_disability_count',
+  'その他障がい者 (名)': 'other_disability_count',
+  '1級・2級の障がい者(パートタイム)': 'level1_2_parttime_count',
+  '1級・2級の障がい者(パートタイム)(名)': 'level1_2_parttime_count',
+  '1級・2級の障がい者（パートタイム）': 'level1_2_parttime_count',
+  '1級・2級の障がい者（パートタイム）(名)': 'level1_2_parttime_count',
+  'その他障がい者(パートタイム)': 'other_parttime_count',
+  'その他障がい者(パートタイム)(名)': 'other_parttime_count',
+  'その他障がい者（パートタイム）': 'other_parttime_count',
+  'その他障がい者（パートタイム）(名)': 'other_parttime_count',
+  '障がい者合計': 'total_disability_count',
+  '障がい者合計 (名)': 'total_disability_count',
+  
+  // 雇用率関連
+  '実雇用率': 'employment_rate',
+  '実雇用率 (%)': 'employment_rate',
+  '法定雇用率': 'legal_employment_rate',
+  '法定雇用率 (%)': 'legal_employment_rate',
+  '法定雇用者数': 'required_count',
+  '法定雇用者数 (名)': 'required_count',
+  '超過・未達': 'over_under_count',
+  '超過・未達 (名)': 'over_under_count'
+};
+
+/**
  * 文字化けを防止するBOMを追加してCSVテンプレートを生成する
- * 年度行を含めた形式に修正（空の年度と0.0の法定雇用率）
+ * MonthlyReportDetailの表示項目と一致させた形式に修正
  */
 export const generateCSVTemplate = (fiscalYear: number): string => {
   // CSVデータ作成
@@ -134,17 +196,16 @@ export const generateCSVTemplate = (fiscalYear: number): string => {
   // 月の行 - 各月を明示的に列挙
   csvContent += '月,4,5,6,7,8,9,10,11,12,1,2,3\n';
   
-  // データ行 - 法定雇用率のデフォルト値を0.0に変更
+  // データ行 - 指定された項目のみ含める（自動計算項目を除外）
   const dataRows = [
     ['従業員数 (名)', ...Array(12).fill('0')],
     ['フルタイム従業員数 (名)', ...Array(12).fill('0')],
     ['パートタイム従業員数 (名)', ...Array(12).fill('0')],
-    ['トータル従業員数 (名)', ...Array(12).fill('0')],
     ['1級・2級の障がい者 (名)', ...Array(12).fill('0')],
     ['その他障がい者 (名)', ...Array(12).fill('0')],
     ['1級・2級の障がい者(パートタイム)(名)', ...Array(12).fill('0')],
     ['その他障がい者(パートタイム)(名)', ...Array(12).fill('0')],
-    ['法定雇用率 (%)', ...Array(12).fill('0.0')] // 0.0に設定
+    ['法定雇用率 (%)', ...Array(12).fill('2.3')]
   ];
   
   // データ行を追加
@@ -170,8 +231,72 @@ export const downloadCSV = (content: string, filename: string): void => {
 };
 
 /**
+ * 行タイプを識別する関数 - 表記ゆれに対応
+ */
+const identifyRowType = (rowText: string): string | null => {
+  // 表記ゆれや部分一致を考慮した判定ルール
+  const patterns = [
+    { id: '従業員数 (名)', keywords: ['従業員数'], excludes: ['フルタイム', 'パートタイム', 'トータル'] },
+    { id: 'フルタイム従業員数 (名)', keywords: ['フルタイム', '従業員'] },
+    { id: 'パートタイム従業員数 (名)', keywords: ['パートタイム', '従業員'] },
+    { id: 'トータル従業員数 (名)', keywords: ['トータル', '従業員'] },
+    { id: '1級・2級の障がい者 (名)', keywords: ['1級・2級', '障がい者'], excludes: ['パートタイム'] },
+    { id: 'その他障がい者 (名)', keywords: ['その他', '障がい者'], excludes: ['パートタイム'] },
+    { id: '1級・2級の障がい者(パートタイム)(名)', keywords: ['1級・2級', '障がい者', 'パートタイム'] },
+    { id: 'その他障がい者(パートタイム)(名)', keywords: ['その他', '障がい者', 'パートタイム'] },
+    { id: '法定雇用率 (%)', keywords: ['法定', '雇用率'] }
+  ];
+
+  for (const pattern of patterns) {
+    const allKeywordsMatch = pattern.keywords.every(kw => rowText.includes(kw));
+    const noExcludesMatch = !pattern.excludes || 
+      pattern.excludes.every(ex => !rowText.includes(ex));
+    
+    if (allKeywordsMatch && noExcludesMatch) {
+      return pattern.id;
+    }
+  }
+  
+  return null;
+};
+
+/**
+ * CSVから抽出された障がい者データを正しくAPIデータに変換する関数
+ */
+const processDisabilityData = (
+  level1_2Count: number, 
+  otherDisabilityCount: number, 
+  level1_2ParttimeCount: number, 
+  otherParttimeCount: number
+): { 
+  level1_2_count: number, 
+  other_disability_count: number, 
+  level1_2_parttime_count: number, 
+  other_parttime_count: number,
+  total_disability_count: number
+} => {
+  // それぞれの値を整数に変換
+  const l1_2 = Math.round(level1_2Count);
+  const other = Math.round(otherDisabilityCount);
+  const l1_2_part = Math.round(level1_2ParttimeCount);
+  const other_part = Math.round(otherParttimeCount);
+  
+  // 合計値を計算（障がい者合計値）
+  // 1級・2級は2倍、パートタイムは0.5倍でカウント
+  const total = (l1_2 * 2) + other + (l1_2_part * 2 * 0.5) + (other_part * 0.5);
+  
+  return {
+    level1_2_count: l1_2,
+    other_disability_count: other,
+    level1_2_parttime_count: l1_2_part,
+    other_parttime_count: other_part,
+    total_disability_count: total
+  };
+};
+
+/**
  * CSV形式で入力されたテンプレートデータをAPIで使用可能な形式に変換する
- * 改良版: 年度の検出とカラム名の特定を強化
+ * 改良版: 年度の検出とカラム名の特定を強化、障がい者データのマッピングを修正
  */
 export const convertTemplateDataToApiFormat = (csvData: any[], defaultFiscalYear: number): MonthlyCSVData[] => {
   // デバッグ出力
@@ -184,7 +309,7 @@ export const convertTemplateDataToApiFormat = (csvData: any[], defaultFiscalYear
   // CSVのヘッダー行を分析し、数値の年度を検出する
   for (const row of csvData) {
     // 年度キーが存在する行を検索
-    if ('年度' in row) {
+    if ('年度' in row && row['年度'] !== null && row['年度'] !== '' && row['年度'] !== undefined) {
       const yearValue = row['年度'];
       if (yearValue !== null && yearValue !== '' && yearValue !== undefined) {
         // 文字列や数値にかかわらず、有効な年度値として処理を試みる
@@ -244,7 +369,7 @@ export const convertTemplateDataToApiFormat = (csvData: any[], defaultFiscalYear
 
 /**
  * 横型テンプレート処理の改良版
- * いくつかの特殊な形式に対応
+ * いくつかの特殊な形式に対応し、障がい者データのマッピングを修正
  */
 const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyCSVData[] => {
   console.log('横型テンプレート処理開始:', { rows: csvData.length, fiscalYear });
@@ -272,7 +397,6 @@ const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyC
   console.log('すべての列キー:', Array.from(allKeys));
 
   // ヘッダー行を特定するための改良処理
-  let monthRow: any = null;
   let monthKeyMap: {[key: string]: number} = {};
   
   // 月の行を探す - 改良版
@@ -281,7 +405,6 @@ const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyC
     const rowValues = Object.values(row).map(v => String(v).trim());
     if (rowValues.includes('月')) {
       console.log('「月」を含む行を検出:', row);
-      monthRow = row;
       
       // 月の列と数値の対応関係を作成
       Object.entries(row).forEach(([key, value]) => {
@@ -299,13 +422,13 @@ const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyC
   }
   
   // 月の行が見つからない場合、最初の行が月の行であると仮定
-  if (!monthRow && csvData.length > 0) {
+  if (!monthKeyMap || Object.keys(monthKeyMap).length === 0) {
     console.log('明示的な月行が見つからないため、最初の行を使用します');
-    monthRow = csvData[0];
+    const firstRow = csvData[0];
     
     // 最初の行の数値を月として解釈
-    if (monthRow) {  // nullチェックを追加
-      Object.entries(monthRow).forEach(([key, value]) => {
+    if (firstRow) {  // nullチェックを追加
+      Object.entries(firstRow).forEach(([key, value]) => {
         const strValue = String(value).trim();
         // 数値または月の列名に一致する値を探す
         if (monthColumns.includes(strValue) || !isNaN(parseInt(strValue, 10))) {
@@ -322,23 +445,20 @@ const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyC
   }
   
   // 月の行が依然として見つからない、またはマッピングが作成できない場合
-  if (Object.keys(monthKeyMap).length === 0 && csvData.length > 0) {
+  if (Object.keys(monthKeyMap).length === 0) {
     console.log('月のマッピングが作成できませんでした。列名から推測を試みます。');
     
-    // 列名から月を推測（例：'2024'、'_empty_xxx'など）
-    const firstRow = csvData[0];
-    if (firstRow) {  // nullチェックを追加
-      const possibleMonthColumns = Object.keys(firstRow).filter(key => 
-        key !== '年度' && key !== '月'
-      );
-      
-      // 月の順序を推測
-      possibleMonthColumns.forEach((key, index) => {
-        const monthIndex = index % 12;
-        const monthNum = monthIndex >= 9 ? monthIndex - 8 : monthIndex + 4; // 4,5,6,7,8,9,10,11,12,1,2,3
-        monthKeyMap[key] = monthNum;
-      });
-    }
+    // 列名から月を推測
+    const possibleMonthColumns = Array.from(allKeys).filter(key => 
+      key !== '年度' && key !== '月'
+    );
+    
+    // 月の順序を推測
+    possibleMonthColumns.forEach((key, index) => {
+      const monthIndex = index % 12;
+      const monthNum = monthIndex >= 9 ? monthIndex - 8 : monthIndex + 4; // 4,5,6,7,8,9,10,11,12,1,2,3
+      monthKeyMap[key] = monthNum;
+    });
     
     console.log('列名から推測された月のマッピング:', monthKeyMap);
   }
@@ -348,49 +468,36 @@ const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyC
     return [];
   }
 
-  // データ行を特定 - 各項目行を含むようにロジックを変更
-  const dataRowTypes = [
-    { keyword: '従業員数', notKeyword: ['フルタイム', 'パートタイム', 'トータル'] },
-    { keyword: 'フルタイム従業員数' },
-    { keyword: 'パートタイム従業員数' },
-    { keyword: 'トータル従業員数' },
-    { keyword: '1級・2級', notKeyword: 'パートタイム' },
-    { keyword: 'その他障がい者', notKeyword: 'パートタイム' },
-    { keyword: '1級・2級', andKeyword: 'パートタイム' },
-    { keyword: 'その他障がい者', andKeyword: 'パートタイム' },
-    { keyword: '法定雇用率' }
-  ];
-  
-  // 各データ行のマッピング
-  const dataRowMappings: {[type: string]: any} = {};
+  // 各行のタイプを特定し、データマッピングを構築
+  const dataRowMappings: {[key: string]: any} = {};
   
   // CSVの各行を調査
   for (const row of csvData) {
     // 行のすべての値を連結して検索しやすくする
     const rowText = Object.values(row).map(v => String(v).trim()).join(' ');
+    // 行のタイプを特定（従業員数、障がい者数など）
+    const rowType = identifyRowType(rowText);
     
-    for (const rowType of dataRowTypes) {
-      // キーワードが含まれているかチェック
-      const hasKeyword = rowText.includes(rowType.keyword);
-      
-      // 除外キーワードがある場合はチェック
-      const notExcluded = !rowType.notKeyword || 
-        (Array.isArray(rowType.notKeyword) 
-          ? !rowType.notKeyword.some(nk => rowText.includes(nk))
-          : !rowText.includes(rowType.notKeyword));
-      
-      // 追加のキーワードがある場合はチェック
-      const hasAndKeyword = !rowType.andKeyword || rowText.includes(rowType.andKeyword);
-      
-      if (hasKeyword && notExcluded && hasAndKeyword) {
-        dataRowMappings[rowType.keyword] = row;
-        console.log(`「${rowType.keyword}」の行を検出:`, row);
-        break;
-      }
+    if (rowType) {
+      console.log(`「${rowType}」の行を検出:`, row);
+      dataRowMappings[rowType] = row;
     }
   }
   
   console.log('検出されたデータ行:', Object.keys(dataRowMappings));
+  
+  // データの欠落を検出し、警告
+  const expectedRows = [
+    '従業員数 (名)', 'フルタイム従業員数 (名)', 'パートタイム従業員数 (名)', 
+    '1級・2級の障がい者 (名)', 'その他障がい者 (名)', 
+    '1級・2級の障がい者(パートタイム)(名)', 'その他障がい者(パートタイム)(名)',
+    '法定雇用率 (%)'
+  ];
+  
+  const missingRows = expectedRows.filter(row => !dataRowMappings[row]);
+  if (missingRows.length > 0) {
+    console.warn('必要なデータ行が見つかりません:', missingRows);
+  }
   
   // 各月のデータを抽出
   Object.entries(monthKeyMap).forEach(([columnKey, month]) => {
@@ -402,76 +509,69 @@ const processHorizontalTemplate = (csvData: any[], fiscalYear: number): MonthlyC
     console.log(`月${month}のデータを処理中... (列キー: ${columnKey})`);
     
     // 値を安全に取得する関数
-    const getValueSafely = (rowMapping: any, key: string): number => {
+    const getValueSafely = (rowKey: string, colKey: string): number => {
+      const rowMapping = dataRowMappings[rowKey];
       if (!rowMapping) return 0;
       
-      const value = rowMapping[key];
+      const value = rowMapping[colKey];
       if (value === undefined || value === null || value === '') return 0;
       
       const numValue = typeof value === 'number' ? value : parseFloat(String(value));
       return isNaN(numValue) ? 0 : numValue;
     };
     
-    // 各項目の値を取得 - 値に対応する行を特定して取得
-    const employeesCount = getValueSafely(dataRowMappings['従業員数'], columnKey);
-    const fulltimeCount = getValueSafely(dataRowMappings['フルタイム従業員数'], columnKey);
-    const parttimeCount = getValueSafely(dataRowMappings['パートタイム従業員数'], columnKey);
-    const totalEmployeesCount = getValueSafely(dataRowMappings['トータル従業員数'], columnKey) || employeesCount;
+    // 各項目の値を取得
+    const employeesCount = getValueSafely('従業員数 (名)', columnKey);
+    const fulltimeCount = getValueSafely('フルタイム従業員数 (名)', columnKey);
+    const parttimeCount = getValueSafely('パートタイム従業員数 (名)', columnKey);
     
-    // 障がい者関連のデータを取得 - 1級・2級とその他に分けて取得
-    const level1_2Count = getValueSafely(dataRowMappings['1級・2級'], columnKey);
-    const otherDisabilityCount = getValueSafely(dataRowMappings['その他障がい者'], columnKey);
+    // 障がい者データの取得
+    const level1_2Count = getValueSafely('1級・2級の障がい者 (名)', columnKey);
+    const otherDisabilityCount = getValueSafely('その他障がい者 (名)', columnKey);
+    const level1_2ParttimeCount = getValueSafely('1級・2級の障がい者(パートタイム)(名)', columnKey);
+    const otherParttimeCount = getValueSafely('その他障がい者(パートタイム)(名)', columnKey);
     
-    // パートタイム障がい者のデータを取得 (両方のキーワードを含む行)
-    let level1_2ParttimeRow = null;
-    let otherParttimeRow = null;
+    // 法定雇用率
+    const legalEmploymentRate = getValueSafely('法定雇用率 (%)', columnKey);
     
-    // 1級・2級のパートタイム障がい者行を特定
-    for (const row of csvData) {
-      const rowText = Object.values(row).map(v => String(v).trim()).join(' ');
-      if (rowText.includes('1級・2級') && rowText.includes('パートタイム')) {
-        level1_2ParttimeRow = row;
-      }
-      if (rowText.includes('その他障がい者') && rowText.includes('パートタイム')) {
-        otherParttimeRow = row;
-      }
-    }
-    
-    const level1_2ParttimeCount = getValueSafely(level1_2ParttimeRow, columnKey);
-    const otherParttimeCount = getValueSafely(otherParttimeRow, columnKey);
-    
-    // 法定雇用率を取得
-    const legalEmploymentRate = getValueSafely(dataRowMappings['法定雇用率'], columnKey);
-    
-    // 従業員数がなくても、フルタイムかパートタイムの値があれば使用
-    const finalEmployeesCount = employeesCount || totalEmployeesCount || (fulltimeCount + parttimeCount);
-    
-    // 有効なデータであるかチェック
-    const hasAnyValue = 
-      finalEmployeesCount > 0 || 
-      fulltimeCount > 0 || 
-      parttimeCount > 0 || 
-      level1_2Count > 0 || 
-      otherDisabilityCount > 0;
-    
-    if (!hasAnyValue) {
-      console.log(`月${month}のデータはすべて0なのでスキップします`);
-      return;
-    }
+    // 障がい者データを処理
+    const disabilityData = processDisabilityData(
+      level1_2Count, 
+      otherDisabilityCount, 
+      level1_2ParttimeCount, 
+      otherParttimeCount
+    );
     
     // 月データのオブジェクトを作成
     const monthData: MonthlyCSVData = {
       fiscal_year: fiscalYear,
       month,
-      employees_count: Math.round(finalEmployeesCount),
+      employees_count: Math.round(employeesCount),
       fulltime_count: Math.round(fulltimeCount),
       parttime_count: Math.round(parttimeCount),
-      level1_2_count: Math.round(level1_2Count),
-      other_disability_count: Math.round(otherDisabilityCount),
-      level1_2_parttime_count: Math.round(level1_2ParttimeCount),
-      other_parttime_count: Math.round(otherParttimeCount),
-      legal_employment_rate: legalEmploymentRate
+      level1_2_count: disabilityData.level1_2_count,
+      other_disability_count: disabilityData.other_disability_count,
+      level1_2_parttime_count: disabilityData.level1_2_parttime_count,
+      other_parttime_count: disabilityData.other_parttime_count,
+      legal_employment_rate: legalEmploymentRate,
+      total_disability_count: disabilityData.total_disability_count
     };
+    
+    // 実雇用率を計算（障がい者合計数 / 従業員数 * 100）- 小数点第2位で切り上げ
+    if (employeesCount > 0) {
+      const rawRate = (disabilityData.total_disability_count / employeesCount) * 100;
+      monthData.employment_rate = Math.ceil(rawRate * 10) / 10; // 小数点第2位で切り上げ
+    }
+    
+    // 法定雇用者数を計算（従業員数 * 法定雇用率 / 100）
+    if (employeesCount > 0 && legalEmploymentRate > 0) {
+      monthData.required_count = Math.ceil(employeesCount * (legalEmploymentRate / 100));
+    }
+    
+    // 超過・未達を計算（障がい者合計数 - 法定雇用者数）
+    if (monthData.required_count !== undefined && monthData.total_disability_count !== undefined) {
+      monthData.over_under_count = monthData.total_disability_count - monthData.required_count;
+    }
     
     console.log(`月${month}のデータ:`, monthData);
     monthlyData.push(monthData);

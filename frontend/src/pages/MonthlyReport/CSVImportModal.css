@@ -16,14 +16,17 @@
   border-radius: 8px;
   padding: 0;
   width: 90%;
-  max-width: 600px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  max-width: 560px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
 }
 
 .csv-import-modal-header {
   background-color: #6366f1;
   color: white;
-  padding: 15px 20px;
+  padding: 12px 16px;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
   text-align: center;
@@ -31,38 +34,74 @@
 
 .csv-import-modal-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
 }
 
 .csv-import-modal-body {
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
 }
 
 .csv-import-modal-footer {
-  padding: 15px 20px;
+  padding: 12px 16px;
   display: flex;
   justify-content: flex-end;
-  gap: 15px;
+  gap: 12px;
   border-top: 1px solid #e0e0e0;
+  background-color: #f9fafb;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  padding: 10px;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 12px;
   border-radius: 4px;
-  margin-bottom: 10px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .success-message {
-  background-color: #d4edda;
-  color: #155724;
-  padding: 10px;
+  background-color: #d1fae5;
+  color: #047857;
+  padding: 8px 12px;
   border-radius: 4px;
-  margin-bottom: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-info-section {
+  background-color: #f0f7ff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  border-left: 4px solid #3a66d4;
+}
+
+.import-info-section p {
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-info-section p.note {
+  color: #4b5563;
+  font-style: italic;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 
 .import-template-button {
@@ -70,11 +109,13 @@
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 10px 15px;
+  padding: 6px 10px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 500;
   transition: background-color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .import-template-button:hover {
@@ -84,14 +125,14 @@
 .file-select-area {
   border: 2px dashed #d1d5db;
   border-radius: 4px;
-  padding: 20px;
+  padding: 16px;
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .file-select-area:hover {
@@ -103,14 +144,15 @@
   color: #374151;
   border: none;
   border-radius: 4px;
-  padding: 8px 15px;
-  font-size: 0.9rem;
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 
 .file-name {
   color: #6b7280;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   word-break: break-all;
+  max-width: 100%;
 }
 
 .cancel-button {
@@ -118,9 +160,9 @@
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 8px 16px;
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: background-color 0.2s;
 }
 
@@ -133,9 +175,9 @@
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 8px 16px;
+  padding: 8px 14px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   transition: background-color 0.2s;
 }
@@ -151,62 +193,138 @@
   cursor: not-allowed;
 }
 
-.fiscal-year-selector {
+/* Progress and status displays */
+.import-progress-compact {
+  background-color: #f8fafc;
+  border-radius: 6px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
 }
 
-.import-info-section {
-  background-color: #f0f7ff;
-  border-radius: 6px;
-  padding: 12px 15px;
-  border-left: 4px solid #3a66d4;
-}
-
-.import-info-section p {
-  margin: 8px 0;
-  font-size: 0.9rem;
-}
-
-.import-progress {
-  background-color: #e6fffa;
-  border-radius: 6px;
-  padding: 12px 15px;
-  border-left: 4px solid #10b981;
+.status-row {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
-.progress-indicator {
-  width: 20px;
-  height: 20px;
+.spinner {
+  width: 16px;
+  height: 16px;
   border: 2px solid #10b981;
   border-radius: 50%;
   border-top-color: transparent;
   animation: spin 1s linear infinite;
-  margin-right: 12px;
+}
+
+.success-icon {
+  width: 16px;
+  height: 16px;
+  background-color: #10b981;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.error-icon {
+  width: 16px;
+  height: 16px;
+  background-color: #ef4444;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.ready-icon {
+  width: 16px;
+  height: 16px;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.status-message {
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background-color: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #10b981;
+  transition: width 0.3s ease;
+}
+
+.detected-year-info {
+  font-size: 0.8rem;
+  color: #3b82f6;
+  background-color: #eff6ff;
+  border-radius: 4px;
+  padding: 8px 10px;
+  border-left: 3px solid #3b82f6;
+  margin-top: 4px;
+}
+
+.import-status-list {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.processed-months-label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #4b5563;
+}
+
+.processed-months-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.processed-month-item {
+  background-color: #e5e7eb;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  color: #374151;
+}
+
+.processed-month-item:nth-child(odd) {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.import-summary {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f0fdf4;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  border-left: 3px solid #10b981;
+  color: #065f46;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.import-progress p {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #047857;
-}
-
-.detected-year {
-  background-color: #e0f2fe;
-  border-radius: 6px;
-  padding: 10px 15px;
-  border-left: 4px solid #0ea5e9;
-}
-
-.detected-year p {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #0369a1;
 }

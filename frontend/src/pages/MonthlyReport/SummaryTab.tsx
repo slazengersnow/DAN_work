@@ -540,7 +540,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
           gap: '20px'
         }}>
           <div className="form-group">
-            <label style={{ display: 'block', marginBottom: '5px' }} htmlFor="level1-2-count">重度身体障がい者・重度知的障がい者</label>
+            <label style={{ display: 'block', marginBottom: '5px' }} htmlFor="level1-2-count">1級・2級の障がい者</label>
             {isEditing ? (
               <input 
                 id="level1-2-count"
@@ -600,7 +600,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
           </div>
           
           <div className="form-group">
-            <label style={{ display: 'block', marginBottom: '5px' }} htmlFor="level1-2-parttime-count">重度身体障がい者・重度知的障がい者（パートタイム）</label>
+            <label style={{ display: 'block', marginBottom: '5px' }} htmlFor="level1-2-parttime-count">1級・2級の障がい者（パートタイム）</label>
             {isEditing ? (
               <input 
                 id="level1-2-parttime-count"

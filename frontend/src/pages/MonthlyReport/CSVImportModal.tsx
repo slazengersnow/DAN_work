@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import axios from 'axios';
-import Papa from 'papaparse';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import axios, { AxiosResponse } from 'axios';
+import Papa, { ParseResult } from 'papaparse';
 import './CSVImportModal.css';
 import { generateCSVTemplate, downloadCSV, convertTemplateDataToApiFormat, MonthlyCSVData } from './utils';
 
@@ -13,15 +13,11 @@ interface CSVImportModalProps {
   fiscalYear: number;
 }
 
-// PapaParse エラー型の定義
-interface ParseError {
-  type: string;
-  code: string;
-  message: string;
-  row?: number;
-}
-
+/**
+ * CSVインポートモーダルコンポーネント - 完全に修正
+ */
 const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImportSuccess, fiscalYear }) => {
+  // 状態管理
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -32,23 +28,77 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
   const [detectedFiscalYear, setDetectedFiscalYear] = useState<number | null>(null);
   
   // 現在のインポート進行状況
-  const [importProgress, setImportProgress] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<number>(0);
   
+  // 処理段階の状態管理
+  const [processStage, setProcessStage] = useState<'initial' | 'parsing' | 'ready' | 'importing' | 'completed' | 'error'>('initial');
+  
+  // パースされたデータのキャッシュ
+  const [parsedDataCache, setParsedDataCache] = useState<any[] | null>(null);
+  
+  // API処理結果の追跡
+  const [processedMonths, setProcessedMonths] = useState<string[]>([]);
+  const [importSummary, setImportSummary] = useState<string>('');
+  
+  // 変換後のAPIデータキャッシュ
+  const [convertedApiData, setConvertedApiData] = useState<MonthlyCSVData[] | null>(null);
+  
+  // ステータスメッセージ
+  const statusMessage = useMemo(() => {
+    switch (processStage) {
+      case 'parsing':
+        return 'ファイル解析中...';
+      case 'ready':
+        return `${detectedFiscalYear || fiscalYear}年度のデータ (${parsedDataCache?.length || 0}行) の準備完了`;
+      case 'importing':
+        return `インポート中... ${importProgress}%`;
+      case 'completed':
+        return 'インポート完了！';
+      case 'error':
+        return 'エラーが発生しました';
+      default:
+        return '';
+    }
+  }, [processStage, importProgress, detectedFiscalYear, fiscalYear, parsedDataCache]);
+
+  // 年度情報メッセージ - 検出された年度と選択されている年度が異なる場合に表示
+  const yearInfoMessage = useMemo(() => {
+    if (detectedFiscalYear && detectedFiscalYear !== fiscalYear) {
+      return `テンプレートから${detectedFiscalYear}年度が検出されました。このデータは${detectedFiscalYear}年度としてインポートされます。`;
+    } else if (detectedFiscalYear === null && parsedDataCache && parsedDataCache.length > 0) {
+      return `テンプレートに年度情報がないため、現在選択されている${fiscalYear}年度としてインポートされます。`;
+    }
+    return null;
+  }, [detectedFiscalYear, fiscalYear, parsedDataCache]);
+
   // コンポーネントがマウントされた時、またはpropsが変更された時に年度を更新
   useEffect(() => {
     console.log(`年度プロパティが変更されました: ${fiscalYear}`);
   }, [fiscalYear]);
 
-  // モーダルを開いた時にメッセージをクリア
+  // モーダルを開いた時にステートをリセット
   useEffect(() => {
     if (isOpen) {
       setErrorMessage(null);
       setSuccessMessage(null);
-      setImportProgress(null);
+      setImportProgress(0);
       setDetectedFiscalYear(null);
       setFile(null);
+      setProcessStage('initial');
+      setParsedDataCache(null);
+      setProcessedMonths([]);
+      setImportSummary('');
+      setConvertedApiData(null);
     }
   }, [isOpen]);
+
+  // バッチサイズを動的に計算（パフォーマンス最適化）
+  const calculateBatchSize = (totalItems: number): number => {
+    // 項目数が少ない場合は全て同時処理
+    if (totalItems <= 3) return totalItems;
+    // 項目数が多い場合は最大5件ずつ
+    return Math.min(5, Math.ceil(totalItems / 3));
+  };
 
   // CSVテンプレートのダウンロード
   const handleDownloadTemplate = useCallback(() => {
@@ -64,15 +114,13 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
       console.log(`ファイルが選択されました: ${selectedFile.name} (${selectedFile.size} bytes)`);
       setFile(selectedFile);
       setErrorMessage(null);
-      setDetectedFiscalYear(null); // ファイル選択時に検出年度をリセット
+      setDetectedFiscalYear(null);
+      setParsedDataCache(null);
+      setProcessStage('parsing');
+      setConvertedApiData(null);
       
-      // ファイルが選択されたら自動的にパースを試行
-      if (selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv')) {
-        setImportProgress('ファイルを解析中...');
-        setTimeout(() => {
-          previewCSV(selectedFile);
-        }, 100);
-      }
+      // ファイル解析を即時開始
+      parseCSVFile(selectedFile);
     }
   };
 
@@ -82,283 +130,255 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
     fileInputRef.current?.click();
   };
 
-  // CSVファイルのプレビュー処理（選択時に自動実行）
-  const previewCSV = async (file: File) => {
-    try {
-      // パースのみ行う（実際のインポートはまだ行わない）
-      const parsedData = await parseCSV(file);
-      
-      // 年度情報を抽出
-      let detectedYear: number | null = null;
-      
-      // CSVの全行をチェックして年度を探す
-      for (const row of parsedData) {
-        // '年度'キーがある場合
-        if ('年度' in row && row['年度'] !== null && row['年度'] !== undefined && row['年度'] !== '') {
-          const yearVal = row['年度'];
-          
-          // 数値の場合
-          if (typeof yearVal === 'number' && !isNaN(yearVal) && yearVal >= 1000 && yearVal <= 9999) {
-            detectedYear = yearVal;
-            break;
-          }
-          
-          // 文字列の場合、4桁の数字を抽出
-          if (typeof yearVal === 'string') {
-            const match = yearVal.match(/\d{4}/);
-            if (match) {
-              detectedYear = parseInt(match[0], 10);
-              break;
-            }
-          }
-        }
-        
-        // 列名に年度が含まれている場合（例：2024）
-        for (const key of Object.keys(row)) {
-          if (/^20\d{2}$/.test(key)) {
-            detectedYear = parseInt(key, 10);
-            break;
-          }
-        }
-        
-        if (detectedYear) break;
+  // CSVファイル解析 - 高度なエラーハンドリングを追加
+  const parseCSVFile = (file: File) => {
+    // FileReaderでファイルをテキストとして読み込む
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const csvText = e.target?.result as string;
+      if (!csvText) {
+        setErrorMessage('ファイルの読み込みに失敗しました');
+        setProcessStage('error');
+        return;
       }
       
-      // 年度が検出されない場合は現在の設定年度を使用
-      if (!detectedYear) {
-        // フォールバックとして、CSVの構造から年度を推測
-        detectedYear = fiscalYear;
-      }
-      
-      // 年度情報を表示
-      setDetectedFiscalYear(detectedYear);
-      
-      if (detectedYear === fiscalYear) {
-        setImportProgress(`現在の設定年度 (${fiscalYear}年度) でインポートの準備ができました。`);
-      } else {
-        setImportProgress(`CSVから${detectedYear}年度を検出しました。インポートの準備ができました。`);
-      }
-    } catch (error) {
-      console.error('CSVプレビューエラー:', error);
-      setImportProgress('CSVファイルの解析中にエラーが発生しました。');
-    }
-  };
-
-  // CSVファイルのパース処理
-  const parseCSV = (file: File): Promise<any[]> => {
-    console.log(`CSVファイルのパース開始: ${file.name}`);
-    return new Promise((resolve, reject) => {
-      // すべてのオプションをanyとして扱い、型エラーを回避
-      const parseOptions: any = {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true, // 数値を自動的に変換
-        encoding: 'UTF-8',  // 型定義では対応していないがPapaParseは実際にはサポート
-        // 重複ヘッダーの処理を明示的に無効化
-        duplicateHeaderMode: 'skip', // 'skip'は最初のヘッダーのみ使用
-        // ヘッダー変換処理の強化
-        transformHeader: (header: string) => {
-          // 空のヘッダーを処理
-          if (!header || header.trim() === '') {
-            return `_empty_${Math.random().toString(36).substring(2, 9)}`;
-          }
-          // ヘッダーの空白を削除し、トリミング
-          return header.trim();
-        },
-        complete: (results: any) => {
-          const { data, errors, meta } = results;
-          
-          console.log('パース結果のプレビュー:', {
-            dataLength: data?.length,
-            errors: errors?.length,
-            fields: meta?.fields,
-            sample: data?.slice(0, 2)
+      // 正常終了時のコールバック
+      const handleParseComplete = (results: ParseResult<any>) => {
+        // エラーチェック - メッセージベースで判断
+        if (results.errors && results.errors.length > 0) {
+          // 一般的なエラーパターン - 重大なエラーかどうかをメッセージで判断
+          const criticalErrors = results.errors.filter(e => {
+            const message = e.message.toLowerCase();
+            return !message.includes('duplicate') && !message.includes('quote');
           });
           
-          if (errors && errors.length > 0) {
-            console.error('CSVパースエラー:', errors);
-            // エラーコードの型チェックを修正
-            const criticalErrors = errors.filter((e: any) => 
-              e.code && typeof e.code === 'string' && e.code !== 'DUPLICATE_HEADER'
-            );
-            if (criticalErrors.length > 0) {
-              reject(new Error('CSVファイルの解析中にエラーが発生しました'));
-              return;
-            }
+          if (criticalErrors.length > 0) {
+            console.error('CSVパースエラー:', criticalErrors);
+            setErrorMessage('CSVファイルの解析中にエラーが発生しました');
+            setProcessStage('error');
+            return;
           }
-
-          // 重複ヘッダーの警告がある場合でも処理を続行
-          if (meta && meta.fields) {
-            console.log('検出されたヘッダー:', meta.fields);
-          }
-
-          try {
-            // 空行や無効なデータをフィルタリング
-            const validData = data.filter((row: any) => {
-              // 完全に空のオブジェクトを除外
-              if (Object.keys(row).length === 0) {
-                return false;
-              }
-              
-              // すべての値が空/null/undefinedのオブジェクトを除外
-              const hasAnyValue = Object.values(row).some((v: any) => 
-                v !== null && v !== undefined && v !== ''
-              );
-              
-              return hasAnyValue;
-            });
+        }
+        
+        // 有効なデータを抽出
+        const validData = results.data.filter((row: any) => 
+          Object.keys(row).length > 0 && 
+          Object.values(row).some(v => v !== null && v !== undefined && v !== '')
+        );
+        
+        console.log('パース完了。データ行数:', validData.length);
+        
+        try {
+          // 年度を検出（utils.ts内の関数で処理）
+          const convertedData = convertTemplateDataToApiFormat(validData, fiscalYear);
+          
+          // データが変換できた場合
+          if (convertedData && convertedData.length > 0) {
+            // 検出された年度を設定
+            setDetectedFiscalYear(convertedData[0].fiscal_year);
             
-            // データが空かどうかチェック
-            if (validData.length === 0) {
-              console.warn('フィルタリング後に有効なデータが見つかりませんでした');
-            } else {
-              console.log('有効なデータ行数:', validData.length);
-              // サンプルデータを表示（最初の2行）
-              if (validData.length > 0) {
-                console.log('サンプルデータ (最初の行):', validData[0]);
-                if (validData.length > 1) {
-                  console.log('サンプルデータ (2行目):', validData[1]);
-                }
-              }
-            }
+            // API形式のデータをキャッシュ
+            setConvertedApiData(convertedData);
             
-            console.log('パース完了。データ行数:', validData.length);
-            resolve(validData as any[]);
-          } catch (error) {
-            console.error('データ変換エラー:', error);
-            reject(new Error('CSVデータの変換中にエラーが発生しました'));
+            // パース済みデータをキャッシュに保存
+            setParsedDataCache(validData);
+            setProcessStage('ready');
+          } else {
+            throw new Error('データの変換に失敗しました');
           }
-        },
-        error: (error: Error) => {
-          console.error('CSVパースエラー:', error);
-          reject(new Error('CSVファイルの読み込み中にエラーが発生しました'));
+        } catch (err) {
+          console.error('データ処理エラー:', err);
+          setErrorMessage('CSVデータの処理中にエラーが発生しました');
+          setProcessStage('error');
         }
       };
-
+      
       try {
-        // ファイルをパース処理
-        Papa.parse(file, parseOptions);
+        // パース実行 - 型定義に合わせて必要な設定のみ使用
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: true,
+          fastMode: true,
+          transformHeader: (header) => 
+            header.trim() || `_empty_${Math.random().toString(36).substring(2, 7)}`,
+          complete: handleParseComplete,
+        });
       } catch (err) {
         console.error('Papaparse実行エラー:', err);
-        reject(new Error('CSVファイルの処理中にエラーが発生しました'));
+        setErrorMessage('CSVファイルの処理中にエラーが発生しました');
+        setProcessStage('error');
       }
-    });
+    };
+    
+    reader.onerror = () => {
+      setErrorMessage('ファイルの読み込み中にエラーが発生しました');
+      setProcessStage('error');
+    };
+    
+    // ファイル読み込み開始
+    reader.readAsText(file);
   };
 
-  // CSVデータのAPIへの送信処理 - 改良版
+  // CSVデータのAPIへのインポート - 完全に再設計
   const importCSVData = async (data: MonthlyCSVData[]) => {
     try {
       setIsLoading(true);
+      setProcessStage('importing');
+      setImportProgress(0);
+      setProcessedMonths([]);
       
       // データが空の場合はエラー
       if (data.length === 0) {
         setErrorMessage('インポートするデータが見つかりませんでした。');
         setIsLoading(false);
+        setProcessStage('error');
         return;
       }
       
       console.log(`インポート処理開始: ${data.length}件のデータ`);
       
-      // 月の値がnullやNaNでないか確認し、フィルタリング
+      // 月の値が有効かチェック
       const validData = data.filter(item => 
         item.month !== null && !isNaN(item.month)
       );
       
-      console.log('有効なデータ:', validData.length, '件');
-      console.log('インポートするデータ:', JSON.stringify(validData, null, 2));
-      
       if (validData.length === 0) {
-        setErrorMessage('有効な月情報が見つかりませんでした。テンプレート形式を確認してください。');
+        setErrorMessage('有効な月情報が見つかりませんでした。');
         setIsLoading(false);
+        setProcessStage('error');
         return;
       }
       
-      setImportProgress(`${validData.length}件のデータをインポート中...`);
+      // バッチサイズを動的に計算
+      const BATCH_SIZE = calculateBatchSize(validData.length);
+      const results: AxiosResponse<any>[] = [];
       
-      // 各月のデータを順次APIに送信
-      const results = await Promise.all(
-        validData.map(async (monthData, index) => {
-          // 処理状況の更新
-          setImportProgress(`${index + 1}/${validData.length}件目: ${monthData.fiscal_year}年度${monthData.month}月のデータをインポート中...`);
+      // 完了したデータを追跡
+      const processedMonthsArray: string[] = [];
+      
+      // ステータスリスト
+      const statusList: { month: number, status: string }[] = [];
+      
+      // バッチ処理のヘルパー関数（順次処理に変更）
+      const processBatches = async () => {
+        for (let i = 0; i < validData.length; i += BATCH_SIZE) {
+          const startIndex = i;
+          const endIndex = Math.min(startIndex + BATCH_SIZE, validData.length);
+          const batch = validData.slice(startIndex, endIndex);
           
-          try {
-            // 既存データの確認
-            const checkUrl = `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`;
-            console.log(`既存データ確認 GET: ${checkUrl}`);
-            
+          // バッチを順次処理
+          for (const monthData of batch) {
             try {
-              const checkResponse = await axios.get(checkUrl);
+              // まず対象データの存在をチェック
+              const checkUrl = `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`;
+              const existingData = await checkExistingData(monthData.fiscal_year, monthData.month);
               
-              if (checkResponse.data && checkResponse.data.success) {
-                // 既存データがある場合は更新
-                const updateUrl = `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`;
-                console.log(`データ更新 PUT: ${updateUrl}`);
-                
-                // データ型変換を追加（すべてのパートタイム障がい者関連のフィールドを整数に）
-                const fixedData = {
-                  ...monthData,
-                  other_parttime_count: Math.round(monthData.other_parttime_count || 0)
-                };
-                
-                return await axios.put(updateUrl, fixedData);
+              let response;
+              if (existingData) {
+                // 既存データの更新
+                console.log(`${monthData.fiscal_year}年度${monthData.month}月のデータを更新します`);
+                response = await axios.put(checkUrl, monthData, { timeout: 5000 });
+                processedMonthsArray.push(`${monthData.month}月(更新)`);
+                statusList.push({ month: monthData.month, status: '更新' });
+              } else {
+                // 新規データの作成
+                console.log(`${monthData.fiscal_year}年度${monthData.month}月のデータを新規作成します`);
+                const createUrl = `${API_BASE_URL}/monthly-reports`;
+                response = await axios.post(createUrl, monthData, { timeout: 5000 });
+                processedMonthsArray.push(`${monthData.month}月(新規)`);
+                statusList.push({ month: monthData.month, status: '新規' });
+              }
+              
+              if (response && response.data) {
+                results.push(response);
               }
             } catch (error) {
-              // 404エラーなど - データが存在しない場合は新規作成
-              console.log(`${monthData.fiscal_year}年度${monthData.month}月のデータは存在しません。新規作成します。`);
+              console.error(`${monthData.month}月データの処理中にエラー:`, error);
+              processedMonthsArray.push(`${monthData.month}月(エラー)`);
+              statusList.push({ month: monthData.month, status: 'エラー' });
             }
-            
-            // 新規データ作成
-            const createUrl = `${API_BASE_URL}/monthly-reports`;
-            console.log(`データ新規作成 POST: ${createUrl}`);
-            
-            // データ型変換を追加（すべてのパートタイム障がい者関連のフィールドを整数に）
-            const fixedData = {
-              ...monthData,
-              other_parttime_count: Math.round(monthData.other_parttime_count || 0)
-            };
-            
-            return await axios.post(createUrl, fixedData);
-          } catch (error) {
-            console.error(`${monthData.fiscal_year}年度${monthData.month}月のデータ処理中にエラー:`, error);
-            throw error;
           }
-        })
-      );
+          
+          // 進捗率を更新
+          const progressPercent = Math.round(((endIndex) / validData.length) * 100);
+          setImportProgress(Math.min(progressPercent, 100));
+          setProcessedMonths([...processedMonthsArray]);
+        }
+        
+        return results;
+      };
       
-      console.log('インポート結果:', results);
+      // 順次処理を開始
+      const batchResults = await processBatches();
       
-      // APIレスポンスをチェック
-      const successResponses = results.filter(res => res && res.data && res.data.success);
-      console.log(`成功したレスポンス: ${successResponses.length}/${results.length}`);
+      // 結果の確認
+      const successResponses = batchResults.filter(res => res && res.data && res.data.success);
+      console.log(`成功したレスポンス: ${successResponses.length}/${batchResults.length}`);
+      console.log('処理した月:', processedMonthsArray.join(', '));
+      
+      // ステータスから結果サマリーを作成
+      const summary = generateImportSummary(statusList);
+      setImportSummary(summary);
       
       if (successResponses.length > 0) {
         const yearUsed = validData[0].fiscal_year;
-        setSuccessMessage(`${yearUsed}年度の月次データをインポートしました。(${successResponses.length}/${results.length}件成功)`);
+        setSuccessMessage(`${yearUsed}年度の月次データをインポートしました。(${successResponses.length}/${batchResults.length}件)`);
+        setProcessStage('completed');
         
-        // 少し待ってからコールバックを実行
+        // 遅延処理を最適化
         setTimeout(() => {
-          try {
-            if (onImportSuccess) {
-              console.log('インポート成功コールバックを実行');
-              onImportSuccess();
-            }
-            
-            // 最後にモーダルを閉じる
-            onClose();
-          } catch (err) {
-            console.error('コールバック実行エラー:', err);
+          if (onImportSuccess) {
+            console.log('インポート成功コールバックを実行');
+            onImportSuccess();
           }
-        }, 2000);
+          // モーダルを閉じる
+          onClose();
+        }, 800);
       } else {
         setErrorMessage('データのインポートに失敗しました。');
+        setProcessStage('error');
       }
     } catch (error) {
       console.error('インポートエラー:', error);
       setErrorMessage(error instanceof Error ? error.message : '不明なエラーが発生しました。');
+      setProcessStage('error');
     } finally {
       setIsLoading(false);
-      setImportProgress(null);
     }
+  };
+  
+  // 既存データチェック - 非同期関数として実装
+  const checkExistingData = async (fiscalYear: number, month: number): Promise<boolean> => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/monthly-reports/${fiscalYear}/${month}`,
+        { timeout: 3000 }
+      );
+      return !!(response && response.data && response.data.success);
+    } catch (error) {
+      // 404エラーなど - データが存在しない
+      return false;
+    }
+  };
+  
+  // インポート結果サマリーの生成
+  const generateImportSummary = (statusList: { month: number, status: string }[]): string => {
+    const counts = {
+      新規: 0,
+      更新: 0,
+      エラー: 0,
+      合計: statusList.length
+    };
+    
+    statusList.forEach(item => {
+      if (item.status === '新規') counts.新規++;
+      else if (item.status === '更新') counts.更新++;
+      else if (item.status === 'エラー') counts.エラー++;
+    });
+    
+    return `合計: ${counts.合計}件（新規: ${counts.新規}件、更新: ${counts.更新}件${counts.エラー > 0 ? `、エラー: ${counts.エラー}件` : ''}）`;
   };
 
   // インポート実行
@@ -369,49 +389,40 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
     }
     
     try {
-      setImportProgress('CSVファイルを解析中...');
-      
-      // CSVをパース
-      const parsedData = await parseCSV(file);
-      
-      if (parsedData.length === 0) {
-        setErrorMessage('インポートするデータが見つかりませんでした。');
-        setImportProgress(null);
+      if (!parsedDataCache) {
+        setProcessStage('parsing');
+        parseCSVFile(file);
         return;
       }
       
-      console.log('パース済みデータ:', parsedData);
-      
-      // 検出された年度またはデフォルト年度を使用
-      const yearToUse = detectedFiscalYear || fiscalYear;
-      console.log(`インポートに使用する年度: ${yearToUse}`);
-      
-      // CSVから年度を抽出する新しい処理に変更
-      setImportProgress('データを変換中...');
-      const apiFormatData = convertTemplateDataToApiFormat(parsedData, yearToUse);
-      
-      console.log('API形式データ:', apiFormatData);
-      
-      if (apiFormatData.length === 0) {
-        setErrorMessage('有効なインポートデータが見つかりませんでした。CSVファイルが正しいテンプレート形式かどうか確認してください。一般的な原因は、月の行が正しく認識できていないか、データ行にキーワード（従業員数や法定雇用率など）が含まれていない可能性があります。');
-        setImportProgress(null);
-        return;
-      }
-
-      // インポート前に検出された年度を反映
-      const detectedYear = apiFormatData[0].fiscal_year;
-      
-      // インポート前に年度確認のメッセージを表示
-      if (window.confirm(`${detectedYear}年度のデータとして${apiFormatData.length}件のデータをインポートします。よろしいですか？`)) {
-        // データをインポート
-        await importCSVData(apiFormatData);
+      // すでに変換済みのデータがある場合はそれを使用
+      if (convertedApiData && convertedApiData.length > 0) {
+        console.log('変換済みデータを使用してインポートします');
       } else {
-        setImportProgress(null);
+        // 変換済みデータがない場合は再変換
+        console.log(`インポートに使用する年度: ${detectedFiscalYear || fiscalYear}`);
+        const apiFormatData = convertTemplateDataToApiFormat(parsedDataCache, detectedFiscalYear || fiscalYear);
+        setConvertedApiData(apiFormatData);
+        
+        if (apiFormatData.length === 0) {
+          setErrorMessage('有効なインポートデータが見つかりませんでした。テンプレート形式を確認してください。');
+          setProcessStage('error');
+          return;
+        }
+      }
+      
+      // デバッグ情報 - 障がい者データが正しく変換されているか確認
+      console.log('変換されたAPIデータ:', convertedApiData);
+
+      // インポート確認
+      const detectedYear = convertedApiData![0].fiscal_year;
+      if (window.confirm(`${detectedYear}年度の${convertedApiData!.length}件のデータをインポートします。よろしいですか？`)) {
+        await importCSVData(convertedApiData!);
       }
     } catch (error) {
       console.error('インポートエラー:', error);
       setErrorMessage(error instanceof Error ? error.message : '不明なエラーが発生しました。');
-      setImportProgress(null);
+      setProcessStage('error');
     }
   };
 
@@ -437,39 +448,23 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
             </div>
           )}
           
-          {/* 説明セクション */}
+          {/* コンパクトな説明セクション */}
           <div className="import-info-section">
             <p>
               CSVファイルから月次データをインポートします。
               テンプレートをダウンロードして必要なデータを入力してください。
+              <button 
+                className="import-template-button"
+                onClick={handleDownloadTemplate}
+                disabled={isLoading}
+              >
+                {fiscalYear}年度テンプレートをダウンロード
+              </button>
             </p>
-            <p>
-              <strong>注意:</strong> テンプレートには「年度」行があります。この値を変更した場合、
-              その年度でデータがインポートされます。現在選択されている年度（{fiscalYear}年度）のテンプレートを
-              ダウンロードすることをお勧めします。
+            <p className="note">
+              テンプレートには「年度」行がありますが、空白のままでも問題ありません。
+              その場合は現在選択されている年度が使用されます。
             </p>
-            <p>
-              <strong>重要:</strong> テンプレートの形式を変更しないでください。特に「月」の行と各項目名（「従業員数 (名)」など）は
-              正確に記載してください。
-            </p>
-          </div>
-          
-          {/* テンプレートダウンロードボタン */}
-          <div>
-            <button 
-              className="import-template-button"
-              onClick={handleDownloadTemplate}
-              disabled={isLoading}
-            >
-              {fiscalYear}年度用テンプレートをダウンロード
-            </button>
-            <div style={{ 
-              marginTop: '6px', 
-              color: '#666', 
-              fontSize: '0.85rem' 
-            }}>
-              ダウンロードしたテンプレートに直接データを入力し、保存してからインポートしてください。
-            </div>
           </div>
           
           {/* ファイル選択エリア */}
@@ -489,20 +484,62 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
             </div>
           </div>
           
-          {/* 進行状況表示 */}
-          {importProgress && (
-            <div className="import-progress">
-              <div className="progress-indicator"></div>
-              <p>{importProgress}</p>
-            </div>
-          )}
-          
-          {/* 検出された年度表示 */}
-          {detectedFiscalYear && (
-            <div className="detected-year">
-              <p>
-                <strong>検出された年度:</strong> {detectedFiscalYear}年度
-              </p>
+          {/* コンパクトな進行状況表示 */}
+          {processStage !== 'initial' && (
+            <div className="import-progress-compact">
+              {/* ステータスアイコンとメッセージ */}
+              <div className="status-row">
+                {processStage === 'parsing' || processStage === 'importing' ? (
+                  <div className="spinner"></div>
+                ) : processStage === 'completed' ? (
+                  <div className="success-icon">✓</div>
+                ) : processStage === 'error' ? (
+                  <div className="error-icon">!</div>
+                ) : (
+                  <div className="ready-icon">⟳</div>
+                )}
+                <span className="status-message">{statusMessage}</span>
+              </div>
+              
+              {/* プログレスバー */}
+              {(processStage === 'parsing' || processStage === 'importing') && (
+                <div className="progress-bar-container">
+                  <div 
+                    className="progress-bar" 
+                    style={{ 
+                      width: `${processStage === 'parsing' ? 50 : importProgress}%` 
+                    }}
+                  ></div>
+                </div>
+              )}
+              
+              {/* 検出された年度表示 */}
+              {yearInfoMessage && (
+                <div className="detected-year-info">
+                  <span>{yearInfoMessage}</span>
+                </div>
+              )}
+              
+              {/* インポート進捗状況 */}
+              {processStage === 'importing' && processedMonths.length > 0 && (
+                <div className="import-status-list">
+                  <div className="processed-months-label">処理中:</div>
+                  <div className="processed-months-items">
+                    {processedMonths.map((item, index) => (
+                      <span key={index} className="processed-month-item">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* インポート完了サマリー */}
+              {processStage === 'completed' && importSummary && (
+                <div className="import-summary">
+                  <span>{importSummary}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -517,9 +554,14 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
           <button 
             className="import-button"
             onClick={handleImport}
-            disabled={!file || isLoading}
+            disabled={!file || isLoading || processStage === 'error' || processStage === 'importing' || processStage === 'parsing'}
           >
-            {isLoading ? 'インポート中...' : 'インポート'}
+            {isLoading 
+              ? 'インポート中...' 
+              : processStage === 'ready' 
+                ? 'インポート開始' 
+                : 'インポート'
+            }
           </button>
         </div>
       </div>
