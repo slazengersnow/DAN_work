@@ -1,0 +1,212 @@
+.csv-import-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.csv-import-modal {
+  background-color: white;
+  border-radius: 8px;
+  padding: 0;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.csv-import-modal-header {
+  background-color: #6366f1;
+  color: white;
+  padding: 15px 20px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  text-align: center;
+}
+
+.csv-import-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.csv-import-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.csv-import-modal-footer {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.import-template-button {
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.import-template-button:hover {
+  background-color: #4f46e5;
+}
+
+.file-select-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 4px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-select-area:hover {
+  border-color: #6366f1;
+}
+
+.file-select-button {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 0.9rem;
+}
+
+.file-name {
+  color: #6b7280;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.cancel-button {
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.cancel-button:hover {
+  background-color: #4b5563;
+}
+
+.import-button {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.import-button:hover {
+  background-color: #059669;
+}
+
+.import-button:disabled,
+.cancel-button:disabled,
+.import-template-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fiscal-year-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.import-info-section {
+  background-color: #f0f7ff;
+  border-radius: 6px;
+  padding: 12px 15px;
+  border-left: 4px solid #3a66d4;
+}
+
+.import-info-section p {
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
+
+.import-progress {
+  background-color: #e6fffa;
+  border-radius: 6px;
+  padding: 12px 15px;
+  border-left: 4px solid #10b981;
+  display: flex;
+  align-items: center;
+}
+
+.progress-indicator {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #10b981;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+  margin-right: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.import-progress p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #047857;
+}
+
+.detected-year {
+  background-color: #e0f2fe;
+  border-radius: 6px;
+  padding: 10px 15px;
+  border-left: 4px solid #0ea5e9;
+}
+
+.detected-year p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #0369a1;
+}

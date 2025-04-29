@@ -11,6 +11,8 @@ import {
 } from '../../api/reportApi';
 import { useYearMonth } from './YearMonthContext';
 import axios from 'axios';
+import CSVImportModal from './CSVImportModal'; // CSVインポートモーダル
+import { generateCSVTemplate, downloadCSV } from './utils'; // CSV関連ユーティリティ
 
 interface MonthlyReportDetailProps {
   monthlyDetailData?: MonthlyDetailData | null;
@@ -49,6 +51,7 @@ const defaultDetailData: MonthlyDetailData = {
   ]
 };
 
+// APIのベースURL
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // フィールド名と行IDのマッピング - 再レンダリングによる再作成を防止
@@ -93,6 +96,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // CSVインポートモーダルの状態
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   
   // ⭐ データ保存状態を追跡する新しいステート
   const [savedData, setSavedData] = useState<{[key: number]: MonthlyDetailData}>({});
@@ -177,164 +183,186 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     };
   }, []);
 
-// 先にrecalculateData関数を定義
-const recalculateData = useCallback((data: MonthlyDetailData): MonthlyDetailData => {
-  const newData = {...data};
-  
-  const fullTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 2);
-  const partTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 3);
-  const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === 4);
-  
-  const level1And2RowIndex = newData.data.findIndex(row => row.id === 5);
-  const otherRowIndex = newData.data.findIndex(row => row.id === 6);
-  const level1And2PartTimeRowIndex = newData.data.findIndex(row => row.id === 7);
-  const otherPartTimeRowIndex = newData.data.findIndex(row => row.id === 8);
-  const totalDisabledRowIndex = newData.data.findIndex(row => row.id === 9);
-  
-  const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
-  
-  if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
-    const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
-    const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
+  // 重要: recalculateData関数を先に定義
+  const recalculateData = useCallback((data: MonthlyDetailData): MonthlyDetailData => {
+    const newData = {...data};
     
-    for (let i = 0; i < 13; i++) {
-      if (i < 12) {
-        newData.data[totalEmployeesRowIndex].values[i] = 
-          fullTimeValues[i] + (partTimeValues[i] * 0.5);
-      } else {
-        newData.data[totalEmployeesRowIndex].values[i] = 
-          newData.data[totalEmployeesRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
-      }
-    }
-  }
-  
-  if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
-      level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
-      totalDisabledRowIndex !== -1) {
+    const fullTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 2);
+    const partTimeEmployeesRowIndex = newData.data.findIndex(row => row.id === 3);
+    const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === 4);
+    
+    const level1And2RowIndex = newData.data.findIndex(row => row.id === 5);
+    const otherRowIndex = newData.data.findIndex(row => row.id === 6);
+    const level1And2PartTimeRowIndex = newData.data.findIndex(row => row.id === 7);
+    const otherPartTimeRowIndex = newData.data.findIndex(row => row.id === 8);
+    const totalDisabledRowIndex = newData.data.findIndex(row => row.id === 9);
+    
+    const legalRateRowIndex = newData.data.findIndex(row => row.id === 11);
+    
+    if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
+      const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
+      const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
       
-    const level1And2Values = newData.data[level1And2RowIndex].values;
-    const otherValues = newData.data[otherRowIndex].values;
-    const level1And2PartTimeValues = newData.data[level1And2PartTimeRowIndex].values;
-    const otherPartTimeValues = newData.data[otherPartTimeRowIndex].values;
-    
-    for (let i = 0; i < 13; i++) {
-      newData.data[totalDisabledRowIndex].values[i] = 
-        level1And2Values[i] * 2 + otherValues[i] + 
-        level1And2PartTimeValues[i] + otherPartTimeValues[i] * 0.5;
-    }
-  }
-  
-  if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
-    const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
-    const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
-    const legalRateValues = newData.data[legalRateRowIndex].values;
-    
-    const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
-    if (actualRateRowIndex !== -1) {
-      for (let i = 0; i < 13; i++) {
-        if (totalEmployeeValues[i] > 0) {
-          newData.data[actualRateRowIndex].values[i] = 
-            Number(((totalDisabledValues[i] / totalEmployeeValues[i]) * 100).toFixed(2));
-        } else {
-          newData.data[actualRateRowIndex].values[i] = 0;
-        }
-      }
-    }
-    
-    const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
-    if (legalCountRowIndex !== -1) {
       for (let i = 0; i < 13; i++) {
         if (i < 12) {
-          newData.data[legalCountRowIndex].values[i] = 
-            Math.floor((legalRateValues[i] * totalEmployeeValues[i]) / 100);
+          newData.data[totalEmployeesRowIndex].values[i] = 
+            fullTimeValues[i] + (partTimeValues[i] * 0.5);
         } else {
-          newData.data[legalCountRowIndex].values[i] = 
-            newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
+          newData.data[totalEmployeesRowIndex].values[i] = 
+            newData.data[totalEmployeesRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
         }
       }
     }
     
-    const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
-    if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
-      const legalCountValues = newData.data[legalCountRowIndex].values;
+    if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
+        level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
+        totalDisabledRowIndex !== -1) {
+        
+      const level1And2Values = newData.data[level1And2RowIndex].values;
+      const otherValues = newData.data[otherRowIndex].values;
+      const level1And2PartTimeValues = newData.data[level1And2PartTimeRowIndex].values;
+      const otherPartTimeValues = newData.data[otherPartTimeRowIndex].values;
+      
       for (let i = 0; i < 13; i++) {
-        newData.data[overUnderRowIndex].values[i] = 
-          totalDisabledValues[i] - legalCountValues[i];
+        newData.data[totalDisabledRowIndex].values[i] = 
+          level1And2Values[i] * 2 + otherValues[i] + 
+          level1And2PartTimeValues[i] + otherPartTimeValues[i] * 0.5;
       }
     }
-  }
-  
-  return newData;
-}, []);
-
-// recalculateData関数を定義した後にloadYearData関数を定義
-const loadYearData = useCallback(async (year: number) => {
-  if (!isEmbedded) return;
-  
-  // 既にロード済みの場合はスキップ
-  if (dataFetched[year]) {
-    console.log(`${year}年度のデータは既にロード済み`);
-    return;
-  }
-  
-  console.log(`${year}年度のデータをロードします`);
-  setIsLoading(true);
-  
-  try {
-    // APIからデータを取得
-    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
-    if (response.data && response.data.success && response.data.data) {
-      console.log(`${year}年度のデータをAPIから取得しました:`, response.data.data);
+    
+    if (totalEmployeesRowIndex !== -1 && totalDisabledRowIndex !== -1 && legalRateRowIndex !== -1) {
+      const totalEmployeeValues = newData.data[totalEmployeesRowIndex].values;
+      const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
+      const legalRateValues = newData.data[legalRateRowIndex].values;
       
-      // 取得したデータをもとにMonthlyDetailData形式に変換
-      const apiData = response.data.data;
-      
-      // まず保存済みデータがあればそれを使用
-      let yearData = savedData[year] ? JSON.parse(JSON.stringify(savedData[year])) : 
-                     JSON.parse(JSON.stringify(defaultDetailData));
-      
-      // 取得したデータをもとに値を更新
-      const monthIndex = getMonthIndex(month);
-      
-      // フィールドを順に更新
-      Object.entries(rowFieldMap).forEach(([rowId, fieldName]) => {
-        if (apiData[fieldName] !== undefined) {
-          const rowIndex = yearData.data.findIndex(row => row.id === Number(rowId));
-          if (rowIndex !== -1) {
-            yearData.data[rowIndex].values[monthIndex] = apiData[fieldName];
+      const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
+      if (actualRateRowIndex !== -1) {
+        for (let i = 0; i < 13; i++) {
+          if (totalEmployeeValues[i] > 0) {
+            newData.data[actualRateRowIndex].values[i] = 
+              Number(((totalDisabledValues[i] / totalEmployeeValues[i]) * 100).toFixed(2));
+          } else {
+            newData.data[actualRateRowIndex].values[i] = 0;
           }
         }
-      });
+      }
       
-      // 計算フィールドを更新
-      yearData = recalculateData(yearData); // ここでrecalculateDataを使用
+      const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
+      if (legalCountRowIndex !== -1) {
+        for (let i = 0; i < 13; i++) {
+          if (i < 12) {
+            newData.data[legalCountRowIndex].values[i] = 
+              Math.floor((legalRateValues[i] * totalEmployeeValues[i]) / 100);
+          } else {
+            newData.data[legalCountRowIndex].values[i] = 
+              newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
+          }
+        }
+      }
       
-      // 状態に反映
-      setSavedData(prev => ({
-        ...prev,
-        [year]: yearData
-      }));
+      const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
+      if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
+        const legalCountValues = newData.data[legalCountRowIndex].values;
+        for (let i = 0; i < 13; i++) {
+          newData.data[overUnderRowIndex].values[i] = 
+            totalDisabledValues[i] - legalCountValues[i];
+        }
+      }
+    }
+    
+    return newData;
+  }, []);
+
+  // ⭐ 年度データロード - 完全に再設計
+  const loadYearData = useCallback(async (year: number) => {
+    if (!isEmbedded) return;
+    
+    // 既にロード済みの場合はスキップ
+    if (dataFetched[year]) {
+      console.log(`${year}年度のデータは既にロード済み`);
+      return;
+    }
+    
+    console.log(`${year}年度のデータをロードします`);
+    setIsLoading(true);
+    
+    try {
+      // APIからデータを取得
+      const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
+      if (response.data && response.data.success && response.data.data) {
+        console.log(`${year}年度のデータをAPIから取得しました:`, response.data.data);
+        
+        // 取得したデータをもとにMonthlyDetailData形式に変換
+        const apiData = response.data.data;
+        
+        // まず保存済みデータがあればそれを使用
+        let yearData = savedData[year] ? JSON.parse(JSON.stringify(savedData[year])) : 
+                       JSON.parse(JSON.stringify(defaultDetailData));
+        
+        // 取得したデータをもとに値を更新
+        const monthIndex = getMonthIndex(month);
+        
+        // フィールドを順に更新
+        Object.entries(rowFieldMap).forEach(([rowId, fieldName]) => {
+          if (apiData[fieldName] !== undefined) {
+            const rowIndex = yearData.data.findIndex(row => row.id === Number(rowId));
+            if (rowIndex !== -1) {
+              yearData.data[rowIndex].values[monthIndex] = apiData[fieldName];
+            }
+          }
+        });
+        
+        // 計算フィールドを更新
+        yearData = recalculateData(yearData);
+        
+        // 状態に反映
+        setSavedData(prev => ({
+          ...prev,
+          [year]: yearData
+        }));
+        
+        setDataByYear(prev => ({
+          ...prev,
+          [year]: yearData
+        }));
+        
+        // データ取得済みフラグをセット
+        setDataFetched(prev => ({
+          ...prev,
+          [year]: true
+        }));
+        
+        setDataInitialized(prev => ({
+          ...prev,
+          [year]: true
+        }));
+      } else {
+        console.log(`${year}年度のデータはAPIに存在しません`);
+        
+        // デフォルトデータを設定
+        console.log(`選択年度${year}のデータがないのでデフォルト値を設定`);
+        const newDefaultData = JSON.parse(JSON.stringify(defaultDetailData));
+        
+        setDataByYear(prev => ({
+          ...prev,
+          [year]: newDefaultData
+        }));
+        
+        // データ初期化済みフラグをセット
+        setDataInitialized(prev => ({
+          ...prev,
+          [year]: true
+        }));
+        
+        // 新規作成モードをセット
+        if (!isCreating) {
+          setIsCreating(true);
+        }
+      }
+    } catch (error) {
+      console.error(`${year}年度のデータ取得中にエラーが発生しました:`, error);
       
-      setDataByYear(prev => ({
-        ...prev,
-        [year]: yearData
-      }));
-      
-      // データ取得済みフラグをセット
-      setDataFetched(prev => ({
-        ...prev,
-        [year]: true
-      }));
-      
-      setDataInitialized(prev => ({
-        ...prev,
-        [year]: true
-      }));
-    } else {
-      console.log(`${year}年度のデータはAPIに存在しません`);
-      
-      // デフォルトデータを設定
-      console.log(`選択年度${year}のデータがないのでデフォルト値を設定`);
+      // エラー時はデフォルトデータを使用
       const newDefaultData = JSON.parse(JSON.stringify(defaultDetailData));
       
       setDataByYear(prev => ({
@@ -347,74 +375,153 @@ const loadYearData = useCallback(async (year: number) => {
         ...prev,
         [year]: true
       }));
-      
-      // 新規作成モードをセット
-      if (!isCreating) {
-        setIsCreating(true);
-      }
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error(`${year}年度のデータ取得中にエラーが発生しました:`, error);
-    
-    // エラー時はデフォルトデータを使用
-    const newDefaultData = JSON.parse(JSON.stringify(defaultDetailData));
-    
-    setDataByYear(prev => ({
-      ...prev,
-      [year]: newDefaultData
-    }));
-    
-    // データ初期化済みフラグをセット
-    setDataInitialized(prev => ({
-      ...prev,
-      [year]: true
-    }));
-  } finally {
-    setIsLoading(false);
-  }
-}, [isEmbedded, month, getMonthIndex, recalculateData, savedData, dataFetched, isCreating]); // ここでrecalculateDataを参照
+  }, [isEmbedded, month, getMonthIndex, recalculateData, savedData, dataFetched, isCreating]);
 
-// 初期ロードと年度変更時のデータロード
-useEffect(() => {
-  if (isEmbedded) {
-    // 現在の年度のデータが初期化されていない場合
-    if (!dataInitialized[selectedYear]) {
-      if (monthlyDetailData) {
-        console.log(`プロップスから${selectedYear}年度のデータを初期化`);
+  // 法定雇用率フィールドかどうかを判定する関数
+  const isLegalRateField = useCallback((rowId: number): boolean => {
+    return rowId === 11; // 法定雇用率フィールドのIDは11
+  }, []);
+
+  // CSVインポートモーダルを開くハンドラー
+  const handleOpenImportModal = useCallback(() => {
+    setIsImportModalOpen(true);
+  }, []);
+
+  // CSVインポートモーダルを閉じるハンドラー
+  const handleCloseImportModal = useCallback(() => {
+    setIsImportModalOpen(false);
+  }, []);
+
+  // インポート成功時のハンドラー
+  const handleImportSuccess = useCallback(() => {
+    // データキャッシュをクリア
+    setDataFetched(prev => {
+      const newFetched = {...prev};
+      newFetched[selectedYear] = false;
+      return newFetched;
+    });
+    
+    setDataInitialized(prev => {
+      const newInit = {...prev};
+      newInit[selectedYear] = false;
+      return newInit;
+    });
+    
+    // 成功メッセージを表示
+    setSuccessMessage('CSVデータのインポートが完了しました');
+    setTimeout(() => setSuccessMessage(null), 3000);
+    
+    // データを再取得
+    if (onRefreshData) {
+      onRefreshData();
+    }
+    
+    // 必要に応じてデータを再読み込み
+    loadYearData(selectedYear);
+  }, [selectedYear, onRefreshData, loadYearData]);
+
+  // 初期ロードと年度変更時のデータロード
+  useEffect(() => {
+    if (isEmbedded) {
+      // 現在の年度のデータが初期化されていない場合
+      if (!dataInitialized[selectedYear]) {
+        if (monthlyDetailData) {
+          console.log(`プロップスから${selectedYear}年度のデータを初期化`);
+          
+          // ディープコピーして確実に独立したデータを使用
+          const newData = JSON.parse(JSON.stringify(monthlyDetailData));
+          
+          setDataByYear(prev => ({
+            ...prev,
+            [selectedYear]: newData
+          }));
+          
+          // データが初期化されたことを記録
+          setDataInitialized(prev => ({
+            ...prev,
+            [selectedYear]: true
+          }));
+          
+          setIsCreating(false);
+        } else {
+          // APIからデータをロード
+          loadYearData(selectedYear);
+        }
+      }
+      // 年度変更後のデータ再取得フラグがセットされている場合
+      else if (needsYearDataRefresh) {
+        console.log(`年度変更後のデータ再取得: ${selectedYear}年度`);
         
-        // ディープコピーして確実に独立したデータを使用
-        const newData = JSON.parse(JSON.stringify(monthlyDetailData));
+        // データ再取得済みの場合はフラグをリセット
+        setNeedsYearDataRefresh(false);
         
-        setDataByYear(prev => ({
-          ...prev,
-          [selectedYear]: newData
-        }));
-        
-        // データが初期化されたことを記録
-        setDataInitialized(prev => ({
-          ...prev,
-          [selectedYear]: true
-        }));
-        
-        setIsCreating(false);
-      } else {
-        // APIからデータをロード
+        // この年度のデータが既にロード済みでもAPIから最新を取得
         loadYearData(selectedYear);
       }
     }
-    // 年度変更後のデータ再取得フラグがセットされている場合
-    else if (needsYearDataRefresh) {
-      console.log(`年度変更後のデータ再取得: ${selectedYear}年度`);
-      
-      // データ再取得済みの場合はフラグをリセット
-      setNeedsYearDataRefresh(false);
-      
-      // この年度のデータが既にロード済みでもAPIから最新を取得
-      loadYearData(selectedYear);
+  }, [isEmbedded, monthlyDetailData, selectedYear, dataInitialized, 
+      needsYearDataRefresh, loadYearData]);
+
+  // ⭐ 年度変更時の親コンポーネント通知 - 改善版
+  useEffect(() => {
+    if (yearChanged && onYearChange) {
+      console.log(`親コンポーネントに年度変更を通知: ${selectedYear}`);
+      try {
+        // 親コンポーネントに年度変更を通知
+        onYearChange(selectedYear);
+        
+        // 年度変更フラグをリセット
+        setYearChanged(false);
+        
+        // 年度データの再取得フラグをセット
+        setNeedsYearDataRefresh(true);
+        
+        // 編集モードを終了
+        if (isEditing) {
+          setIsEditing(false);
+        }
+      } catch (error) {
+        console.error('年度変更通知中にエラーが発生しました:', error);
+        setYearChanged(false);
+        
+        // エラー発生時も再取得フラグはセット
+        setNeedsYearDataRefresh(true);
+      }
     }
-  }
-}, [isEmbedded, monthlyDetailData, selectedYear, dataInitialized, 
-    needsYearDataRefresh, loadYearData]);
+  }, [yearChanged, selectedYear, onYearChange, isEditing]);
+
+  // ⭐ 年度変更検知 - 改善版
+  useEffect(() => {
+    if (prevSelectedYear.current !== selectedYear) {
+      console.log(`年度が変更されました: ${prevSelectedYear.current} → ${selectedYear}`);
+      prevSelectedYear.current = selectedYear;
+      
+      // 編集中の場合、変更前の編集内容を保存
+      if (isEditing) {
+        const prevYear = prevSelectedYear.current;
+        const yearEdits = editedValuesByYear[prevYear];
+        
+        if (yearEdits && Object.keys(yearEdits).length > 0) {
+          // 編集中のデータを保存
+          console.log(`年度変更前の編集内容を保存: ${prevYear}年度`);
+          
+          // 必要に応じて保存処理を実行...
+          
+          // 編集値をリセット
+          setEditedValuesByYear(prev => ({
+            ...prev,
+            [prevYear]: {}
+          }));
+        }
+      }
+      
+      // 年度変更フラグをセット
+      setYearChanged(true);
+    }
+  }, [selectedYear, isEditing, editedValuesByYear]);
 
   // URL パラメータからの年度取得
   useEffect(() => {
@@ -494,10 +601,6 @@ useEffect(() => {
     const row = localData.data.find(r => r.id === rowId);
     return row?.isCalculated || false;
   }, [localData.data]);
-
-  const isLegalRateField = useCallback((rowId: number): boolean => {
-    return rowId === 11; // 法定雇用率フィールドのID
-  }, []);
 
   // ⭐ 年度選択変更ハンドラ - 完全に再設計
   const handleYearSelectChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -735,7 +838,7 @@ useEffect(() => {
     }
   }, [isCalculatedField, handleDetailCellSave, localData.data, editingDetailRow, editingDetailCol]);
 
-  // ⭐ 法定雇用率フィールドの小数点入力対応 - 最適化版
+  // 法定雇用率フィールドの小数点入力対応 - 修正版
   const handleLocalCellChange = useCallback((rowId: number, colIndex: number, value: string) => {
     // 法定雇用率フィールド専用の入力判定
     const isLegalRate = isLegalRateField(rowId);
@@ -748,7 +851,7 @@ useEffect(() => {
     // 小数点入力パターンチェック - 法定雇用率フィールドのみ特別扱い
     const validateInput = (): boolean => {
       if (isLegalRate) {
-        // 法定雇用率フィールド用のパターン
+        // 法定雇用率フィールド用のパターン - 小数点を許可
         return /^([0-9]*\.?[0-9]*)?$/.test(value);
       } else {
         // その他フィールド用のパターン - 整数のみ
@@ -986,6 +1089,7 @@ useEffect(() => {
     }
   }, [onRefreshData, selectedYear, editedValuesByYear, getMonthIndex, month, recalculateData]);
 
+  // DOMから直接値を取得するよう修正された保存ハンドラー
   const handleSave = useCallback(async () => {
     console.log('保存ボタンクリック'); 
     
@@ -993,16 +1097,15 @@ useEffect(() => {
     setErrorMessage(null);
     
     try {
-      // 4月始まりの会計年度に合わせたインデックス計算
+      // 現在の月のインデックス（0ベース）
       const currentMonthIndex = getMonthIndex(month);
-      console.log(`保存処理: 選択年度=${selectedYear}, 選択月=${month}, 月インデックス=${currentMonthIndex}`);
       
-      // 選択年度の編集値を取得
-      const yearEditedValues = editedValuesByYear[selectedYear] || {};
-      console.log("保存時の editedValues:", yearEditedValues);
+      // DOMから直接値を取得
+      const tableRows = document.querySelectorAll('table tbody tr');
       
-      // 現在の値を収集
-      const currentValues: {[key: string]: number} = {
+      const saveData = {
+        fiscal_year: selectedYear,
+        month: month,
         employees_count: 0,
         fulltime_count: 0,
         parttime_count: 0,
@@ -1013,67 +1116,61 @@ useEffect(() => {
         legal_employment_rate: 0
       };
       
-      // localDataから現在の値を直接取得
-      if (dataByYear[selectedYear]) {
-        const yearData = dataByYear[selectedYear];
-        Object.entries(rowFieldMap).forEach(([rowId, fieldName]) => {
-          const row = yearData.data.find(r => r.id === Number(rowId));
-          if (row && row.values && row.values.length > currentMonthIndex) {
-            console.log(`行${rowId}(${fieldName})の値: ${row.values[currentMonthIndex]}`);
-            currentValues[fieldName] = row.values[currentMonthIndex];
-          }
-        });
-      }
-      
-      // 編集された値で上書き
-      Object.entries(yearEditedValues).forEach(([key, value]) => {
-        // "_display" が付いていないキーのみ処理
-        if (key in currentValues && !key.endsWith('_display')) {
-          currentValues[key] = value;
+      // テーブルから値を抽出
+      tableRows.forEach(row => {
+        const rowId = row.getAttribute('data-row-id');
+        if (!rowId) return;
+        
+        const inputs = row.querySelectorAll('input');
+        if (inputs.length > currentMonthIndex) {
+          const value = Number(inputs[currentMonthIndex].value || 0);
+          
+          // 対応するフィールドを更新
+          if (rowId === '1') saveData.employees_count = value;
+          if (rowId === '2') saveData.fulltime_count = value;
+          if (rowId === '3') saveData.parttime_count = value;
+          if (rowId === '5') saveData.level1_2_count = value;
+          if (rowId === '6') saveData.other_disability_count = value;
+          if (rowId === '7') saveData.level1_2_parttime_count = value;
+          if (rowId === '8') saveData.other_parttime_count = value;
+          if (rowId === '11') saveData.legal_employment_rate = value;
         }
       });
       
       // 法定雇用率の特別処理
+      const yearEditedValues = editedValuesByYear[selectedYear] || {};
       if ('legal_employment_rate_display' in yearEditedValues) {
         const displayValue = yearEditedValues.legal_employment_rate_display;
         if (typeof displayValue === 'string') {
           if (displayValue === '.') {
-            currentValues.legal_employment_rate = 0.0;
+            saveData.legal_employment_rate = 0.0;
           } else if (displayValue === '0.') {
-            currentValues.legal_employment_rate = 0.0;
+            saveData.legal_employment_rate = 0.0;
           } else if (displayValue.endsWith('.')) {
             // '2.' → '2.0' に変換
-            currentValues.legal_employment_rate = parseFloat(displayValue + '0');
+            saveData.legal_employment_rate = parseFloat(displayValue + '0');
           } else if (displayValue.includes('.')) {
             // すでに小数点がある場合はそのまま使用
-            currentValues.legal_employment_rate = parseFloat(displayValue);
+            saveData.legal_employment_rate = parseFloat(displayValue);
           } else {
             // 整数値に対して小数点表示を強制 (例: "2" → 2.0)
-            currentValues.legal_employment_rate = parseFloat(parseFloat(displayValue).toFixed(1));
+            saveData.legal_employment_rate = parseFloat(parseFloat(displayValue).toFixed(1));
           }
         }
       } else {
         // 法定雇用率が編集されていない場合でも、整数値には小数点表示を強制
-        if (Number.isInteger(currentValues.legal_employment_rate)) {
-          currentValues.legal_employment_rate = parseFloat(currentValues.legal_employment_rate.toFixed(1));
+        if (Number.isInteger(saveData.legal_employment_rate)) {
+          saveData.legal_employment_rate = parseFloat(saveData.legal_employment_rate.toFixed(1));
         }
       }
       
-      // 保存するデータを準備
-      const saveData = {
-        fiscal_year: selectedYear,
-        month: month,
-        ...currentValues
-      };
+      console.log('実際の保存データ (DOM取得):', saveData);
       
-      console.log('保存するデータ (詳細):', JSON.stringify(saveData, null, 2));
-      
-      // APIにデータを保存
+      // 保存処理
       const result = await directSave(saveData);
       
       console.log('保存成功:', result);
       
-      // 保存が成功した場合の処理
       if (result && result.success) {
         // 編集モードをオフに
         setIsEditing(false);
@@ -1089,7 +1186,7 @@ useEffect(() => {
         setSuccessMessage(`データを${isCreating ? '作成' : '保存'}しました`);
         setTimeout(() => setSuccessMessage(null), 3000);
         
-        // ⭐ 保存したデータを保持
+        // 保存したデータを保持
         const currentData = dataByYear[selectedYear] || JSON.parse(JSON.stringify(defaultDetailData));
         
         // 保存済みデータに追加
@@ -1100,96 +1197,6 @@ useEffect(() => {
         
         // 親コンポーネントに通知してデータを再取得
         if (isEmbedded && onRefreshData) {
-          console.log('データを再取得します');
-          
-          // 直接データを更新
-          if (result.data) {
-            const updatedData = result.data;
-            
-            // 現在の年度のローカルデータを更新
-            setDataByYear(prev => {
-              const currentData = prev[selectedYear] || JSON.parse(JSON.stringify(defaultDetailData));
-              const newData = {...currentData};
-              
-              // 取得したデータで更新
-              if (updatedData.level1_2_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 5);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.level1_2_count;
-                }
-              }
-              
-              // 法定雇用率の更新 - 小数点処理を強化
-              if (updatedData.legal_employment_rate !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 11);
-                if (rowIndex !== -1) {
-                  let value = updatedData.legal_employment_rate;
-                  // 整数値に対して小数点表示を強制
-                  if (Number.isInteger(value)) {
-                    value = parseFloat(value.toFixed(1));
-                  }
-                  newData.data[rowIndex].values[currentMonthIndex] = value;
-                }
-              }
-              
-              // 他のフィールドも同様に更新
-              if (updatedData.employees_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 1);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.employees_count;
-                }
-              }
-              
-              if (updatedData.fulltime_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 2);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.fulltime_count;
-                }
-              }
-              
-              if (updatedData.parttime_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 3);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.parttime_count;
-                }
-              }
-              
-              if (updatedData.other_disability_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 6);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.other_disability_count;
-                }
-              }
-              
-              if (updatedData.level1_2_parttime_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 7);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.level1_2_parttime_count;
-                }
-              }
-              
-              if (updatedData.other_parttime_count !== undefined) {
-                const rowIndex = newData.data.findIndex(row => row.id === 8);
-                if (rowIndex !== -1) {
-                  newData.data[rowIndex].values[currentMonthIndex] = updatedData.other_parttime_count;
-                }
-              }
-              
-              const updatedResult = recalculateData(newData);
-              
-              // 保存済みデータも更新
-              setSavedData(savedPrev => ({
-                ...savedPrev,
-                [selectedYear]: JSON.parse(JSON.stringify(updatedResult))
-              }));
-              
-              return {
-                ...prev,
-                [selectedYear]: updatedResult
-              };
-            });
-          }
-          
           // 時間をずらして親コンポーネントの再取得処理を実行
           setTimeout(() => {
             try {
@@ -1206,7 +1213,7 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [directSave, editedValuesByYear, getMonthIndex, handleErrorSafely, isCreating, isEmbedded, month, onRefreshData, recalculateData, safeRefetchData, selectedYear, dataByYear]);
+  }, [directSave, getMonthIndex, handleErrorSafely, isCreating, isEmbedded, month, onRefreshData, safeRefetchData, selectedYear, dataByYear, editedValuesByYear]);
 
   // スタイル定義 - メモ化して再レンダリング時の再作成を防止
   const cellStyle = useMemo(() => ({
@@ -1292,6 +1299,26 @@ useEffect(() => {
             >
               新規作成
             </button>
+            
+            <button
+              onClick={handleOpenImportModal}
+              style={{
+                backgroundColor: '#10b981', // 緑色に変更
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.9rem'
+              }}
+              disabled={isLoading || isConfirmed}
+            >
+              <span style={{ fontSize: '1.2rem' }}>↑</span>
+              CSVインポート
+            </button>
           </div>
         </div>
         
@@ -1301,9 +1328,17 @@ useEffect(() => {
           backgroundColor: '#f8f9fa',
           borderRadius: '4px',
           marginTop: '20px'
-        }}>
-          <p>{selectedYear}年度の月次詳細データがありません。新規作成ボタンからデータを作成してください。</p>
+          }}>
+          <p>{selectedYear}年度の月次詳細データがありません。新規作成ボタンからデータを作成するか、CSVインポート機能を使用してください。</p>
         </div>
+        
+        {/* CSVインポートモーダル */}
+        <CSVImportModal
+          isOpen={isImportModalOpen}
+          onClose={handleCloseImportModal}
+          onImportSuccess={handleImportSuccess}
+          fiscalYear={selectedYear}
+        />
       </div>
     );
   }
@@ -1399,7 +1434,7 @@ useEffect(() => {
               value={selectedYear}
               onChange={handleYearSelectChange}
               style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
-              disabled={isLoading}
+              disabled={isLoading || isEditing}
             >
               {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
                 <option key={year} value={year}>{year}年度</option>
@@ -1424,6 +1459,28 @@ useEffect(() => {
               disabled={isLoading || isConfirmed}
             >
               編集
+            </button>
+          )}
+          
+          {!isEditing && (
+            <button
+              onClick={handleOpenImportModal}
+              style={{
+                backgroundColor: '#10b981', // 緑色に変更
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.9rem'
+              }}
+              disabled={isLoading || isConfirmed}
+            >
+              <span style={{ fontSize: '1.2rem' }}>↑</span>
+              CSVインポート
             </button>
           )}
           
@@ -1552,7 +1609,6 @@ useEffect(() => {
                       </tr>
                     )}
                     <tr 
-                      key={`row-${row.id}`}
                       style={{ backgroundColor: 'white', height: '22px' }}
                       data-row-id={row.id}
                     >
@@ -1664,6 +1720,7 @@ useEffect(() => {
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
+                marginTop: '15px',
                 cursor: 'pointer'
               }}
             >
@@ -1672,6 +1729,14 @@ useEffect(() => {
           )}
         </div>
       )}
+      
+      {/* CSVインポートモーダル */}
+      <CSVImportModal
+        isOpen={isImportModalOpen}
+        onClose={handleCloseImportModal}
+        onImportSuccess={handleImportSuccess}
+        fiscalYear={selectedYear}
+      />
     </div>
   );
 };
