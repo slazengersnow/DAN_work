@@ -7,7 +7,8 @@ import {
   handleApiError,
   getSettings,
   checkReportExists,
-  createMonthlyReport
+  createMonthlyReport,
+  getMonthlyReport
 } from '../../api/reportApi';
 import { useYearMonth } from './YearMonthContext';
 import axios from 'axios';
@@ -100,11 +101,14 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   // CSVインポートモーダルの状態
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   
-  // ⭐ データ保存状態を追跡する新しいステート
+  // データ保存状態を追跡する新しいステート
   const [savedData, setSavedData] = useState<{[key: number]: MonthlyDetailData}>({});
   
   // 重要な改善: 年度ごとにローカルデータを管理する
   const [dataByYear, setDataByYear] = useState<{[key: number]: MonthlyDetailData}>({});
+  
+  // 年間データをロードする状態管理
+  const [yearDataLoaded, setYearDataLoaded] = useState<{[key: number]: boolean}>({});
   
   // データ初期化状態を年度ごとに管理
   const [dataInitialized, setDataInitialized] = useState<{[key: number]: boolean}>({});
@@ -127,7 +131,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   // 重要な改善: 年度ごとに編集値を管理する
   const [editedValuesByYear, setEditedValuesByYear] = useState<{[key: number]: {[key: string]: any}}>({});
   
-  // ⭐ 改善: 現在の年度のデータ取得を厳密化
+  // 改善: 現在の年度のデータ取得を厳密化
   const localData = useMemo(() => {
     // まず保存済みデータをチェック
     if (savedData[selectedYear]) {
@@ -183,7 +187,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     };
   }, []);
 
-  // 重要: recalculateData関数を先に定義
+  // recalculateData関数を先に定義
   const recalculateData = useCallback((data: MonthlyDetailData): MonthlyDetailData => {
     const newData = {...data};
     
@@ -226,7 +230,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       for (let i = 0; i < 13; i++) {
         newData.data[totalDisabledRowIndex].values[i] = 
           level1And2Values[i] * 2 + otherValues[i] + 
-          level1And2PartTimeValues[i] + otherPartTimeValues[i] * 0.5;
+          level1And2PartTimeValues[i] * 2 * 0.5 + otherPartTimeValues[i] * 0.5;
       }
     }
     
@@ -239,8 +243,9 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       if (actualRateRowIndex !== -1) {
         for (let i = 0; i < 13; i++) {
           if (totalEmployeeValues[i] > 0) {
-            newData.data[actualRateRowIndex].values[i] = 
-              Number(((totalDisabledValues[i] / totalEmployeeValues[i]) * 100).toFixed(2));
+            // 重要な修正: 実雇用率の計算を小数点第2位で切り上げに変更
+            const rawRate = (totalDisabledValues[i] / totalEmployeeValues[i]) * 100;
+            newData.data[actualRateRowIndex].values[i] = Math.ceil(rawRate * 10) / 10;
           } else {
             newData.data[actualRateRowIndex].values[i] = 0;
           }
@@ -252,7 +257,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
         for (let i = 0; i < 13; i++) {
           if (i < 12) {
             newData.data[legalCountRowIndex].values[i] = 
-              Math.floor((legalRateValues[i] * totalEmployeeValues[i]) / 100);
+              Math.ceil((legalRateValues[i] * totalEmployeeValues[i]) / 100);
           } else {
             newData.data[legalCountRowIndex].values[i] = 
               newData.data[legalCountRowIndex].values.slice(0, 12).reduce((a, b) => a + b, 0);
@@ -273,12 +278,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     return newData;
   }, []);
 
-  // ⭐ 年度データロード - 完全に再設計
+  // 年度データロード - 完全に再設計
   const loadYearData = useCallback(async (year: number) => {
     if (!isEmbedded) return;
     
-    // 既にロード済みの場合はスキップ
-    if (dataFetched[year]) {
+    // 既にロード済みでキャッシュが無効でない場合はスキップ
+    if (yearDataLoaded[year] && dataFetched[year]) {
       console.log(`${year}年度のデータは既にロード済み`);
       return;
     }
@@ -287,31 +292,46 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     setIsLoading(true);
     
     try {
-      // APIからデータを取得
-      const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
-      if (response.data && response.data.success && response.data.data) {
-        console.log(`${year}年度のデータをAPIから取得しました:`, response.data.data);
-        
-        // 取得したデータをもとにMonthlyDetailData形式に変換
-        const apiData = response.data.data;
-        
-        // まず保存済みデータがあればそれを使用
-        let yearData = savedData[year] ? JSON.parse(JSON.stringify(savedData[year])) : 
-                       JSON.parse(JSON.stringify(defaultDetailData));
-        
-        // 取得したデータをもとに値を更新
-        const monthIndex = getMonthIndex(month);
-        
-        // フィールドを順に更新
-        Object.entries(rowFieldMap).forEach(([rowId, fieldName]) => {
-          if (apiData[fieldName] !== undefined) {
-            const rowIndex = yearData.data.findIndex(row => row.id === Number(rowId));
-            if (rowIndex !== -1) {
-              yearData.data[rowIndex].values[monthIndex] = apiData[fieldName];
-            }
+      // 全ての月のデータをロード
+      const monthsToLoad = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+      const allData: any[] = [];
+      
+      // まずデフォルトの年度データを用意
+      let yearData = savedData[year] ? JSON.parse(JSON.stringify(savedData[year])) : 
+                   JSON.parse(JSON.stringify(defaultDetailData));
+      
+      // 各月のデータを順番に取得
+      for (const m of monthsToLoad) {
+        try {
+          const response = await getMonthlyReport(year, m);
+          if (response && response.data) {
+            console.log(`${year}年度${m}月のデータをAPIから取得しました`);
+            
+            // 月インデックスを計算
+            const monthIndex = getMonthIndex(m);
+            
+            // APIデータをローカルデータに反映
+            const apiData = response.data;
+            
+            // フィールドを順に更新
+            Object.entries(rowFieldMap).forEach(([rowId, fieldName]) => {
+              if (apiData[fieldName] !== undefined) {
+                const rowIndex = yearData.data.findIndex(row => row.id === Number(rowId));
+                if (rowIndex !== -1) {
+                  yearData.data[rowIndex].values[monthIndex] = apiData[fieldName];
+                }
+              }
+            });
+            
+            allData.push(response.data);
           }
-        });
-        
+        } catch (error) {
+          console.warn(`${year}年度${m}月のデータ取得エラー:`, error);
+          // エラーでも続行
+        }
+      }
+      
+      if (allData.length > 0) {
         // 計算フィールドを更新
         yearData = recalculateData(yearData);
         
@@ -326,6 +346,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           [year]: yearData
         }));
         
+        // データロード完了フラグをセット
+        setYearDataLoaded(prev => ({
+          ...prev,
+          [year]: true
+        }));
+        
         // データ取得済みフラグをセット
         setDataFetched(prev => ({
           ...prev,
@@ -336,11 +362,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
           ...prev,
           [year]: true
         }));
+        
+        console.log(`${year}年度の全データをロード完了: ${allData.length}ヶ月分`);
       } else {
         console.log(`${year}年度のデータはAPIに存在しません`);
         
         // デフォルトデータを設定
-        console.log(`選択年度${year}のデータがないのでデフォルト値を設定`);
         const newDefaultData = JSON.parse(JSON.stringify(defaultDetailData));
         
         setDataByYear(prev => ({
@@ -378,7 +405,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isEmbedded, month, getMonthIndex, recalculateData, savedData, dataFetched, isCreating]);
+  }, [isEmbedded, getMonthIndex, recalculateData, savedData, yearDataLoaded, dataFetched, isCreating]);
 
   // 法定雇用率フィールドかどうかを判定する関数
   const isLegalRateField = useCallback((rowId: number): boolean => {
@@ -402,6 +429,12 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
       const newFetched = {...prev};
       newFetched[selectedYear] = false;
       return newFetched;
+    });
+    
+    setYearDataLoaded(prev => {
+      const newLoaded = {...prev};
+      newLoaded[selectedYear] = false;
+      return newLoaded;
     });
     
     setDataInitialized(prev => {
@@ -465,7 +498,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
   }, [isEmbedded, monthlyDetailData, selectedYear, dataInitialized, 
       needsYearDataRefresh, loadYearData]);
 
-  // ⭐ 年度変更時の親コンポーネント通知 - 改善版
+  // 年度変更時の親コンポーネント通知 - 改善版
   useEffect(() => {
     if (yearChanged && onYearChange) {
       console.log(`親コンポーネントに年度変更を通知: ${selectedYear}`);
@@ -493,7 +526,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     }
   }, [yearChanged, selectedYear, onYearChange, isEditing]);
 
-  // ⭐ 年度変更検知 - 改善版
+  // 年度変更検知 - 改善版
   useEffect(() => {
     if (prevSelectedYear.current !== selectedYear) {
       console.log(`年度が変更されました: ${prevSelectedYear.current} → ${selectedYear}`);
@@ -602,7 +635,7 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
     return row?.isCalculated || false;
   }, [localData.data]);
 
-  // ⭐ 年度選択変更ハンドラ - 完全に再設計
+  // 年度選択変更ハンドラ - 完全に再設計
   const handleYearSelectChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newYear = Number(e.target.value);
     
@@ -1652,6 +1685,11 @@ const MonthlyReportDetail: React.FC<MonthlyReportDetailProps> = (props) => {
                             // すでに小数点がある場合はそのまま
                             displayValue = Number(value).toFixed(1);
                           }
+                        }
+                        // 実雇用率のフォーマット
+                        else if (row.id === 10) {
+                          // 小数点第1位まで表示
+                          displayValue = Number(value).toFixed(1);
                         }
                         
                         return (
