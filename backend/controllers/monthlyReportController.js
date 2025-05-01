@@ -1,6 +1,7 @@
 // backend/controllers/monthlyReportController.js
 const { pool } = require('../config/db');
 const MonthlyReport = require('../models/MonthlyReport');
+const Employee = require('../models/Employee'); // 追加：必要なモデルのインポート
 
 // 月次レポート一覧を取得
 exports.getMonthlyReports = async (req, res) => {
@@ -615,7 +616,7 @@ exports.updateEmployeeDetail = async (req, res) => {
   }
 };
 
-// 従業員詳細を新規作成
+// 従業員詳細を新規作成 (修正版)
 exports.createEmployeeDetail = async (req, res) => {
   try {
     const { year, month } = req.params;
@@ -645,53 +646,90 @@ exports.createEmployeeDetail = async (req, res) => {
     });
     
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: `${year}年${month}月の月次レポートが見つかりません。`
+      // レポートが存在しない場合は新規作成
+      const newReport = await MonthlyReport.create({
+        fiscal_year: parseInt(year),
+        month: parseInt(month),
+        employees_count: 0,
+        status: '未確定'
       });
+      
+      console.log(`新規レポートを作成しました: ${year}年${month}月`);
     }
     
-    // 従業員データの作成処理
-    // 注: ここでは簡素化のためデータベースに直接アクセスする形で実装
-    // 実際のアプリケーションではモデルメソッドを使用することを推奨
-    
-    // 同じ社員IDが既に存在するか確認
-    const existingEmployeeWithSameId = await Employee.findOne({
-      report_id: report.id,
-      employee_id: employeeData.employee_id
-    });
-    
-    if (existingEmployeeWithSameId) {
-      return res.status(409).json({
-        success: false,
-        message: '指定された社員IDは既に登録されています'
+    try {
+      // MonthlyReport.createEmployeeDetail メソッドを使用（推奨方法）
+      const newEmployee = await MonthlyReport.createEmployeeDetail(
+        parseInt(year),
+        parseInt(month),
+        employeeData
+      );
+      
+      res.status(201).json({
+        success: true,
+        message: '従業員データを作成しました',
+        data: newEmployee
       });
+    } catch (detailError) {
+      // MonthlyReport モデルのメソッドが失敗した場合のフォールバック
+      console.error('従業員詳細作成エラー (MonthlyReport):', detailError);
+      
+      // employeeモデルを直接使用したフォールバック処理
+      // 同じ社員IDが既に存在するか確認
+      const query = `
+        SELECT * FROM employee_monthly_status 
+        WHERE fiscal_year = $1 AND month = $2 AND employee_id = $3
+      `;
+      const result = await pool.query(query, [year, month, employeeData.employee_id]);
+      
+      if (result.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: '指定された社員IDは既に登録されています'
+        });
+      }
+      
+      // 新規従業員レコードを作成
+      const insertQuery = `
+        INSERT INTO employee_monthly_status (
+          fiscal_year, month, employee_id, name, disability_type, disability, 
+          grade, hire_date, status, monthly_status, memo, count
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *
+      `;
+      
+      const monthlyStatus = employeeData.monthlyStatus ? 
+        JSON.stringify(employeeData.monthlyStatus) : 
+        JSON.stringify(Array(12).fill(1));
+      
+      const insertValues = [
+        year,
+        month,
+        employeeData.employee_id,
+        employeeData.name,
+        employeeData.disability_type || '',
+        employeeData.disability || '',
+        employeeData.grade || '',
+        employeeData.hire_date || new Date().toISOString().split('T')[0],
+        employeeData.status || '在籍',
+        monthlyStatus,
+        employeeData.memo || '',
+        employeeData.count || 0
+      ];
+      
+      const insertResult = await pool.query(insertQuery, insertValues);
+      
+      if (insertResult.rows.length > 0) {
+        res.status(201).json({
+          success: true,
+          message: '従業員データを作成しました',
+          data: insertResult.rows[0]
+        });
+      } else {
+        throw new Error('従業員データの作成に失敗しました');
+      }
     }
-    
-    // 新規従業員レコードを作成
-    const newEmployee = await Employee.create({
-      report_id: report.id,
-      no: employeeData.no || 0,
-      employee_id: employeeData.employee_id,
-      name: employeeData.name,
-      disability_type: employeeData.disability_type || '',
-      disability: employeeData.disability || '',
-      grade: employeeData.grade || '',
-      hire_date: employeeData.hire_date || new Date().toISOString().split('T')[0].replace(/-/g, '/'),
-      status: employeeData.status || '在籍',
-      monthlyStatus: employeeData.monthlyStatus || Array(12).fill(1),
-      memo: employeeData.memo || '',
-      count: employeeData.count || 0
-    });
-    
-    // 集計値を更新（オプション）
-    // ここで必要に応じてレポートの合計値を再計算
-    
-    res.status(201).json({
-      success: true,
-      message: '従業員データを作成しました',
-      data: newEmployee
-    });
   } catch (error) {
     console.error('従業員詳細作成エラー:', error);
     res.status(500).json({
