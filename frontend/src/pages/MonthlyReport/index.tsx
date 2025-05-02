@@ -624,8 +624,18 @@ const MonthlyReport: React.FC = () => {
     
     if (activeTab === 'employees') {
       return (
+
         <EmployeesTab 
-          employees={employees || []} 
+          employees={(employees || []).map(emp => ({
+            ...emp,
+            employee_id: String(emp.employee_id), // number型をstring型に変換
+            disability_type: emp.disability_type || '', // undefinedの場合は空文字列に変換
+            disability: emp.disability || '', // 念のため
+            grade: emp.grade || '', // 念のため
+            name: emp.name || '', // 念のため
+            status: emp.status || '在籍', // 念のため
+            hire_date: emp.hire_date || new Date().toISOString().split('T')[0].replace(/-/g, '/') // 念のため
+          }))} 
           onEmployeeChange={handleEmployeeChange}
           summaryData={summary || defaultSummary}
           onRefreshData={handleRefreshData}
