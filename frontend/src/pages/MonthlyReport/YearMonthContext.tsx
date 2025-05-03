@@ -7,6 +7,7 @@ interface YearMonthContextType {
   month: number;
   setFiscalYear: (year: number) => void;
   setMonth: (month: number) => void;
+  dispatchYearMonthChange: (year: number, month: number) => void;
 }
 
 // デフォルト値（現在の年と月）を設定
@@ -15,7 +16,8 @@ const defaultValues: YearMonthContextType = {
   fiscalYear: currentDate.getFullYear(),
   month: currentDate.getMonth() + 1,
   setFiscalYear: () => {},
-  setMonth: () => {}
+  setMonth: () => {},
+  dispatchYearMonthChange: () => {}
 };
 
 // localStorage操作をsafely処理する関数
@@ -62,18 +64,58 @@ export const YearMonthProvider: React.FC<YearMonthProviderProps> = ({
     initialMonth || safelyGetItem('month', defaultValues.month)
   );
 
+  // 年度と月を同時に変更する関数
+  const dispatchYearMonthChange = (year: number, month: number) => {
+    console.log(`年度と月を変更: ${year}年${month}月`);
+    setFiscalYearState(year);
+    setMonthState(month);
+    safelySetItem('fiscalYear', year);
+    safelySetItem('month', month);
+    
+    // カスタムイベントを発火して他のコンポーネントに通知
+    const yearMonthChangeEvent = new CustomEvent('yearMonthChanged', { 
+      detail: { year, month } 
+    });
+    window.dispatchEvent(yearMonthChangeEvent);
+  };
+
   // ラッパー関数を作成して、状態更新とストレージ保存を行う
   const setFiscalYear = (year: number) => {
+    console.log(`年度を${year}に変更しました`);
     setFiscalYearState(year);
     safelySetItem('fiscalYear', year);
-    console.log(`年度を${year}に変更しました`);
+    
+    // カスタムイベントを発火して他のコンポーネントに通知
+    const yearChangeEvent = new CustomEvent('fiscalYearChanged', { 
+      detail: { year, month } 
+    });
+    window.dispatchEvent(yearChangeEvent);
   };
 
   const setMonth = (newMonth: number) => {
+    console.log(`月を${newMonth}に変更しました`);
     setMonthState(newMonth);
     safelySetItem('month', newMonth);
-    console.log(`月を${newMonth}に変更しました`);
+    
+    // カスタムイベントを発火して他のコンポーネントに通知
+    const monthChangeEvent = new CustomEvent('monthChanged', { 
+      detail: { year: fiscalYear, month: newMonth } 
+    });
+    window.dispatchEvent(monthChangeEvent);
   };
+
+  // 初期値が変わったときにコンテキストの値を更新
+  useEffect(() => {
+    if (initialYear !== undefined && initialYear !== fiscalYear) {
+      setFiscalYearState(initialYear);
+      safelySetItem('fiscalYear', initialYear);
+    }
+    
+    if (initialMonth !== undefined && initialMonth !== month) {
+      setMonthState(initialMonth);
+      safelySetItem('month', initialMonth);
+    }
+  }, [initialYear, initialMonth]);
 
   // コンポーネントマウント時にコンソールに情報を出力
   useEffect(() => {
@@ -81,7 +123,13 @@ export const YearMonthProvider: React.FC<YearMonthProviderProps> = ({
   }, []);
 
   return (
-    <YearMonthContext.Provider value={{ fiscalYear, month, setFiscalYear, setMonth }}>
+    <YearMonthContext.Provider value={{ 
+      fiscalYear, 
+      month, 
+      setFiscalYear, 
+      setMonth,
+      dispatchYearMonthChange
+    }}>
       {children}
     </YearMonthContext.Provider>
   );
