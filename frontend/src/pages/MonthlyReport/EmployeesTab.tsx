@@ -233,35 +233,63 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   }, []);
 
-  // 年度変更時に従業員データを取得する関数
+  // 年度変更時に従業員データを取得する関数（改善版）
   const fetchEmployeesByYear = async (year: number) => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      console.log(`${year}年度の従業員データを取得中...`);
+      console.log(`${year}年${month}月の従業員データを取得中...`);
       
-      // 明示的にAPIを呼び出してデータを取得
+      // 明示的にAPIを呼び出してデータを取得 - 現在の月を必ず渡す
       const response = await reportApi.getMonthlyReport(year, month);
       
-      if (response && response.data && response.data.employees && response.data.employees.length > 0) {
-        console.log(`${year}年度の従業員データを取得成功:`, response.data.employees);
-        setLocalEmployees(response.data.employees);
+      if (response && response.data && response.data.employees) {
+        console.log(`${year}年${month}月の従業員データを取得成功:`, response.data.employees);
+        
+        // 型変換してセット (特にemployee_idの処理)
+        const processedEmployees = response.data.employees.map((emp: any) => ({
+          ...emp,
+          employee_id: typeof emp.employee_id === 'number' ? String(emp.employee_id) : emp.employee_id,
+          disability_type: emp.disability_type || '',
+          disability: emp.disability || '',
+          grade: emp.grade || '',
+          status: emp.status || '在籍'
+        }));
+        
+        setLocalEmployees(processedEmployees);
         setIsInitialized(true);
         
-        if (response.data.employees.length > 0) {
+        // 未保存データも更新（APIとの同期を保つ）
+        if (processedEmployees.length > 0) {
+          setUnsavedChanges(prev => ({
+            ...prev,
+            [year]: processedEmployees
+          }));
+        } else {
+          // 空の場合は未保存データから削除
+          setUnsavedChanges(prev => {
+            const newState = { ...prev };
+            delete newState[year];
+            return newState;
+          });
+        }
+        
+        if (processedEmployees.length > 0) {
           // 成功メッセージ表示
-          setSuccessMessage(`${year}年度のデータを読み込みました`);
+          setSuccessMessage(`${year}年度のデータを読み込みました（${processedEmployees.length}件）`);
           setTimeout(() => setSuccessMessage(null), 3000);
+        } else {
+          console.log(`${year}年度の従業員データは空です`);
+          
+          // 空のデータで更新
+          setLocalEmployees([]);
         }
       } else {
         console.log(`${year}年度の従業員データは空です`);
-        // サンプルデータの使用条件を見直し、既にデータが初期化されている場合は
-        // 空のデータで更新する
-        if (isInitialized) {
-          setLocalEmployees([]);
-        } else {
-          // 初回のみサンプルデータを使用
-          setLocalEmployees([]);
+        // 空のデータで更新
+        setLocalEmployees([]);
+        
+        if (!isInitialized) {
           setIsInitialized(true);
         }
       }
@@ -271,9 +299,15 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // APIエラー時の処理
       if (!isInitialized) {
-        // 初回のみサンプルデータを使用
-        setLocalEmployees([]);
         setIsInitialized(true);
+      }
+      
+      // 既存データを保持して再取得エラーを防ぐ
+      if (unsavedChanges[year] && unsavedChanges[year].length > 0) {
+        console.log(`APIエラーのため${year}年度の未保存データを使用`);
+        setLocalEmployees(unsavedChanges[year]);
+      } else {
+        setLocalEmployees([]);
       }
     } finally {
       setIsLoading(false);
@@ -384,46 +418,50 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   }, [employees, isInitialized, fiscalYear]);
 
-  // 年度変更時のデータ管理
+  // 年度変更時のデータ管理（改善版）
   useEffect(() => {
     console.log('年度変更を検知:', fiscalYear);
-    
-    // 現在のデータが存在し、かつ編集モードの場合は未保存データを保存
-    if (isInitialized && localEmployees.length > 0 && actualIsEditing) {
-      // 現在の年度のデータを一時保存
-      setUnsavedChanges(prev => ({
-        ...prev,
-        [fiscalYear]: [...localEmployees]
-      }));
-      console.log(`${fiscalYear}年度の未保存データを一時保存:`, localEmployees);
-    }
     
     // データが初期化された後で年度が変更されたときだけデータを再取得
     if (isInitialized) {
       // 処理中フラグを立てる
       setIsLoading(true);
       
-      // 少し遅延を入れてデータを取得
-      const fetchTimer = setTimeout(() => {
-        // 未保存データがあるか確認
-        if (unsavedChanges[fiscalYear]) {
-          console.log(`${fiscalYear}年度の未保存データを復元:`, unsavedChanges[fiscalYear]);
-          setLocalEmployees(unsavedChanges[fiscalYear]);
-          setIsLoading(false);
-        } else {
-          // 未保存データがなければAPIから取得
-          fetchEmployeesByYear(fiscalYear)
-            .finally(() => {
-              setIsLoading(false);
-            });
-        }
-      }, 300);
+      // 現在のデータが存在し、かつ編集モードの場合は未保存データを保存
+      if (localEmployees.length > 0 && actualIsEditing) {
+        // 現在の年度のデータを一時保存
+        setUnsavedChanges(prev => ({
+          ...prev,
+          [fiscalYear]: [...localEmployees]
+        }));
+        console.log(`${fiscalYear}年度の未保存データを一時保存:`, localEmployees);
+      }
       
-      return () => {
-        clearTimeout(fetchTimer);
+      // APIからのデータ取得処理
+      const fetchData = async () => {
+        try {
+          // まず、未保存データがあるか確認
+          if (unsavedChanges[fiscalYear] && unsavedChanges[fiscalYear].length > 0) {
+            console.log(`${fiscalYear}年度の未保存データを復元:`, unsavedChanges[fiscalYear]);
+            setLocalEmployees(unsavedChanges[fiscalYear]);
+          } else {
+            // 未保存データがなければAPIから取得
+            console.log(`${fiscalYear}年度のデータをAPIから取得します`);
+            await fetchEmployeesByYear(fiscalYear);
+          }
+        } catch (error) {
+          console.error(`${fiscalYear}年度のデータ取得中にエラーが発生:`, error);
+          setErrorMessage('データの取得中にエラーが発生しました');
+          setTimeout(() => setErrorMessage(null), 5000);
+        } finally {
+          setIsLoading(false);
+        }
       };
+      
+      // 即時実行（遅延を削除）
+      fetchData();
     }
-  }, [fiscalYear]);
+  }, [fiscalYear, month]); // 月も依存関係に追加
 
   // 編集モード切り替えハンドラー - シンプル化
   const handleToggleEditMode = () => {
@@ -447,25 +485,79 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   };
 
-  // 年度変更ハンドラー
-  const handleYearChange = (newYear: number) => {
+  // 年度変更ハンドラー - データ永続化を強化
+  const handleYearChange = async (newYear: number) => {
     console.log(`年度変更開始: ${fiscalYear} → ${newYear}`);
     
-    // まずローカル状態を更新
-    if (setFiscalYear) {
-      setFiscalYear(newYear);
+    // 編集中のデータが存在する場合は保存処理を実行
+    if (actualIsEditing) {
+      try {
+        // 新規追加モードの場合
+        if (isAddingNewRow && newRowData.name) {
+          console.log('年度変更前に新規データを保存します');
+          await handleSaveNewRow();
+        } 
+        // 既存データの編集中の場合
+        else if (localEmployees.length > 0) {
+          console.log('年度変更前に編集中のデータを保存します');
+          await handleSave();
+        }
+      } catch (error) {
+        console.error('年度変更前のデータ保存エラー:', error);
+        // エラーが発生しても続行するが、ユーザーに通知
+        setErrorMessage('データ保存中にエラーが発生しました。年度を切り替えると編集内容が失われる可能性があります。');
+        setTimeout(() => setErrorMessage(null), 5000);
+      }
     }
     
-    // 次に親コンポーネントに通知
-    if (onYearChange) {
-      onYearChange(newYear);
-    }
+    // 年度変更を実行（APIから新しいデータを取得するように修正）
+    await processYearChange(newYear);
+  };
+
+  // 年度変更の実際の処理（強化版）
+  const processYearChange = async (newYear: number) => {
+    setIsLoading(true);
     
-    // グローバルコンテキストを強制的に更新（イベントディスパッチで）
-    const yearChangeEvent = new CustomEvent('fiscalYearChanged', { 
-      detail: { year: newYear }
-    });
-    window.dispatchEvent(yearChangeEvent);
+    try {
+      // 編集モードを終了
+      if (actualIsEditing) {
+        setInternalIsEditing(false);
+      }
+      
+      // まずローカル状態を更新
+      if (setFiscalYear) {
+        setFiscalYear(newYear);
+      }
+      
+      // APIから新しい年度のデータを明示的に取得
+      console.log(`${newYear}年度のデータを明示的に取得します`);
+      
+      // 未保存データをクリア（実際のデータを優先するため）
+      setUnsavedChanges({});
+      
+      // 次に親コンポーネントに通知（これによりAPIからデータが取得される）
+      if (onYearChange) {
+        onYearChange(newYear);
+      }
+      
+      // グローバルコンテキストを強制的に更新（イベントディスパッチで）
+      const yearChangeEvent = new CustomEvent('fiscalYearChanged', { 
+        detail: { year: newYear, month: month }  // 月の情報も含める
+      });
+      window.dispatchEvent(yearChangeEvent);
+      
+      // 年度変更後に明示的にデータ再取得を実行
+      await fetchEmployeesByYear(newYear);
+      
+      setSuccessMessage(`${newYear}年度のデータを読み込みました`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      console.error('年度変更処理エラー:', error);
+      setErrorMessage('年度変更処理中にエラーが発生しました');
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // フィールド更新ハンドラー - 未保存データの管理を追加
@@ -654,24 +746,24 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   };
 
-  // 新規行の保存ハンドラー
+  // 新規行の保存ハンドラー（改善版）
   const handleSaveNewRow = async () => {
     // バリデーション
     if (!newRowData.name) {
       setErrorMessage("名前は必須です");
-      return;
+      return Promise.reject("名前は必須です");
     }
     
     if (!newRowData.employee_id) {
       setErrorMessage("社員IDは必須です");
-      return;
+      return Promise.reject("社員IDは必須です");
     }
     
     setIsLoading(true);
     
     try {
-      // API呼び出し
-      console.log(`新規従業員データを作成します:`, newRowData);
+      // API呼び出し時に現在の月も明示的に指定
+      console.log(`${fiscalYear}年${month}月に新規従業員データを作成します:`, newRowData);
       const createdEmployee = await reportApi.createEmployeeDetail(fiscalYear, month, newRowData);
       console.log(`作成された従業員データ:`, createdEmployee);
       
@@ -693,14 +785,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       // ローカルデータに追加
       setLocalEmployees(prev => {
         const updated = [...prev, newEmp];
-        
-        // 変更があったら現在の年度の未保存データも更新
-        setUnsavedChanges(prev => ({
-          ...prev,
-          [fiscalYear]: [...updated]
-        }));
-        
         return updated;
+      });
+      
+      // 現在の年度の未保存データを即時クリア（APIとの同期を保つため）
+      setUnsavedChanges(prev => {
+        const newState = { ...prev };
+        delete newState[fiscalYear];
+        return newState;
       });
       
       // 成功メッセージを表示
@@ -712,8 +804,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // データ更新後に親コンポーネントに通知
       if (onRefreshData) {
+        console.log('親コンポーネントにデータ更新を通知');
         onRefreshData();
       }
+      
+      // 明示的に再取得して同期を確実にする
+      await fetchEmployeesByYear(fiscalYear);
+      
+      return Promise.resolve(newEmp);
     } catch (error: any) {
       console.error('従業員作成エラー:', error);
       setErrorMessage(reportApi.handleApiError(error));
@@ -727,13 +825,6 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       setLocalEmployees(prev => {
         const updated = [...prev, tempEmployee];
-        
-        // 変更があったら現在の年度の未保存データも更新
-        setUnsavedChanges(prev => ({
-          ...prev,
-          [fiscalYear]: [...updated]
-        }));
-        
         return updated;
       });
       
@@ -741,6 +832,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // 新規行追加モードをオフ
       setIsAddingNewRow(false);
+      
+      return Promise.reject(error);
     } finally {
       setIsLoading(false);
     }
@@ -956,16 +1049,16 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 ))}
               </select>
             </div>
-            
+
             {/* 編集・新規作成ボタン群 */}
             <div style={{ display: 'flex', gap: '10px' }}>
-              {!isAddingNewRow && (
+              {!isAddingNewRow && !actualIsEditing && (
                 <button 
                   type="button"
                   onClick={handleToggleEditMode}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: actualIsEditing ? '#dc3545' : '#6c757d',
+                    backgroundColor: '#6c757d',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
@@ -973,28 +1066,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   }}
                   disabled={isLoading || isConfirmed}
                 >
-                  {actualIsEditing ? '編集中止' : '編集'}
+                  編集
                 </button>
               )}
               
-              {actualIsEditing && !isAddingNewRow && (
-                <button 
-                  type="button"
-                  onClick={handleSave}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? '保存中...' : '保存'}
-                </button>
-              )}
-
               {!isAddingNewRow && (
                 <button 
                   type="button"
@@ -1056,7 +1131,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         )}
 
         {/* 未保存データの警告 */}
-        {Object.keys(unsavedChanges).length > 0 && (
+        {Object.keys(unsavedChanges).length > 1 && ( // 修正: 現在の年度以外に未保存データがある場合のみ表示
           <div style={{ 
             backgroundColor: '#fff3cd', 
             color: '#856404', 
@@ -1064,7 +1139,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             borderRadius: '4px', 
             marginBottom: '15px' 
           }}>
-            {Object.keys(unsavedChanges).length}年度分の未保存データがあります。各年度で「保存」ボタンを押して変更を確定してください。
+            {Object.keys(unsavedChanges).length - 1}年度分の未保存データがあります。
+            各年度で「保存」ボタンを押して変更を確定してください。
           </div>
         )}
 
@@ -1597,31 +1673,15 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </tbody>
           </table>
         </div>
-        
+
         {/* 編集中の場合のみ表示するアクション領域 */}
-        {actualIsEditing && (
+        {actualIsEditing && !isAddingNewRow && (
           <div style={{ 
             display: 'flex', 
             justifyContent: 'flex-end', 
             gap: '10px', 
             marginTop: '10px' 
           }}>
-            <button 
-              type="button"
-              onClick={handleToggleEditMode}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-              disabled={isLoading || isConfirmed}
-            >
-              キャンセル
-            </button>
-            
             <button 
               type="button"
               onClick={handleSave}

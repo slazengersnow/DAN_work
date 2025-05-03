@@ -183,7 +183,7 @@ const checkReportExists = async (year: number, month: number): Promise<boolean> 
   }
 };
 
-// MonthlyReport.tsx の続き - メインコンポーネント
+// MonthlyReport コンポーネント
 const MonthlyReport: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -194,9 +194,13 @@ const MonthlyReport: React.FC = () => {
   // 現在のタブ状態
   const [activeTab, setActiveTab] = useState<string>(tabFromUrl);
   
+  // 現在の日付から正しい年度と月を取得
+  const currentDate = new Date();
+  const currentMonthNumber = currentDate.getMonth() + 1; // JavaScriptは0から始まる
+  
   // 現在選択中の年度と月（デフォルト値を設定）
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonthNumber);
 
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -206,7 +210,7 @@ const MonthlyReport: React.FC = () => {
   const [isUsingCachedData, setIsUsingCachedData] = useState<boolean>(false);
 
   // 年度ごとのデータキャッシュ
-  const [dataCache, setDataCache] = useState<{[key: number]: any}>({});
+  const [dataCache, setDataCache] = useState<{[key: string]: any}>({});
 
   // データ状態
   const [currentReport, setCurrentReport] = useState<{
@@ -257,17 +261,20 @@ const MonthlyReport: React.FC = () => {
     ['monthlyReport', selectedYear, selectedMonth],
     async () => {
       // 年月が有効値であることを確認
-      const validYear = selectedYear || new Date().getFullYear();
-      const validMonth = selectedMonth || new Date().getMonth() + 1;
+      const validYear = selectedYear || currentDate.getFullYear();
+      const validMonth = selectedMonth || currentMonthNumber;
       
       console.log(`年度${validYear}、月${validMonth}のデータ取得開始`);
       
       try {
+        // キャッシュキーを生成
+        const cacheKey = `${validYear}-${validMonth}`;
+        
         // まず、キャッシュに既にデータがあるか確認
-        if (dataCache[validYear] && !isUsingCachedData) {
-          console.log(`${validYear}年のキャッシュデータを使用します`);
+        if (dataCache[cacheKey] && !isUsingCachedData) {
+          console.log(`${validYear}年${validMonth}月のキャッシュデータを使用します`);
           setIsUsingCachedData(true);
-          return dataCache[validYear];
+          return dataCache[cacheKey];
         }
         
         // データ取得
@@ -277,7 +284,7 @@ const MonthlyReport: React.FC = () => {
         // キャッシュを更新
         setDataCache(prev => ({
           ...prev,
-          [validYear]: data
+          [cacheKey]: data
         }));
         
         setIsUsingCachedData(false);
@@ -321,8 +328,8 @@ const MonthlyReport: React.FC = () => {
         
         if (data) {
           // サマリーデータの安全な処理
-          const summaryData = data.summary || null;
-          let detailData = data.detail || null;
+          const summaryData = data.data?.summary || null;
+          let detailData = data.data?.detail || null;
           
           // サマリーデータが存在する場合のみformatYearlyDataForUIを呼び出す
           if (summaryData && !detailData) {
@@ -335,8 +342,8 @@ const MonthlyReport: React.FC = () => {
           }
           
           // 従業員データが空の場合でもサンプルデータを使用してUIを表示
-          const employeesData = data.employees && data.employees.length > 0 
-            ? data.employees 
+          const employeesData = data.data?.employees && data.data.employees.length > 0 
+            ? data.data.employees 
             : [];
           
           setCurrentReport({
@@ -446,10 +453,11 @@ const MonthlyReport: React.FC = () => {
 
   // データ再取得ハンドラー - 改善版
   const handleRefreshData = useCallback(() => {
-    // キャッシュをクリア
+    // 現在の年月のキャッシュのみをクリア
+    const cacheKey = `${selectedYear}-${selectedMonth}`;
     setDataCache(prev => {
       const newCache = {...prev};
-      delete newCache[selectedYear];
+      delete newCache[cacheKey];
       return newCache;
     });
     
@@ -466,7 +474,7 @@ const MonthlyReport: React.FC = () => {
     });
   }, [selectedYear, selectedMonth, queryClient, refetchReportData]);
 
-  // 年度変更ハンドラー - 完全に新しいアプローチ
+  // 年度変更ハンドラー - 改善版
   const handleYearChange = async (year: number) => {
     console.log(`親コンポーネントで年度変更を検知: ${selectedYear} → ${year}`);
     
@@ -479,7 +487,7 @@ const MonthlyReport: React.FC = () => {
       
       if (!exists) {
         // データが存在しない場合は新規作成
-        console.log(`${year}年度のデータが存在しないため、新規作成します`);
+        console.log(`${year}年度${selectedMonth}月のデータが存在しないため、新規作成します`);
         
         // デフォルトデータを作成
         try {
@@ -491,10 +499,11 @@ const MonthlyReport: React.FC = () => {
         }
       }
       
-      // キャッシュをクリア
+      // 現在表示中のキャッシュをクリア
+      const cacheKey = `${year}-${selectedMonth}`;
       setDataCache(prev => {
         const newCache = {...prev};
-        delete newCache[year];
+        delete newCache[cacheKey];
         return newCache;
       });
       
@@ -513,12 +522,12 @@ const MonthlyReport: React.FC = () => {
                            (response.data.summary ? formatYearlyDataForUI([response.data.summary]) : null);
             
             // 従業員データが空の場合でもUIを表示するため
-            const employeesData = response.data.employees && response.data.employees.length > 0 
-              ? response.data.employees 
+            const employeesData = response.data.data?.employees && response.data.data.employees.length > 0 
+              ? response.data.data.employees 
               : [];
             
             return {
-              summary: response.data.summary || null,
+              summary: response.data.data?.summary || null,
               employees: employeesData,
               detail: newDetail
             };
@@ -550,6 +559,40 @@ const MonthlyReport: React.FC = () => {
       
       // エラーメッセージを表示
       setErrorMessage('年度切り替え中にエラーが発生しました。');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+  
+  // 月変更ハンドラー
+  const handleMonthChange = async (month: number) => {
+    console.log(`月変更を検知: ${selectedMonth} → ${month}`);
+    
+    // 月を更新
+    setSelectedMonth(month);
+    
+    try {
+      // 指定した年月のデータを再取得
+      const cacheKey = `${selectedYear}-${month}`;
+      setDataCache(prev => {
+        const newCache = {...prev};
+        delete newCache[cacheKey];
+        return newCache;
+      });
+      
+      setIsUsingCachedData(false);
+      
+      // キャッシュを強制的に無効化して再取得
+      queryClient.invalidateQueries(['monthlyReport', selectedYear, month]);
+      
+      // 明示的にデータを再取得
+      refetchReportData().catch(error => {
+        console.error('データ再取得エラー:', error);
+        setErrorMessage('データの再取得中にエラーが発生しました。');
+        setTimeout(() => setErrorMessage(null), 5000);
+      });
+    } catch (error) {
+      console.error('月変更処理中にエラーが発生しました:', error);
+      setErrorMessage('月の切り替え中にエラーが発生しました。');
       setTimeout(() => setErrorMessage(null), 5000);
     }
   };
@@ -604,6 +647,9 @@ const MonthlyReport: React.FC = () => {
     status: '未確定'
   };
 
+  // 月選択用オプション
+  const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
   // タブコンテンツをレンダリングするための関数
   const renderTabContent = () => {
     console.log('タブレンダリング:', {
@@ -624,7 +670,6 @@ const MonthlyReport: React.FC = () => {
     
     if (activeTab === 'employees') {
       return (
-
         <EmployeesTab 
           employees={(employees || []).map(emp => ({
             ...emp,
@@ -738,6 +783,68 @@ const MonthlyReport: React.FC = () => {
     <YearMonthProvider initialYear={selectedYear} initialMonth={selectedMonth}>
       <div className="monthly-report-container" style={{ padding: '20px' }}>
         <h1 style={{ marginBottom: '20px' }}>月次報告</h1>
+        
+        {/* 年月選択パネル */}
+        <div style={{
+          display: 'flex',
+          gap: '20px',
+          marginBottom: '20px',
+          backgroundColor: '#f8f9fa',
+          padding: '10px 15px',
+          borderRadius: '4px',
+          border: '1px solid #ddd'
+        }}>
+          <div>
+            <label style={{ marginRight: '8px', fontSize: '0.9rem' }}>年度:</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => handleYearChange(parseInt(e.target.value, 10))}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '4px',
+                border: '1px solid #ced4da',
+                fontSize: '0.9rem'
+              }}
+            >
+              {Array.from({ length: 11 }, (_, i) => currentDate.getFullYear() - 5 + i).map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label style={{ marginRight: '8px', fontSize: '0.9rem' }}>月:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => handleMonthChange(parseInt(e.target.value, 10))}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '4px',
+                border: '1px solid #ced4da',
+                fontSize: '0.9rem'
+              }}
+            >
+              {monthOptions.map(month => (
+                <option key={month} value={month}>{month}月</option>
+              ))}
+            </select>
+          </div>
+          
+          <button
+            onClick={handleRefreshData}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+            disabled={isLoading}
+          >
+            更新
+          </button>
+        </div>
         
         {errorMessageElement}
         {hasErrorElement}

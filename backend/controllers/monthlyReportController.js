@@ -16,7 +16,7 @@ exports.getMonthlyReports = async (req, res) => {
   }
 };
 
-// 特定の年月の月次レポートを取得
+// 特定の年月の月次レポートを取得（従業員データを含める）
 exports.getMonthlyReport = async (req, res) => {
   try {
     const { year, month } = req.params;
@@ -35,17 +35,69 @@ exports.getMonthlyReport = async (req, res) => {
       return res.status(400).json({ success: false, message: '月は1から12の間で指定してください' });
     }
     
-    // 条件付きfindOneメソッドを使用
+    // 条件付きfindOneメソッドを使用してレポート取得
     const report = await MonthlyReport.findOne({ 
       fiscal_year: yearNum, 
       month: monthNum 
     });
     
-    if (!report) {
-      return res.status(404).json({ success: false, message: '指定された月次レポートが見つかりません' });
+    // 従業員データを取得
+    let employees = [];
+    
+    try {
+      // reportが存在する場合は従業員データを取得
+      if (report && report.id) {
+        const employeeData = await Employee.find({ report_id: report.id });
+        employees = employeeData || [];
+      }
+    } catch (empError) {
+      console.error('従業員データ取得エラー:', empError);
+      // 従業員データ取得エラーは無視して続行
     }
     
-    res.json({ success: true, data: report });
+    if (!report) {
+      // レポートが見つからない場合は新しいレポートを作成
+      try {
+        const newReport = await MonthlyReport.create({
+          fiscal_year: yearNum,
+          month: monthNum,
+          employees_count: 0,
+          fulltime_count: 0,
+          parttime_count: 0,
+          level1_2_count: 0,
+          other_disability_count: 0,
+          level1_2_parttime_count: 0,
+          other_parttime_count: 0,
+          legal_employment_rate: 2.3,
+          status: '未確定'
+        });
+        
+        return res.json({ 
+          success: true, 
+          data: {
+            summary: newReport,
+            employees: [],
+            detail: null
+          }
+        });
+      } catch (createError) {
+        console.error('新規レポート作成エラー:', createError);
+        return res.status(404).json({ 
+          success: false, 
+          message: '指定された月次レポートが見つかりません' 
+        });
+      }
+    }
+    
+    // 成功レスポンス
+    res.json({ 
+      success: true, 
+      data: {
+        summary: report,
+        employees: employees,
+        detail: null // 詳細データが必要な場合はここを拡張
+      }
+    });
   } catch (error) {
     console.error('月次レポートの取得中にエラーが発生しました:', error);
     res.status(500).json({ success: false, message: 'サーバーエラーが発生しました' });
@@ -379,7 +431,18 @@ exports.createMonthlyReport = async (req, res) => {
     });
     
     if (existingReport) {
-      return res.status(400).json({ success: false, message: '指定された年月のレポートは既に存在します' });
+      // 既存の場合は更新
+      const updatedReport = await MonthlyReport.findOneAndUpdate(
+        { fiscal_year: fiscal_year, month: Number(month) },
+        req.body,
+        { new: true }
+      );
+      
+      return res.json({
+        success: true,
+        message: '既存の月次レポートを更新しました',
+        data: updatedReport
+      });
     }
     
     // 計算項目の処理
@@ -467,6 +530,7 @@ exports.updateMonthlyReport = async (req, res) => {
 };
 
 // 月次レポートサマリーを更新
+// 月次レポートサマリーを更新
 exports.updateMonthlySummary = async (req, res) => {
   try {
     const { year, month } = req.params;
@@ -479,9 +543,18 @@ exports.updateMonthlySummary = async (req, res) => {
     });
     
     if (!existingReport) {
-      return res.status(404).json({
-        success: false,
-        message: '指定された月次レポートが見つかりません'
+      // レポートが存在しない場合は新規作成
+      const newReport = await MonthlyReport.create({
+        fiscal_year: parseInt(year),
+        month: parseInt(month),
+        ...updateData,
+        status: '未確定'
+      });
+      
+      return res.json({
+        success: true,
+        message: '月次レポートを新規作成しました',
+        data: newReport
       });
     }
     
@@ -602,10 +675,18 @@ exports.updateEmployeeDetail = async (req, res) => {
       });
     }
     
+    // 更新された従業員データも取得
+    const updatedEmployee = await Employee.findOne({
+      id: parseInt(id)
+    });
+    
     res.json({
       success: true,
       message: '従業員詳細が更新されました',
-      data: updatedReport
+      data: {
+        report: updatedReport,
+        employee: updatedEmployee
+      }
     });
   } catch (error) {
     console.error('従業員詳細更新エラー:', error);
@@ -616,13 +697,13 @@ exports.updateEmployeeDetail = async (req, res) => {
   }
 };
 
-// 従業員詳細を新規作成 (修正版)
+// 従業員詳細を新規作成 (改善版)
 exports.createEmployeeDetail = async (req, res) => {
   try {
     const { year, month } = req.params;
     const employeeData = req.body;
     
-    console.log('Request Body:', JSON.stringify(employeeData, null, 2));
+    console.log('従業員詳細作成リクエスト:', { year, month, body: employeeData });
     
     // 必須フィールドの検証
     if (!employeeData.name) {
@@ -640,29 +721,40 @@ exports.createEmployeeDetail = async (req, res) => {
     }
     
     // MonthlyReportが存在するか確認
-    const report = await MonthlyReport.findOne({
+    let report = await MonthlyReport.findOne({
       fiscal_year: parseInt(year),
       month: parseInt(month)
     });
     
     if (!report) {
       // レポートが存在しない場合は新規作成
-      const newReport = await MonthlyReport.create({
+      report = await MonthlyReport.create({
         fiscal_year: parseInt(year),
         month: parseInt(month),
         employees_count: 0,
         status: '未確定'
       });
       
-      console.log(`新規レポートを作成しました: ${year}年${month}月`);
+      console.log(`新規レポートを作成しました: ${year}年${month}月, ID=${report.id}`);
     }
     
     try {
-      // MonthlyReport.createEmployeeDetail メソッドを使用（推奨方法）
-      const newEmployee = await MonthlyReport.createEmployeeDetail(
-        parseInt(year),
-        parseInt(month),
-        employeeData
+      // 従業員データの前準備（月次ステータスが配列形式であることを確認）
+      const processedData = {
+        ...employeeData,
+        report_id: report.id,
+        monthlyStatus: Array.isArray(employeeData.monthlyStatus) 
+          ? employeeData.monthlyStatus 
+          : Array(12).fill(1)
+      };
+      
+      // MonthlyReport.createEmployeeDetail メソッドを使用
+      const newEmployee = await Employee.create(processedData);
+      
+      // 従業員データ作成成功後、レポートの従業員数を更新
+      await MonthlyReport.findOneAndUpdate(
+        { id: report.id },
+        { $inc: { employees_count: 1 } }
       );
       
       res.status(201).json({
@@ -672,7 +764,7 @@ exports.createEmployeeDetail = async (req, res) => {
       });
     } catch (detailError) {
       // MonthlyReport モデルのメソッドが失敗した場合のフォールバック
-      console.error('従業員詳細作成エラー (MonthlyReport):', detailError);
+      console.error('従業員詳細作成エラー:', detailError);
       
       // employeeモデルを直接使用したフォールバック処理
       // 同じ社員IDが既に存在するか確認
@@ -693,9 +785,9 @@ exports.createEmployeeDetail = async (req, res) => {
       const insertQuery = `
         INSERT INTO employee_monthly_status (
           fiscal_year, month, employee_id, name, disability_type, disability, 
-          grade, hire_date, status, monthly_status, memo, count
+          grade, hire_date, status, monthly_status, memo, count, report_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `;
       
@@ -715,12 +807,21 @@ exports.createEmployeeDetail = async (req, res) => {
         employeeData.status || '在籍',
         monthlyStatus,
         employeeData.memo || '',
-        employeeData.count || 0
+        employeeData.count || 0,
+        report.id
       ];
       
       const insertResult = await pool.query(insertQuery, insertValues);
       
       if (insertResult.rows.length > 0) {
+        // 従業員データ作成成功後、レポートの従業員数を更新
+        const updateReportQuery = `
+          UPDATE monthly_reports
+          SET employees_count = employees_count + 1
+          WHERE id = $1
+        `;
+        await pool.query(updateReportQuery, [report.id]);
+        
         res.status(201).json({
           success: true,
           message: '従業員データを作成しました',
@@ -739,8 +840,6 @@ exports.createEmployeeDetail = async (req, res) => {
     });
   }
 };
-
-// monthlyReportController.js に追加する関数
 
 // 詳細セルを更新
 exports.updateDetailCell = async (req, res) => {
@@ -769,7 +868,6 @@ exports.updateDetailCell = async (req, res) => {
     }
     
     // 詳細データの更新処理（実際の実装はデータ構造に依存）
-    // この例では、詳細データがMonthlyReportモデルの一部として保存されていると仮定
     const updatedReport = await MonthlyReport.findOneAndUpdate(
       { fiscal_year: parseInt(year), month: parseInt(month) },
       { $set: { [`details.${id}`]: updateData } },
@@ -808,9 +906,8 @@ exports.deleteEmployeeDetail = async (req, res) => {
       });
     }
     
-    // 従業員データの存在確認と削除
+    // 従業員データの存在確認
     const employeeExists = await Employee.findOne({
-      report_id: report.id,
       id: parseInt(id)
     });
     
@@ -823,9 +920,14 @@ exports.deleteEmployeeDetail = async (req, res) => {
     
     // 従業員データを削除
     await Employee.deleteOne({
-      report_id: report.id,
       id: parseInt(id)
     });
+    
+    // 従業員数を更新
+    await MonthlyReport.findOneAndUpdate(
+      { id: report.id },
+      { $inc: { employees_count: -1 } }
+    );
     
     res.json({
       success: true,
@@ -856,15 +958,18 @@ exports.importEmployeesFromCSV = async (req, res) => {
     const csvFile = req.files.csv;
     
     // 既存レポートの確認
-    const report = await MonthlyReport.findOne({
+    let report = await MonthlyReport.findOne({
       fiscal_year: parseInt(year),
       month: parseInt(month)
     });
     
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: '指定された月次レポートが見つかりません'
+      // レポートが存在しない場合は新規作成
+      report = await MonthlyReport.create({
+        fiscal_year: parseInt(year),
+        month: parseInt(month),
+        employees_count: 0,
+        status: '未確定'
       });
     }
     
@@ -882,6 +987,12 @@ exports.importEmployeesFromCSV = async (req, res) => {
       });
       createdEmployees.push(newEmployee);
     }
+    
+    // 従業員数を更新
+    await MonthlyReport.findOneAndUpdate(
+      { id: report.id },
+      { $inc: { employees_count: createdEmployees.length } }
+    );
     
     res.status(201).json({
       success: true,
