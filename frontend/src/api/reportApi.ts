@@ -1,4 +1,3 @@
-// src/api/reportApi.ts
 import axios, { AxiosError } from 'axios';
 import { MonthlyTotal, Employee } from '../pages/MonthlyReport/types';
 
@@ -181,9 +180,9 @@ export const updateReportStatus = async (year: number, month: number, status: st
 };
 
 // 従業員データの更新 - 改善版
-export const updateEmployeeData = async (year: number, month: number, employeeId: number, data: Record<string, string>) => {
+export const updateEmployeeData = async (year: number, employeeId: number, data: Record<string, string>) => {
   try {
-    console.log(`従業員更新API呼び出し: ${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employeeId}`);
+    console.log(`従業員更新API呼び出し: ${API_BASE_URL}/employees/${employeeId}`);
     console.log('更新データ:', JSON.stringify(data, null, 2));
     
     // 月次ステータスの特別処理
@@ -218,10 +217,13 @@ export const updateEmployeeData = async (year: number, month: number, employeeId
       }
     }
     
-    // API呼び出し
+    // API呼び出し - 月パラメータを削除し、年度情報を追加
     const response = await axios.patch(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employeeId}`, 
-      data,
+      `${API_BASE_URL}/employees/${employeeId}`, 
+      {
+        ...data,
+        fiscal_year: year // 年度情報を追加
+      },
       {
         timeout: 10000,
         headers: {
@@ -257,23 +259,24 @@ export const updateEmployeeData = async (year: number, month: number, employeeId
 };
 
 // 従業員データの作成 - 改善版
-export const createEmployeeDetail = async (year: number, month: number, employeeData: Omit<Employee, 'id'>) => {
+export const createEmployeeDetail = async (year: number, employeeData: Omit<Employee, 'id'>) => {
   try {
-    console.log(`従業員作成API呼び出し: ${API_BASE_URL}/monthly-reports/${year}/${month}/employees`);
+    console.log(`従業員作成API呼び出し: ${API_BASE_URL}/employees`);
     console.log('Request Body:', JSON.stringify(employeeData, null, 2));
     
     // 従業員データの前処理
     const processedData = {
       ...employeeData,
+      fiscal_year: year, // 年度情報を追加
       // 月次ステータスが配列でない場合は配列に変換
       monthlyStatus: Array.isArray(employeeData.monthlyStatus) 
         ? employeeData.monthlyStatus 
         : Array(12).fill(1)
     };
     
-    // API呼び出し
+    // API呼び出し - 月パラメータを削除
     const response = await axios.post(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees`, 
+      `${API_BASE_URL}/employees`, 
       processedData,
       {
         // タイムアウト設定を長めに
@@ -377,12 +380,13 @@ export const checkReportExists = async (year: number, month: number): Promise<bo
 };
 
 // 従業員データの削除
-export const deleteEmployeeData = async (year: number, month: number, employeeId: number) => {
+export const deleteEmployeeData = async (year: number, employeeId: number) => {
   try {
-    console.log(`従業員削除: ${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employeeId}`);
+    console.log(`従業員削除: ${API_BASE_URL}/employees/${employeeId}`);
     
+    // 年度パラメータをクエリとして追加
     const response = await axios.delete(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/${employeeId}`,
+      `${API_BASE_URL}/employees/${employeeId}?fiscal_year=${year}`,
       {
         timeout: 5000
       }
@@ -402,12 +406,15 @@ export const deleteEmployeeData = async (year: number, month: number, employeeId
 };
 
 // CSVインポート
-export const importEmployeesFromCSV = async (year: number, month: number, fileData: FormData) => {
+export const importEmployeesFromCSV = async (year: number, fileData: FormData) => {
   try {
-    console.log(`CSVインポート: ${API_BASE_URL}/monthly-reports/${year}/${month}/employees/import`);
+    // 年度情報をフォームデータに追加
+    fileData.append('fiscal_year', year.toString());
+    
+    console.log(`CSVインポート: ${API_BASE_URL}/employees/import`);
     
     const response = await axios.post(
-      `${API_BASE_URL}/monthly-reports/${year}/${month}/employees/import`, 
+      `${API_BASE_URL}/employees/import`, 
       fileData,
       {
         headers: {
@@ -552,6 +559,26 @@ export const confirmMonthlyReport = async (year: number, month: number) => {
   }
 };
 
+// 特定年度の従業員一覧を取得
+export const getEmployeesByYear = async (year: number) => {
+  try {
+    console.log(`年度別従業員一覧取得: ${API_BASE_URL}/employees?fiscal_year=${year}`);
+    
+    const response = await axios.get(
+      `${API_BASE_URL}/employees?fiscal_year=${year}`,
+      {
+        timeout: 10000
+      }
+    );
+    
+    console.log(`${year}年度の従業員一覧取得結果:`, response.data);
+    return response.data.data || [];
+  } catch (error) {
+    console.error(`${year}年度の従業員一覧取得エラー:`, error);
+    throw error;
+  }
+};
+
 // システム設定を取得する関数
 export const getSettings = async (): Promise<any> => {
   try {
@@ -588,7 +615,8 @@ export const reportApi = {
   handleApiError,
   updateDetailCell,
   confirmMonthlyReport,
-  getSettings
+  getSettings,
+  getEmployeesByYear
 };
 
 export default reportApi;

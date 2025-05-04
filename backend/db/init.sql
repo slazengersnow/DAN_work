@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS employees (
     status VARCHAR(20) DEFAULT '在籍中',      -- 在籍状況
     count DECIMAL(3, 1) DEFAULT 1,            -- カウント数
     notes TEXT,                               -- 備考
+    fiscal_year INTEGER,                      -- 年度 (追加)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -77,8 +78,9 @@ CREATE TABLE IF NOT EXISTS monthly_reports (
 -- 従業員月次状態テーブル
 CREATE TABLE IF NOT EXISTS employee_monthly_status (
     id SERIAL PRIMARY KEY,
-    fiscal_year INTEGER NOT NULL,
-    month INTEGER NOT NULL,
+    fiscal_year INTEGER NOT NULL,             -- 年度 (修正: PostgreSQL用に修正)
+    month INTEGER NOT NULL,                   -- 月 (追加: 月別データのため)
+    report_id INTEGER,                        -- レポートID (オプション)
     employee_id VARCHAR(50) NOT NULL,
     no INTEGER,
     name VARCHAR(100),
@@ -231,6 +233,24 @@ SELECT
     'contact@sample.co.jp'
 WHERE NOT EXISTS (SELECT 1 FROM company_settings LIMIT 1);
 
+-- fiscal_yearカラムが存在するか確認し、存在しない場合は追加する
+DO $$ 
+BEGIN
+    -- employeesテーブルにfiscal_yearカラムが存在しない場合、追加
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'employees' AND column_name = 'fiscal_year') THEN
+        ALTER TABLE employees ADD COLUMN fiscal_year INTEGER;
+        -- 現在の年をデフォルト値として設定
+        UPDATE employees SET fiscal_year = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER;
+    END IF;
+
+    -- employee_monthly_statusテーブルのmonthカラムを確認
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'employee_monthly_status' AND column_name = 'month') THEN
+        ALTER TABLE employee_monthly_status ADD COLUMN month INTEGER DEFAULT 1;
+    END IF;
+END $$;
+
 -- インデックス作成
 CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department);
 CREATE INDEX IF NOT EXISTS idx_employees_employment_type ON employees(employment_type);
@@ -240,3 +260,4 @@ CREATE INDEX IF NOT EXISTS idx_monthly_reports_fiscal_year_month ON monthly_repo
 CREATE INDEX IF NOT EXISTS idx_payment_reports_fiscal_year ON payment_reports(fiscal_year);
 CREATE INDEX IF NOT EXISTS idx_payment_monthly_data_report_id ON payment_monthly_data(payment_report_id);
 CREATE INDEX IF NOT EXISTS idx_employee_monthly_status_fiscal_year_month ON employee_monthly_status(fiscal_year, month);
+CREATE INDEX IF NOT EXISTS idx_employees_fiscal_year ON employees(fiscal_year);

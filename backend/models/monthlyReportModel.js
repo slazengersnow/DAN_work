@@ -7,20 +7,23 @@ const monthlyReportModel = {
   // 特定の年月の月次報告を取得
   getMonthlyReport: async (year, month) => {
     try {
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      
       const result = await db.query(
         'SELECT * FROM monthly_reports WHERE fiscal_year = $1 AND month = $2',
-        [year, month]
+        [yearNum, monthNum]
       );
       
       if (result.rows.length === 0) {
         // データがない場合は自動生成
-        const calculatedData = await monthlyReportModel.calculateMonthReport(year, month);
+        const calculatedData = await monthlyReportModel.calculateMonthReport(yearNum, monthNum);
         
         return {
           success: true,
           report: calculatedData || {
-            fiscal_year: year,
-            month: month,
+            fiscal_year: yearNum,
+            month: monthNum,
             total_employees: 0,
             disabled_employees: 0,
             employment_rate: 0,
@@ -58,9 +61,12 @@ const monthlyReportModel = {
   // 月次レポートの保存
   saveMonthlyReport: async (year, month, reportData) => {
     try {
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      
       // 既存レコードの確認
       const checkQuery = 'SELECT * FROM monthly_reports WHERE fiscal_year = $1 AND month = $2';
-      const checkResult = await db.query(checkQuery, [year, month]);
+      const checkResult = await db.query(checkQuery, [yearNum, monthNum]);
       
       // 変換と計算
       const employees_count = reportData.employees_count || reportData.total_employees || 0;
@@ -118,8 +124,8 @@ const monthlyReportModel = {
           over_under_count,
           reportData.status || '確定',
           reportData.notes || '',
-          year,
-          month
+          yearNum,
+          monthNum
         ];
         
         const result = await db.query(updateQuery, values);
@@ -128,8 +134,8 @@ const monthlyReportModel = {
           success: true,
           report: {
             id: result.rows[0].id,
-            fiscal_year: year,
-            month: month,
+            fiscal_year: yearNum,
+            month: monthNum,
             total_employees: employees_count,
             disabled_employees: total_disability_count,
             employment_rate: employment_rate,
@@ -168,8 +174,8 @@ const monthlyReportModel = {
         `;
         
         const values = [
-          year,
-          month,
+          yearNum,
+          monthNum,
           employees_count,
           reportData.fulltime_count || 0,
           reportData.parttime_count || 0,
@@ -192,8 +198,8 @@ const monthlyReportModel = {
           success: true,
           report: {
             id: result.rows[0].id,
-            fiscal_year: year,
-            month: month,
+            fiscal_year: yearNum,
+            month: monthNum,
             total_employees: employees_count,
             disabled_employees: total_disability_count,
             employment_rate: employment_rate,
@@ -242,9 +248,11 @@ const monthlyReportModel = {
   // 年間推移データの取得
   getYearlyTrend: async (year) => {
     try {
+      const yearNum = parseInt(year);
+      
       const result = await db.query(
         'SELECT * FROM monthly_reports WHERE fiscal_year = $1 ORDER BY month',
-        [year]
+        [yearNum]
       );
       
       // 各月のデータを整形
@@ -276,7 +284,7 @@ const monthlyReportModel = {
       }
       
       return {
-        year,
+        year: yearNum,
         months,
         success: true
       };
@@ -289,9 +297,12 @@ const monthlyReportModel = {
   // 月次レポートの削除
   deleteMonthlyReport: async (year, month) => {
     try {
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      
       const result = await db.query(
         'DELETE FROM monthly_reports WHERE fiscal_year = $1 AND month = $2 RETURNING *',
-        [year, month]
+        [yearNum, monthNum]
       );
       
       if (result.rows.length === 0) {
@@ -319,6 +330,9 @@ const monthlyReportModel = {
   // 月次データを計算（従業員情報から）
   calculateMonthReport: async (year, month) => {
     try {
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      
       // 従業員データを取得
       const employeeQuery = `
         SELECT 
@@ -330,16 +344,17 @@ const monthlyReportModel = {
           (resignation_date IS NOT NULL AND 
            (EXTRACT(YEAR FROM resignation_date) > $1 OR 
             (EXTRACT(YEAR FROM resignation_date) = $1 AND EXTRACT(MONTH FROM resignation_date) >= $2))))
+          AND fiscal_year = $1
         GROUP BY 1
       `;
       
-      const result = await db.query(employeeQuery, [year, month]);
+      const result = await db.query(employeeQuery, [yearNum, monthNum]);
       
       if (result.rows.length === 0) {
         // 従業員データがない場合はデフォルト値を返す
         return {
-          fiscal_year: year,
-          month: month,
+          fiscal_year: yearNum,
+          month: monthNum,
           total_employees: 0,
           disabled_employees: 0,
           employment_rate: 0,
@@ -361,8 +376,8 @@ const monthlyReportModel = {
       const legal_employment_rate = 2.3;
       
       return {
-        fiscal_year: year,
-        month: month,
+        fiscal_year: yearNum,
+        month: monthNum,
         total_employees: total_employees,
         disabled_employees: disabled_employees,
         employment_rate: employment_rate,

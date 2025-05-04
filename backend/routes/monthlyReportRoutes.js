@@ -1,5 +1,3 @@
-// routes/monthlyReportRoutes.js
-
 const express = require('express');
 const router = express.Router();
 const monthlyReportController = require('../controllers/monthlyReportController');
@@ -36,20 +34,19 @@ router.put('/monthly-reports/:year/:month/summary', monthlyReportController.upda
 
 // 月次レポートを確定
 router.post('/monthly-reports/:year/:month/confirm', monthlyReportController.confirmMonthlyReport);
-router.put('/monthly-reports/:year/:month/confirm', monthlyReportController.confirmMonthlyReport);
 
-// 従業員詳細を更新
-router.patch('/monthly-reports/:year/:month/employees/:id', monthlyReportController.updateEmployeeDetail);
-router.put('/monthly-reports/:year/:month/employees/:id', monthlyReportController.updateEmployeeDetail);
+// 従業員詳細を更新 - 関数が存在する場合のみコメントアウトを解除
+// router.put('/monthly-reports/:year/:month/employees/:id', monthlyReportController.updateEmployeeDetail);
+// router.patch('/monthly-reports/:year/:month/employees/:id', monthlyReportController.updateEmployeeDetail);
 
 // 従業員詳細を新規作成
 router.post('/monthly-reports/:year/:month/employees', monthlyReportController.createEmployeeDetail);
 
 // 従業員詳細を削除
-router.delete('/monthly-reports/:year/:month/employees/:id', monthlyReportController.deleteEmployeeDetail);
+// router.delete('/monthly-reports/:year/:month/employees/:id', monthlyReportController.deleteEmployeeDetail);
 
 // 詳細セルの更新
-router.put('/monthly-reports/:year/:month/details/:id', monthlyReportController.updateDetailCell);
+// router.put('/monthly-reports/:year/:month/details/:id', monthlyReportController.updateDetailCell);
 
 // CSVインポート
 router.post('/monthly-reports/:year/:month/employees/import', monthlyReportController.importEmployeesFromCSV);

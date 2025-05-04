@@ -204,8 +204,11 @@ const MonthlyReport: React.FC = () => {
 
   // エラーメッセージ状態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 成功メッセージ状態
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   // 新規作成フラグ
   const [isCreatingNewReport, setIsCreatingNewReport] = useState<boolean>(false);
+
   // データがキャッシュから使用されているかどうかのフラグ
   const [isUsingCachedData, setIsUsingCachedData] = useState<boolean>(false);
 
@@ -529,12 +532,18 @@ const MonthlyReport: React.FC = () => {
         setTimeout(() => setErrorMessage(null), 5000);
       }
     };
-    
+
     // 月変更ハンドラー
     const handleMonthChange = async (newMonth: number) => {
       console.log(`月変更を検知: ${month} → ${newMonth}`);
       
       try {
+        // 現在のステートを保存
+        const prevMonth = month;
+        
+        // 先にUIを更新して即時フィードバックを提供
+        setMonth(newMonth);
+        
         // 指定した年月のデータが存在するかチェック
         const exists = await checkReportExists(fiscalYear, newMonth);
         
@@ -548,12 +557,20 @@ const MonthlyReport: React.FC = () => {
             console.log(`${fiscalYear}年度${newMonth}月のデータを新規作成しました`);
           } catch (error) {
             console.error('新規レポート作成エラー:', error);
-            // エラーを無視して続行
+            // エラー時はUIに通知するが、ステートは既に更新済み
+            setErrorMessage('新しい月のレポート作成中にエラーが発生しました。');
+            setTimeout(() => setErrorMessage(null), 5000);
           }
         }
         
-        // YearMonthContextの月を更新
-        setMonth(newMonth);
+        // イベント発火 - 年月の同時変更を通知
+        const yearMonthChangeEvent = new CustomEvent('yearMonthChanged', {
+          detail: { year: fiscalYear, month: newMonth }
+        });
+        window.dispatchEvent(yearMonthChangeEvent);
+        
+        // YearMonthContextの値を更新
+        dispatchYearMonthChange(fiscalYear, newMonth);
         
         // 現在表示中のキャッシュをクリア
         const cacheKey = `${fiscalYear}-${newMonth}`;
@@ -567,6 +584,10 @@ const MonthlyReport: React.FC = () => {
         
         // キャッシュを強制的に無効化して再取得
         queryClient.invalidateQueries(['monthlyReport', fiscalYear, newMonth]);
+        
+        // 成功メッセージを表示
+        setSuccessMessage(`${fiscalYear}年${newMonth}月のデータを表示しています`);
+        setTimeout(() => setSuccessMessage(null), 3000);
       } catch (error) {
         console.error('月変更処理中にエラーが発生しました:', error);
         
@@ -744,6 +765,18 @@ const MonthlyReport: React.FC = () => {
       </div>
     ) : null;
 
+    const successMessageElement = successMessage ? (
+      <div className="success-message" style={{ 
+        backgroundColor: '#d4edda', 
+        color: '#155724', 
+        padding: '10px', 
+        borderRadius: '4px', 
+        marginBottom: '15px' 
+      }}>
+        {successMessage}
+      </div>
+    ) : null;
+
     const hasErrorElement = hasError ? (
       <div style={{ 
         backgroundColor: '#f8d7da', 
@@ -804,7 +837,7 @@ const MonthlyReport: React.FC = () => {
     return (
       <div className="monthly-report-container" style={{ padding: '20px' }}>
         <h1 style={{ marginBottom: '20px' }}>月次報告</h1>
-        
+
         {/* 年月選択パネル */}
         <div style={{
           display: 'flex',
@@ -845,11 +878,18 @@ const MonthlyReport: React.FC = () => {
                 fontSize: '0.9rem'
               }}
             >
-              {monthOptions.map(month => (
-                <option key={month} value={month}>{month}月</option>
+              {monthOptions.map(m => (
+                <option key={m} value={m}>{m}月</option>
               ))}
             </select>
           </div>
+          
+          {/* デバッグ情報 - 開発環境のみ表示 */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#666' }}>
+              年度: {fiscalYear}, 月: {month}
+            </div>
+          )}
           
           <button
             onClick={handleRefreshData}
@@ -868,6 +908,7 @@ const MonthlyReport: React.FC = () => {
         </div>
         
         {errorMessageElement}
+        {successMessageElement}
         {hasErrorElement}
         {isLoadingElement}
         

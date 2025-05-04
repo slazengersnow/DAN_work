@@ -2,16 +2,21 @@
 const { pool } = require('../config/db');
 
 class Employee {
-  // 従業員を検索
-  static async findOne(conditions) {
+  // 特定の条件で従業員を検索 - fiscal_yearとmonthでフィルタリング
+  static async getEmployeeByConditions(conditions) {
     try {
-      const { report_id, id, employee_id } = conditions;
+      const { fiscal_year, month, id, employee_id } = conditions;
       const whereClauses = [];
       const values = [];
       
-      if (report_id) {
-        whereClauses.push(`report_id = $${values.length + 1}`);
-        values.push(report_id);
+      if (fiscal_year) {
+        whereClauses.push(`fiscal_year = $${values.length + 1}`);
+        values.push(fiscal_year);
+      }
+      
+      if (month) {
+        whereClauses.push(`month = $${values.length + 1}`);
+        values.push(month);
       }
       
       if (id) {
@@ -40,15 +45,16 @@ class Employee {
     }
   }
   
-  // 従業員を作成
-  static async create(employeeData) {
+  // 従業員を作成 - fiscal_yearとmonthを使用
+  static async createEmployee(employeeData) {
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
       const { 
-        report_id, 
+        fiscal_year,
+        month,
         employee_id, 
         name, 
         disability_type, 
@@ -61,12 +67,19 @@ class Employee {
         count 
       } = employeeData;
       
+      // fiscal_yearとmonthが必要
+      if (!fiscal_year) {
+        throw new Error('fiscal_yearは必須です');
+      }
+      
+      const currentMonth = month || 1; // デフォルト値として1月を使用
+      
       // 従業員データの存在確認
       const checkQuery = `
         SELECT id FROM employee_monthly_status 
-        WHERE report_id = $1 AND employee_id = $2
+        WHERE fiscal_year = $1 AND month = $2 AND employee_id = $3
       `;
-      const checkResult = await client.query(checkQuery, [report_id, employee_id]);
+      const checkResult = await client.query(checkQuery, [fiscal_year, currentMonth, employee_id]);
       
       if (checkResult.rows.length > 0) {
         throw new Error('同じ社員IDの従業員が既に存在します');
@@ -75,12 +88,12 @@ class Employee {
       // 新規従業員を作成
       const insertQuery = `
         INSERT INTO employee_monthly_status (
-          report_id, employee_id, name, disability_type, disability, 
-          grade, hire_date, status, monthly_status, memo, count, 
-          created_at, updated_at
+          fiscal_year, month, employee_id, name, disability_type, 
+          disability, grade, hire_date, status, monthly_status, 
+          memo, count, created_at, updated_at
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 
           NOW(), NOW()
         )
         RETURNING *
@@ -91,7 +104,8 @@ class Employee {
         JSON.stringify(Array(12).fill(1));
       
       const insertValues = [
-        report_id,
+        fiscal_year,
+        currentMonth,
         employee_id,
         name,
         disability_type || '',
@@ -117,25 +131,27 @@ class Employee {
     }
   }
   
-  // 従業員を削除
-  static async deleteOne(conditions) {
+  // 従業員を削除 - fiscal_yearとmonthを使用
+  static async deleteEmployeeByConditions(conditions) {
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
-      const { report_id, id } = conditions;
+      const { fiscal_year, month, id } = conditions;
       
-      if (!report_id || !id) {
-        throw new Error('report_idとidは必須です');
+      if (!fiscal_year || !id) {
+        throw new Error('fiscal_yearとidは必須です');
       }
+      
+      const currentMonth = month || 1; // デフォルト値として1月を使用
       
       // 削除前に従業員データを取得
       const selectQuery = `
         SELECT * FROM employee_monthly_status 
-        WHERE report_id = $1 AND id = $2
+        WHERE fiscal_year = $1 AND month = $2 AND id = $3
       `;
-      const selectResult = await client.query(selectQuery, [report_id, id]);
+      const selectResult = await client.query(selectQuery, [fiscal_year, currentMonth, id]);
       
       if (selectResult.rows.length === 0) {
         throw new Error('指定された従業員が見つかりません');
@@ -144,11 +160,11 @@ class Employee {
       // 従業員を削除
       const deleteQuery = `
         DELETE FROM employee_monthly_status 
-        WHERE report_id = $1 AND id = $2
+        WHERE fiscal_year = $1 AND month = $2 AND id = $3
         RETURNING *
       `;
       
-      const result = await client.query(deleteQuery, [report_id, id]);
+      const result = await client.query(deleteQuery, [fiscal_year, currentMonth, id]);
       await client.query('COMMIT');
       
       return result.rows.length > 0;
@@ -162,7 +178,7 @@ class Employee {
   }
   
   // 従業員を更新
-  static async update(id, updateData) {
+  static async updateEmployee(id, updateData) {
     const client = await pool.connect();
     
     try {
@@ -215,52 +231,53 @@ class Employee {
     }
   }
   
-  // 特定の月次レポートの全従業員を取得
-  static async findByReportId(reportId) {
+  // 特定の年月の全従業員を取得 - 直接fiscal_yearとmonthで検索
+  static async getEmployeesByYearMonth(year, month) {
     try {
-      const query = `
-        SELECT * FROM employee_monthly_status 
-        WHERE report_id = $1
-        ORDER BY employee_id
-      `;
+      // 年度と月を数値に変換
+      const yearNum = parseInt(year, 10);
+      const monthNum = parseInt(month, 10);
       
-      const result = await pool.query(query, [reportId]);
-      return result.rows;
-    } catch (error) {
-      console.error('従業員一覧取得エラー:', error);
-      throw error;
-    }
-  }
-  
-  // 特定の年月の全従業員を取得
-  static async findByYearMonth(year, month) {
-    try {
-      // まず指定された年月の月次レポートIDを取得
-      const reportQuery = `
-        SELECT id FROM monthly_reports
-        WHERE fiscal_year = $1 AND month = $2
-      `;
-      
-      const reportResult = await pool.query(reportQuery, [year, month]);
-      
-      if (reportResult.rows.length === 0) {
-        // 該当する月次レポートがない場合は空配列を返す
-        return [];
+      if (isNaN(yearNum) || isNaN(monthNum)) {
+        throw new Error('年と月は数値である必要があります');
       }
       
-      const reportId = reportResult.rows[0].id;
-      
-      // レポートIDを使用して従業員データを取得
+      // 年度と月で直接検索
       const query = `
         SELECT * FROM employee_monthly_status 
-        WHERE report_id = $1
+        WHERE fiscal_year = $1 AND month = $2
         ORDER BY employee_id
       `;
       
-      const result = await pool.query(query, [reportId]);
+      const result = await pool.query(query, [yearNum, monthNum]);
+      let employees = result.rows;
+      
+      // データがない場合は代わりに従業員テーブルから取得
+      if (employees.length === 0) {
+        const fallbackQuery = `
+          SELECT 
+            id, 
+            employee_id, 
+            name, 
+            NULL as disability_type, 
+            NULL as disability, 
+            NULL as grade, 
+            hire_date, 
+            status, 
+            NULL as monthly_status, 
+            notes as memo, 
+            count 
+          FROM employees 
+          WHERE fiscal_year = $1 OR fiscal_year IS NULL
+          ORDER BY employee_id
+        `;
+        
+        const fallbackResult = await pool.query(fallbackQuery, [yearNum]);
+        employees = fallbackResult.rows;
+      }
       
       // 月次ステータスのJSONを配列に変換
-      const employees = result.rows.map(emp => {
+      employees = employees.map(emp => {
         if (emp.monthly_status && typeof emp.monthly_status === 'string') {
           try {
             emp.monthlyStatus = JSON.parse(emp.monthly_status);
@@ -280,19 +297,27 @@ class Employee {
     }
   }
   
-  // 全従業員を取得
-  static async findAll() {
+  // 全従業員を取得 - fiscal_yearフィルタリングを追加
+  static async getAllEmployees(fiscal_year = null) {
     try {
-      const query = `
+      let query = `
         SELECT e.*, 
           d.disability_type, d.physical_verified, d.intellectual_verified, d.mental_verified,
           d.physical_degree_current, d.intellectual_degree_current, d.mental_degree_current
         FROM employees e
         LEFT JOIN disabilities d ON e.id = d.employee_id
-        ORDER BY e.employee_id
       `;
       
-      const { rows } = await pool.query(query);
+      // fiscal_yearでフィルタリング
+      const params = [];
+      if (fiscal_year !== null) {
+        query += ` WHERE e.fiscal_year = $1`;
+        params.push(fiscal_year);
+      }
+      
+      query += ` ORDER BY e.employee_id`;
+      
+      const { rows } = await pool.query(query, params);
       return rows;
     } catch (error) {
       console.error('従業員一覧取得エラー:', error);
@@ -301,13 +326,14 @@ class Employee {
   }
   
   // 従業員を詳細情報付きで取得
-  static async findById(id) {
+  static async getEmployeeById(id) {
     try {
       const query = `
         SELECT e.*, 
           d.disability_type, d.physical_verified, d.intellectual_verified, d.mental_verified,
           d.physical_degree_current, d.intellectual_degree_current, d.mental_degree_current,
-          d.certificate_number, d.expiry_date
+          d.physical_certificate_number as certificate_number, 
+          d.mental_certificate_expiration as expiry_date
         FROM employees e
         LEFT JOIN disabilities d ON e.id = d.employee_id
         WHERE e.id = $1
