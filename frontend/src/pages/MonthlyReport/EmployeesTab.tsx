@@ -98,7 +98,8 @@ const reportApi = {
         
         try {
           // ローカルストレージからデータを取得
-          const storageKey = `employee_data_${year}`;
+          const storageKey = `EMPLOYEE_DATA_${year}`;
+          console.log(`ストレージキー(読み込み時): ${storageKey}`);
           const savedData = localStorage.getItem(storageKey);
           
           // サンプルデータを準備（index.tsxと同じ内容）
@@ -232,7 +233,7 @@ const reportApi = {
         // ローカルストレージにデータを保存
         try {
           // 現在の保存データを取得
-          const storageKey = `employee_data_${year}`;
+          const storageKey = `EMPLOYEE_DATA_${year}`;
           let savedEmployees = {};
           
           try {
@@ -356,7 +357,7 @@ const reportApi = {
         // 新規作成した従業員データをローカルストレージに保存
         try {
           // 現在の保存データを取得
-          const storageKey = `employee_data_${year}`;
+          const storageKey = `EMPLOYEE_DATA_${year}`;
           let savedEmployees = {};
           
           try {
@@ -605,6 +606,7 @@ interface EmployeesTabProps {
   editingStyles?: React.CSSProperties;
   buttonStyles?: Record<string, React.CSSProperties>;
   onYearChange?: (year: number) => void;
+  onEmployeesUpdate?: (employees: Employee[]) => void; // 親コンポーネントに変更を通知するコールバック
 }
 
 // 従業員データのデフォルト値
@@ -634,7 +636,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   onSaveSuccess = () => {},
   editingStyles = {},
   buttonStyles = {},
-  onYearChange
+  onYearChange,
+  onEmployeesUpdate
 }) => {
   console.log('EmployeesTab マウント - 受け取った従業員データ:', employees);
   
@@ -811,10 +814,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     try {
       // 前年度のStorageKeyを生成
       const prevYear = currentYear - 1;
-      const prevYearStorageKey = `employee_data_${prevYear}`;
+      const prevYearStorageKey = `EMPLOYEE_DATA_${prevYear}`;
       
       // 現在の年度のStorageKeyを生成
-      const currentYearStorageKey = `employee_data_${currentYear}`;
+      const currentYearStorageKey = `EMPLOYEE_DATA_${currentYear}`;
       
       // 現在の年度のデータを取得
       let currentYearData: Record<string, any> = {};
@@ -899,7 +902,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // 2024年以降のデータで、ローカルストレージを先にチェック
       if (year >= 2024) {
-        const storageKey = `employee_data_${year}`;
+        const storageKey = `EMPLOYEE_DATA_${year}`;
         try {
           const savedData = localStorage.getItem(storageKey);
           
@@ -1046,23 +1049,45 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // useRefを通常のコンポーネントスコープで宣言（Hookのルールに従う）
   const isInitialRender = useRef(true);
   
-  // 初期データを即座に読み込む（コンポーネントが初期化された瞬間に）
+  // fiscalYear変更時のデータ読み込み処理
   useEffect(() => {
-    // コンポーネントのマウント時に直ちに実行
-    console.log('コンポーネント初期化時にデータ読み込みを開始します');
+    // fiscalYearが変更されたときのみ実行するために、先にフラグをチェック
+    console.log(`fiscalYear変更を検知: ${fiscalYear}`);
     
-    // すべての年度でローカルストレージを優先して読み込む
-    const loadFromLocalStorage = async () => {
-      const storageKey = `employee_data_${fiscalYear}`;
+    // データロード処理
+    const loadDataForFiscalYear = async () => {
+      // 統一されたストレージキー
+      const storageKey = `EMPLOYEE_DATA_${fiscalYear}`;
+      console.log('=== データロード開始 ===');
+      console.log('ローカルストレージから読み込み試行 - キー:', storageKey);
+      
       try {
-        const savedData = localStorage.getItem(storageKey);
+        // 古いキーと新しいキーの両方をチェック
+        const allKeys = Object.keys(localStorage);
+        const legacyKey = `employee_data_${fiscalYear}`;
+        let savedData = localStorage.getItem(storageKey);
+        
+        // 新しいキーで見つからなければ古いキーを確認
+        if (!savedData && allKeys.includes(legacyKey)) {
+          console.log(`古いフォーマットのキー ${legacyKey} からデータを読み込みます`);
+          savedData = localStorage.getItem(legacyKey);
+          
+          // データが見つかれば新しいキーに移行
+          if (savedData) {
+            console.log('古いキーから新しいキーにデータを移行します');
+            localStorage.setItem(storageKey, savedData);
+            // 安全を確保するために今は古いキーは削除しない
+          }
+        }
+        
+        console.log('取得されたデータ有無:', savedData ? 'あり' : 'なし');
         if (savedData) {
           const savedEmployees = JSON.parse(savedData);
           // オブジェクトから配列に変換
           const employeesArray = Object.values(savedEmployees);
           
           if (employeesArray.length > 0) {
-            console.log(`初期化時: ${fiscalYear}年の${employeesArray.length}件のデータを読み込みました`);
+            console.log(`${fiscalYear}年の${employeesArray.length}件のデータを読み込みました`);
             
             const processedEmployees = employeesArray.map((emp: any) => ({
               ...emp,
@@ -1078,32 +1103,37 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             setLocalEmployees(processedEmployees);
             setOriginalEmployees(JSON.parse(JSON.stringify(processedEmployees)));
             
+            // 親コンポーネントにデータ変更を通知
+            if (onEmployeesUpdate) {
+              console.log('親コンポーネントに年度変更後のデータを通知:', processedEmployees.length, '件');
+              onEmployeesUpdate(processedEmployees);
+            }
+            
             setSuccessMessage(`${fiscalYear}年のデータを読み込みました（${processedEmployees.length}件）`);
             setTimeout(() => setSuccessMessage(null), 3000);
             
-            // 初期レンダリングフラグを更新
-            isInitialRender.current = false;
             return true; // データが見つかった場合はtrueを返す
           }
         }
         return false; // データが見つからなかった場合はfalseを返す
       } catch (e) {
-        console.error('初期データ読み込みエラー:', e);
+        console.error('fiscalYear変更時のデータ読み込みエラー:', e);
         return false;
       }
     };
     
-    // ローカルストレージから読み込みを試み、失敗した場合はAPIから取得
-    loadFromLocalStorage().then(foundInLocalStorage => {
+    // 実際のデータロード処理の実行
+    loadDataForFiscalYear().then(foundInLocalStorage => {
       if (!foundInLocalStorage) {
-        console.log('ローカルストレージにデータが見つからないため、APIから取得します');
+        console.log('ローカルストレージにデータが見つからないため、別の取得方法を試みます');
+        
         // 2024年以降の場合は前年度からのデータ引き継ぎも試行
         if (fiscalYear >= 2024) {
           copyActiveEmployeesFromPreviousYear(fiscalYear).then(copiedCount => {
             if (copiedCount > 0) {
               console.log(`前年度から${copiedCount}件のデータを引き継ぎました`);
               // 再度ローカルストレージから読み込む
-              loadFromLocalStorage().then(success => {
+              loadDataForFiscalYear().then(success => {
                 if (!success) {
                   // それでも読み込めない場合はAPIから取得
                   fetchEmployeesByYear(fiscalYear);
@@ -1120,37 +1150,121 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         }
       }
     });
-    
-    // 初期レンダリングフラグを更新
-    isInitialRender.current = false;
-  }, [fiscalYear]);  // fiscalYearが変わったときにも実行
+  }, [fiscalYear]); // fiscalYearが変わったときにのみ実行
 
   // この useEffect は不要になりました（初期化用の useEffect で fiscalYear 変更時の処理も対応しているため）
 
-  // props変更時にローカルデータを更新（優先順位を上げる）
+  // 初回マウント時のみ実行するuseEffect
   useEffect(() => {
-    // Only update from props if we don't already have local data
-    // This prevents saved data from being overwritten by props
-    if (employees && employees.length > 0 && localEmployees.length === 0) {
-      console.log('親コンポーネントから新しい従業員データを受け取りました:', employees.length, '件');
-      
-      const processedEmployees = employees.map(emp => ({
-        ...emp,
-        employee_id: typeof emp.employee_id === 'number' ? String(emp.employee_id) : emp.employee_id,
-        disability_type: emp.disability_type || '',
-        disability: emp.disability || '',
-        grade: emp.grade || '',
-        status: emp.status || '在籍',
-        hc: emp.hc !== undefined ? emp.hc : 1,
-        monthlyStatus: Array.isArray(emp.monthlyStatus) ? emp.monthlyStatus : Array(12).fill('')
-      }));
-      
-      const originalEmployeesCopy = JSON.parse(JSON.stringify(processedEmployees));
-      
-      setLocalEmployees(processedEmployees);
-      setOriginalEmployees(originalEmployeesCopy);
-    }
-  }, [employees, localEmployees.length]);
+    // 初回マウント時のみローカルストレージから読み込み（マウント時のみ実行されるようにする）
+    console.log('初回マウント時の従業員データ初期化処理');
+    
+    // ローカルストレージを最初に読み込み
+    const loadEmployeeData = async () => {
+      try {
+        // すでにローカルデータがロードされている場合は何もしない
+        if (localEmployees.length > 0) {
+          console.log('すでにローカルにデータがロードされているため初期化をスキップ', localEmployees.length, '件');
+          return;
+        }
+        
+        // 統一したストレージキーを使用
+        const storageKey = `EMPLOYEE_DATA_${fiscalYear}`;
+        console.log(`ストレージキー: ${storageKey} からデータをロード`);
+        
+        // 全てのキーを確認して古いフォーマットのキーも検索（データ移行処理）
+        const allKeys = Object.keys(localStorage);
+        const legacyKey = `employee_data_${fiscalYear}`;
+        let savedData = localStorage.getItem(storageKey);
+        
+        // 新しいキーで見つからなければ古いキーを確認
+        if (!savedData && allKeys.includes(legacyKey)) {
+          console.log(`古いフォーマットのキー ${legacyKey} からデータを読み込みます`);
+          savedData = localStorage.getItem(legacyKey);
+          
+          // データが見つかれば新しいキーに移行
+          if (savedData) {
+            console.log('古いキーから新しいキーにデータを移行します');
+            localStorage.setItem(storageKey, savedData);
+            // 安全を確保するために今は古いキーは削除しない
+          }
+        }
+        
+        // ローカルストレージにデータがある場合はそれを使用
+        if (savedData) {
+          try {
+            const savedEmployees = JSON.parse(savedData);
+            if (Object.keys(savedEmployees).length > 0) {
+              console.log(`ローカルストレージにデータ(${Object.keys(savedEmployees).length}件)を読み込みました`);
+              const savedEmployeesArray = Object.values(savedEmployees);
+              
+              const processedEmployees = savedEmployeesArray.map((emp: any) => ({
+                ...emp,
+                employee_id: typeof emp.employee_id === 'number' ? String(emp.employee_id) : emp.employee_id,
+                disability_type: emp.disability_type || '',
+                disability: emp.disability || '',
+                grade: emp.grade || '',
+                status: emp.status || '在籍',
+                hc: emp.hc !== undefined ? emp.hc : 1,
+                monthlyStatus: Array.isArray(emp.monthlyStatus) ? emp.monthlyStatus : Array(12).fill('')
+              }));
+              
+              const originalEmployeesCopy = JSON.parse(JSON.stringify(processedEmployees));
+              
+              setLocalEmployees(processedEmployees);
+              setOriginalEmployees(originalEmployeesCopy);
+              
+              // 親コンポーネントに初期データを通知
+              if (onEmployeesUpdate) {
+                console.log('親コンポーネントに初期データを通知');
+                onEmployeesUpdate(processedEmployees);
+              }
+              
+              return true; // データがロードされたことを示す
+            }
+          } catch (error) {
+            console.error('ローカルストレージデータの解析エラー:', error);
+          }
+        }
+        
+        // ローカルストレージになければプロパティから初期化
+        if (employees && employees.length > 0) {
+          console.log('propsからデータを初期化:', employees.length, '件');
+          
+          const processedEmployees = employees.map(emp => ({
+            ...emp,
+            employee_id: typeof emp.employee_id === 'number' ? String(emp.employee_id) : emp.employee_id,
+            disability_type: emp.disability_type || '',
+            disability: emp.disability || '',
+            grade: emp.grade || '',
+            status: emp.status || '在籍',
+            hc: emp.hc !== undefined ? emp.hc : 1,
+            monthlyStatus: Array.isArray(emp.monthlyStatus) ? emp.monthlyStatus : Array(12).fill('')
+          }));
+          
+          const originalEmployeesCopy = JSON.parse(JSON.stringify(processedEmployees));
+          
+          setLocalEmployees(processedEmployees);
+          setOriginalEmployees(originalEmployeesCopy);
+          return true; // データがロードされたことを示す
+        }
+        
+        return false; // データがロードされなかった
+      } catch (error) {
+        console.error('従業員データの初期化エラー:', error);
+        return false;
+      }
+    };
+    
+    // データ読み込み実行
+    loadEmployeeData();
+    
+    // クリーンアップ関数
+    return () => {
+      console.log('EmployeesTabコンポーネントがアンマウントされます');
+    };
+  // 依存配列を空に保ち、初回マウント時のみ実行。fiscalYearは不要（別のuseEffectが担当）
+  }, []);
 
   // 編集モード切り替えハンドラー
   const handleToggleEditMode = () => {
@@ -1202,24 +1316,31 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // 空の場合はHC値をクリア
       setLocalEmployees(prev => {
-        return prev.map(emp => {
+        const updated = prev.map(emp => {
           if (emp.id === id) {
             const updatedEmp = { ...emp, hc: undefined };
             return updatedEmp;
           }
           return emp;
         });
+        
+        // 親コンポーネントへの通知はバッチ処理のために遅延させる（非同期処理）
+        setTimeout(() => {
+          if (onEmployeesUpdate) {
+            console.log('HC値変更 (空): 親コンポーネントに通知', updated.length, '件');
+            onEmployeesUpdate(updated);
+          }
+        }, 100);
+        
+        return updated;
       });
       setErrorMessage(null);
       return;
     }
     
-    // 数値チェック
+    // セレクトボックスからの値を数値に変換
     const numValue = parseFloat(value);
-    if (isNaN(numValue)) {
-      setErrorMessage("HC値には数値を入力してください");
-      return;
-    }
+    // ドロップダウンメニューからの選択値なので入力チェックは不要（常に有効な値）
     
     // 入力値の状態を更新
     setInputValues(prev => ({
@@ -1229,7 +1350,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     
     // ローカル従業員データの状態を更新
     setLocalEmployees(prev => {
-      return prev.map(emp => {
+      const updated = prev.map(emp => {
         if (emp.id === id) {
           const updatedEmp = { ...emp, hc: numValue };
           console.log(`HC値を更新: `, updatedEmp);
@@ -1241,6 +1362,16 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
         }
         return emp;
       });
+      
+      // 親コンポーネントへの通知はバッチ処理のために遅延させる（非同期処理）
+      setTimeout(() => {
+        if (onEmployeesUpdate) {
+          console.log('HC値変更: 親コンポーネントに通知', updated.length, '件');
+          onEmployeesUpdate(updated);
+        }
+      }, 100);
+      
+      return updated;
     });
     setErrorMessage(null);
   };
@@ -1427,12 +1558,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       return;
     }
     
-    // 数値チェック
+    // セレクトボックスからの値を数値に変換
     const numValue = parseFloat(value);
-    if (isNaN(numValue)) {
-      setErrorMessage("HC値には数値を入力してください");
-      return;
-    }
+    // ドロップダウンメニューからの選択値なので入力チェックは不要（常に有効な値）
     
     // 入力値の状態を更新
     setInputValues(prev => ({
@@ -1783,7 +1911,8 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // 成功メッセージの表示 - 年度に応じてメッセージを変更
       if (fiscalYear >= 2024) {
-        setSuccessMessage(`将来年度(${fiscalYear}年)の従業員データをクライアント側で作成しました`);
+        setSuccessMessage(`将来年度(${fiscalYear}年)の従業員データをクライアント側で作成しました (ID: ${newEmp.id})`);
+        console.log(`新規従業員を保存しました: ID=${newEmp.id}, 名前=${newEmp.name}`);
       } else {
         setSuccessMessage('従業員データを作成しました');
       }
@@ -1886,6 +2015,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const handleSave = async () => {
     setIsLoading(true);
     console.log('従業員データ保存開始');
+    console.log('保存するデータ件数:', localEmployees.length);
+    console.log('=== デバッグ情報 ===');
+    console.log('ストレージキー:', `EMPLOYEE_DATA_${fiscalYear}`);
+    console.log('LocalStorage keys:', Object.keys(localStorage));
     setErrorMessage(null);
     
     try {
@@ -1951,7 +2084,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       if (is2024OrLater) {
         try {
           // StorageKeyを生成
-          const storageKey = `employee_data_${fiscalYear}`;
+          const storageKey = `EMPLOYEE_DATA_${fiscalYear}`;
           let savedEmployees = {};
           
           try {
@@ -1983,8 +2116,15 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           // 保存が成功したか確認
           const savedData = localStorage.getItem(storageKey);
           if (savedData) {
-            const savedEmployeesCount = Object.keys(JSON.parse(savedData)).length;
+            const savedEmployeesObj = JSON.parse(savedData);
+            const savedEmployeesCount = Object.keys(savedEmployeesObj).length;
             console.log(`${fiscalYear}年の従業員データをローカルストレージに保存しました`, savedEmployeesCount, '件');
+            console.log('保存確認 - 保存されたデータキー:', Object.keys(savedEmployeesObj));
+            
+            // 保存後のデバッグ情報
+            console.log('=== 保存後のデバッグ情報 ===');
+            console.log('LocalStorage keys after save:', Object.keys(localStorage));
+            console.log('現在のストレージキー:', storageKey);
             
             if (savedEmployeesCount === 0) {
               console.warn('ローカルストレージに保存されたデータが空です。再試行します。');
@@ -1996,9 +2136,17 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               }
             }
             
+            // 親コンポーネントに変更を通知
+            if (onEmployeesUpdate) {
+              console.log('親コンポーネントに従業員データ更新を通知:', localEmployees.length, '件');
+              onEmployeesUpdate(localEmployees);
+            }
+            
             // すべての保存を成功として扱う
             successfulUpdates.push(...localEmployees.map(emp => emp.id));
           } else {
+            console.error('ローカルストレージへの保存に失敗しました。ストレージキー:', storageKey);
+            console.error('現在のローカルストレージキー一覧:', Object.keys(localStorage));
             throw new Error('ローカルストレージへの保存に失敗しました。');
           }
         } catch (storageError) {
@@ -2527,21 +2675,26 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   {/* HC入力欄 */}
                   <td style={{ padding: '4px', textAlign: 'center' }}>
                     {actualIsEditing ? (
-                      <input 
+                      <select 
                         ref={(el) => { inputRefs.current[`${employee.id}-hc`] = el; }}
-                        type="text" 
-                        value={inputValues[`${employee.id}-hc`] ?? (employee.hc === 0 ? '0' : employee.hc || '')}
+                        value={inputValues[`${employee.id}-hc`] ?? (employee.hc === 0 ? '0' : (employee.hc || ''))}
                         onChange={(e) => handleHcChange(employee.id, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, `${employee.id}-hc`)}
                         style={{ 
-                          width: '40px',
+                          width: '55px',
                           padding: '2px',
                           border: '1px solid #ddd',
                           borderRadius: '4px',
                           textAlign: 'center',
                           backgroundColor: '#fff'
                         }}
-                      />
+                      >
+                        <option value="">-</option>
+                        <option value="0">0</option>
+                        <option value="0.5">0.5</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                      </select>
                     ) : (
                       employee.hc === 0 ? '0' : employee.hc || '-'
                     )}
@@ -2758,21 +2911,26 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   </td>
                   {/* 新規行のHC入力欄 */}
                   <td style={{ padding: '4px', textAlign: 'center' }}>
-                    <input 
+                    <select 
                       ref={(el) => { inputRefs.current[`new-hc`] = el; }}
-                      type="text" 
                       value={inputValues[`new-hc`] ?? (newRowData.hc === 0 ? '0' : newRowData.hc || '')}
                       onChange={(e) => handleNewRowHcChange(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, `new-hc`)}
                       style={{ 
-                        width: '40px',
+                        width: '55px',
                         padding: '2px',
                         border: '1px solid #007bff',
                         borderRadius: '4px',
                         textAlign: 'center',
                         backgroundColor: '#fff'
                       }}
-                    />
+                    >
+                      <option value="">-</option>
+                      <option value="0">0</option>
+                      <option value="0.5">0.5</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                    </select>
                   </td>
                   {/* 新規行の月次ステータス入力欄 */}
                   {(newRowData.monthlyStatus || Array(12).fill('')).map((status, monthIndex) => (

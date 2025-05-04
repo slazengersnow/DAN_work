@@ -781,6 +781,38 @@ const MonthlyReport: React.FC = () => {
               hire_date: emp.hire_date || new Date().toISOString().split('T')[0].replace(/-/g, '/') // 念のため
             }))} 
             onEmployeeChange={handleEmployeeChange}
+            onEmployeesUpdate={(updatedEmployees) => {
+              console.log('子コンポーネントから従業員データ更新を受信:', updatedEmployees.length, '件');
+              // 型互換性のために必要なプロパティを追加
+              const typeCompatibleEmployees = updatedEmployees.map(emp => ({
+                ...emp,
+                no: emp.no || 0, // noが未定義の場合は0を設定して型互換性を確保
+              }));
+              
+              // イベントオブジェクトを生成して状態の同期を管理（デバッグ用識別値を追加）
+              const uniqueId = new Date().getTime(); 
+              console.log(`[${uniqueId}] 親コンポーネントで状態更新開始`);
+              
+              // 非同期で状態更新を行い、無限ループを防ぐ
+              setTimeout(() => {
+                console.log(`[${uniqueId}] 親コンポーネントで状態更新実行`);
+                setCurrentReport(prev => {
+                  // 前の状態と新しい状態が実質的に同じ場合は更新しない
+                  if (JSON.stringify(prev.employees.map(e => e.id)) === 
+                      JSON.stringify(typeCompatibleEmployees.map(e => e.id)) &&
+                      prev.employees.length === typeCompatibleEmployees.length) {
+                    console.log(`[${uniqueId}] 従業員データに変更がないため、状態更新をスキップ`);
+                    return prev;
+                  }
+                  
+                  console.log(`[${uniqueId}] 従業員データを更新:`, typeCompatibleEmployees.length, '件');
+                  return {
+                    ...prev,
+                    employees: typeCompatibleEmployees as any
+                  };
+                });
+              }, 100); // 100ms遅延で実行
+            }}
             summaryData={summary || defaultSummary}
             onRefreshData={handleRefreshData}
             onYearChange={handleYearChange}
