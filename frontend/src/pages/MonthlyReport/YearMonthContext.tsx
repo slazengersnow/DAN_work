@@ -1,4 +1,3 @@
-// src/pages/MonthlyReport/YearMonthContext.tsx
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 // コンテキストの型定義
@@ -10,11 +9,20 @@ interface YearMonthContextType {
   dispatchYearMonthChange: (year: number, month: number) => void;
 }
 
+// 現在の年月を取得する関数
+const getCurrentYearMonth = () => {
+  const currentDate = new Date();
+  return {
+    year: currentDate.getFullYear(),
+    month: currentDate.getMonth() + 1
+  };
+};
+
 // デフォルト値（現在の年と月）を設定
-const currentDate = new Date();
+const { year: defaultYear, month: defaultMonth } = getCurrentYearMonth();
 const defaultValues: YearMonthContextType = {
-  fiscalYear: currentDate.getFullYear(),
-  month: currentDate.getMonth() + 1,
+  fiscalYear: defaultYear,
+  month: defaultMonth,
   setFiscalYear: () => {},
   setMonth: () => {},
   dispatchYearMonthChange: () => {}

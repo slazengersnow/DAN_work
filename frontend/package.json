@@ -2,6 +2,7 @@
   "name": "disability-employment-system",
   "version": "1.0.0",
   "description": "障害者雇用管理システム",
+  "proxy": "http://localhost:5001",
   "scripts": {
     "start": "PORT=3001 react-scripts start",
     "build": "react-scripts build",

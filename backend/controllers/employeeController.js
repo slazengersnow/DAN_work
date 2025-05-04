@@ -7,18 +7,56 @@ const employeeController = {
     try {
       const { year } = req.query;
       
-      // 年度によるフィルタリング
-      const query = year 
-        ? `SELECT * FROM employees WHERE fiscal_year = $1 ORDER BY employee_id ASC`
-        : `SELECT * FROM employees ORDER BY employee_id ASC`;
+      // fiscal_yearカラムの存在確認
+      const checkFiscalYearColumn = async () => {
+        try {
+          const checkColumnQuery = `
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'employees' AND column_name = 'fiscal_year'
+          `;
+          const checkResult = await pool.query(checkColumnQuery);
+          return checkResult.rows.length > 0;
+        } catch (e) {
+          console.error('カラム存在確認エラー:', e);
+          return false;
+        }
+      };
       
-      const values = year ? [year] : [];
+      // fiscal_yearカラムがない場合は追加
+      const hasFiscalYear = await checkFiscalYearColumn();
+      if (!hasFiscalYear) {
+        console.log('fiscal_yearカラムが存在しないため追加します');
+        await pool.query(`ALTER TABLE employees ADD COLUMN fiscal_year INTEGER`);
+        await pool.query(`UPDATE employees SET fiscal_year = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_employees_fiscal_year ON employees(fiscal_year)`);
+      }
+      
+      // 年度によるフィルタリング
+      let query;
+      let values = [];
+      
+      if (year) {
+        if (hasFiscalYear) {
+          query = `SELECT * FROM employees WHERE fiscal_year = $1 ORDER BY employee_id ASC`;
+          values = [year];
+        } else {
+          // カラム追加が即時反映されない場合に備えて、安全なクエリを実行
+          query = `SELECT * FROM employees ORDER BY employee_id ASC`;
+        }
+      } else {
+        query = `SELECT * FROM employees ORDER BY employee_id ASC`;
+      }
+      
       const result = await pool.query(query, values);
       
       res.status(200).json(result.rows);
     } catch (error) {
       console.error('従業員情報の取得中にエラーが発生しました:', error);
-      res.status(500).json({ error: '従業員情報の取得に失敗しました' });
+      res.status(500).json({ 
+        error: '従業員情報の取得に失敗しました',
+        message: error.message
+      });
     }
   },
 

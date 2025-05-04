@@ -101,7 +101,7 @@ class Employee {
       
       const monthlyStatusJson = monthly_status ? 
         JSON.stringify(monthly_status) : 
-        JSON.stringify(Array(12).fill(1));
+        JSON.stringify(Array(12).fill(''));
       
       const insertValues = [
         fiscal_year,
@@ -282,10 +282,10 @@ class Employee {
           try {
             emp.monthlyStatus = JSON.parse(emp.monthly_status);
           } catch (e) {
-            emp.monthlyStatus = Array(12).fill(1);
+            emp.monthlyStatus = Array(12).fill('');
           }
         } else {
-          emp.monthlyStatus = Array(12).fill(1);
+          emp.monthlyStatus = Array(12).fill('');
         }
         return emp;
       });

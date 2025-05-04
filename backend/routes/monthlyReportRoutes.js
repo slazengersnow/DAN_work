@@ -2,56 +2,58 @@ const express = require('express');
 const router = express.Router();
 const monthlyReportController = require('../controllers/monthlyReportController');
 
-// 全ての月次レポートリストの取得
-router.get('/', monthlyReportController.getAllMonthlyReports);
-router.get('/monthly-reports', monthlyReportController.getMonthlyReports);
+// 月次レポート一覧取得
+router.get('/', monthlyReportController.getMonthlyReports);
 
-// 現在の月次データを自動生成
-router.post('/generate-current', monthlyReportController.generateCurrentMonthReport);
+// 全月次レポート取得
+router.get('/all', monthlyReportController.getAllMonthlyReports);
 
-// 年間推移データの取得
-router.get('/yearly/:year', monthlyReportController.getYearlyTrend);
+// 年間推移データ取得
+router.get('/trend/:year', monthlyReportController.getYearlyTrend);
 
-// 特定の月次レポートの取得
+// 特定年月の月次レポート取得
 router.get('/:year/:month', monthlyReportController.getMonthlyReport);
-router.get('/monthly-reports/:year/:month', monthlyReportController.getMonthlyReport);
 
-// 月次レポートの保存・更新
+// 月次レポート保存・更新
 router.post('/:year/:month', monthlyReportController.saveMonthlyReport);
-router.put('/:year/:month', monthlyReportController.saveMonthlyReport);
 
-// 月次レポートの削除
+// 月次レポート削除
 router.delete('/:year/:month', monthlyReportController.deleteMonthlyReport);
 
-// 新規月次レポートを作成
-router.post('/monthly-reports', monthlyReportController.createMonthlyReport);
+// 現在の月次データ自動生成
+router.post('/generate-current', monthlyReportController.generateCurrentMonthReport);
 
-// 月次レポートを更新
-router.put('/monthly-reports/:year/:month', monthlyReportController.updateMonthlyReport);
+// 月次レポート作成
+router.post('/create', monthlyReportController.createMonthlyReport);
 
-// 月次レポートサマリーを更新
-router.put('/monthly-reports/:year/:month/summary', monthlyReportController.updateMonthlySummary);
+// 月次サマリー更新
+router.put('/:year/:month/summary', monthlyReportController.updateMonthlySummary);
 
-// 月次レポートを確定
-router.post('/monthly-reports/:year/:month/confirm', monthlyReportController.confirmMonthlyReport);
+// 月次レポート確定
+router.post('/:year/:month/confirm', monthlyReportController.confirmMonthlyReport);
 
-// 従業員詳細を更新 - 関数が存在する場合のみコメントアウトを解除
-// router.put('/monthly-reports/:year/:month/employees/:id', monthlyReportController.updateEmployeeDetail);
-// router.patch('/monthly-reports/:year/:month/employees/:id', monthlyReportController.updateEmployeeDetail);
+// 従業員詳細関連ルート - エラーチェックを追加
+if (monthlyReportController.updateEmployeeDetail) {
+  router.put('/:year/:month/employee/:id', monthlyReportController.updateEmployeeDetail);
+}
 
-// 従業員詳細を新規作成
-router.post('/monthly-reports/:year/:month/employees', monthlyReportController.createEmployeeDetail);
+if (monthlyReportController.createEmployeeDetail) {
+  router.post('/:year/:month/employee', monthlyReportController.createEmployeeDetail);
+}
 
-// 従業員詳細を削除
-// router.delete('/monthly-reports/:year/:month/employees/:id', monthlyReportController.deleteEmployeeDetail);
-
-// 詳細セルの更新
-// router.put('/monthly-reports/:year/:month/details/:id', monthlyReportController.updateDetailCell);
+if (monthlyReportController.deleteEmployeeDetail) {
+  router.delete('/:year/:month/employee/:id', monthlyReportController.deleteEmployeeDetail);
+}
 
 // CSVインポート
-router.post('/monthly-reports/:year/:month/employees/import', monthlyReportController.importEmployeesFromCSV);
+if (monthlyReportController.importEmployeesFromCSV) {
+  router.post('/:year/:month/import', monthlyReportController.importEmployeesFromCSV);
+}
 
-// システム設定
-router.get('/settings', monthlyReportController.getSettings);
+// デバッグ用ミドルウェア
+router.use((req, res, next) => {
+  console.log(`Monthly Report Route: ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 module.exports = router;

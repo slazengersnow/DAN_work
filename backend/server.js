@@ -53,7 +53,8 @@ app.use((req, res, next) => {
 app.use('/api/payment-reports', paymentReportRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/monthly-reports', monthlyReportRoutes);
-app.use('/api', monthlyReportRoutes);
+// 以下の行は重複ルートの原因になるため削除
+// app.use('/api', monthlyReportRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // ファイルアップロード設定
@@ -448,13 +449,52 @@ app.get('/api/export/employees', authenticateToken, async (req, res) => {
   }
 });
 
-// エラーハンドリングミドルウェア
+// エラーハンドラーのインポート
+const errorHandler = require('./utils/errorHandler');
+
+// すべてのリクエストがExpressのルーティングに一致しない場合は
+// 常にJSONレスポンスを返すミドルウェアを最後に追加
+app.use((req, res, next) => {
+  // 明示的に404ステータスを設定し、JSONでレスポンス
+  console.warn(`存在しないルート検出: ${req.method} ${req.originalUrl}`);
+  
+  // Accept ヘッダーをチェックし、JSONを優先
+  res.status(404);
+  
+  // 明示的にContent-Typeをapplication/jsonに設定
+  res.setHeader('Content-Type', 'application/json');
+  
+  // API関連のパスかどうかに応じてメッセージを変更
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.json({
+      success: false,
+      message: 'APIルートが見つかりません',
+      path: req.originalUrl,
+      statusCode: 404
+    });
+  } else {
+    return res.json({
+      success: false,
+      message: 'リソースが見つかりません',
+      path: req.originalUrl,
+      statusCode: 404
+    });
+  }
+});
+
+// 明示的に500エラーハンドラーを追加
 app.use((err, req, res, next) => {
-  console.error('アプリケーションエラー:', err);
+  console.error('サーバーエラー:', err);
+  
+  // 明示的にContent-Typeをapplication/jsonに設定
+  res.setHeader('Content-Type', 'application/json');
+  
   res.status(500).json({
     success: false,
-    message: 'サーバーエラーが発生しました',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: 'サーバー内部エラーが発生しました',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    path: req.originalUrl,
+    statusCode: 500
   });
 });
 

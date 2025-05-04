@@ -268,10 +268,10 @@ export const createEmployeeDetail = async (year: number, employeeData: Omit<Empl
     const processedData = {
       ...employeeData,
       fiscal_year: year, // 年度情報を追加
-      // 月次ステータスが配列でない場合は配列に変換
+      // 月次ステータスが配列でない場合は配列に変換（デフォルトは空文字列）
       monthlyStatus: Array.isArray(employeeData.monthlyStatus) 
         ? employeeData.monthlyStatus 
-        : Array(12).fill(1)
+        : Array(12).fill('')
     };
     
     // API呼び出し - 月パラメータを削除

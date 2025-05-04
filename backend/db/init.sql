@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS employees (
     status VARCHAR(20) DEFAULT '在籍中',      -- 在籍状況
     count DECIMAL(3, 1) DEFAULT 1,            -- カウント数
     notes TEXT,                               -- 備考
-    fiscal_year INTEGER,                      -- 年度 (追加)
+    fiscal_year INTEGER,                      -- 年度
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS disabilities (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 月次レポートテーブル（新形式）
+-- 月次レポートテーブル
 CREATE TABLE IF NOT EXISTS monthly_reports (
     id SERIAL PRIMARY KEY,
     fiscal_year INTEGER NOT NULL,             -- 年度
@@ -78,20 +78,19 @@ CREATE TABLE IF NOT EXISTS monthly_reports (
 -- 従業員月次状態テーブル
 CREATE TABLE IF NOT EXISTS employee_monthly_status (
     id SERIAL PRIMARY KEY,
-    fiscal_year INTEGER NOT NULL,             -- 年度 (修正: PostgreSQL用に修正)
-    month INTEGER NOT NULL,                   -- 月 (追加: 月別データのため)
-    report_id INTEGER,                        -- レポートID (オプション)
-    employee_id VARCHAR(50) NOT NULL,
-    no INTEGER,
-    name VARCHAR(100),
-    disability_type VARCHAR(50),
-    disability VARCHAR(100),
-    grade VARCHAR(50),
-    hire_date VARCHAR(20),
-    status VARCHAR(20) DEFAULT '在籍',
-    monthly_status JSON DEFAULT '{"status":[1,1,1,1,1,1,1,1,1,1,1,1]}',
-    memo TEXT,
-    count DECIMAL(3, 1) DEFAULT 0,
+    fiscal_year INTEGER NOT NULL,             -- 年度
+    month INTEGER NOT NULL,                   -- 月
+    employee_id VARCHAR(50) NOT NULL,         -- 従業員ID
+    no INTEGER,                               -- 表示順序番号
+    name VARCHAR(100),                        -- 氏名
+    disability_type VARCHAR(50),              -- 障害種別
+    disability VARCHAR(100),                  -- 障害詳細
+    grade VARCHAR(50),                        -- 等級
+    hire_date VARCHAR(20),                    -- 入社日
+    status VARCHAR(20) DEFAULT '在籍',        -- 在籍状況
+    monthly_status JSON DEFAULT '{"status":[1,1,1,1,1,1,1,1,1,1,1,1]}', -- 月次状態
+    memo TEXT,                                -- 備考
+    count DECIMAL(3, 1) DEFAULT 0,            -- カウント数
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (fiscal_year, month) REFERENCES monthly_reports(fiscal_year, month) ON DELETE CASCADE
@@ -201,7 +200,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- マスターデータの初期値設定（テーブルが空の場合のみ挿入）
+-- マスターデータの初期値設定
 INSERT INTO departments (name)
 SELECT d FROM (VALUES ('経営企画部'), ('総務部'), ('人事部'), ('経理部'), ('営業部'), 
                       ('マーケティング部'), ('開発部'), ('生産部'), ('品質管理部'), ('カスタマーサポート部')) AS t(d)
@@ -216,7 +215,7 @@ INSERT INTO disability_types (name)
 SELECT d FROM (VALUES ('身体障害'), ('知的障害'), ('精神障害'), ('発達障害'), ('難病')) AS t(d)
 WHERE NOT EXISTS (SELECT 1 FROM disability_types LIMIT 1);
 
--- 初期設定データ（テーブルが空の場合のみ挿入）
+-- 初期設定データ
 INSERT INTO company_settings (
     company_name, company_address, representative_name,
     legal_rate, fiscal_start_month,
@@ -233,21 +232,13 @@ SELECT
     'contact@sample.co.jp'
 WHERE NOT EXISTS (SELECT 1 FROM company_settings LIMIT 1);
 
--- fiscal_yearカラムが存在するか確認し、存在しない場合は追加する
+-- fiscal_yearカラムの確認と追加
 DO $$ 
 BEGIN
-    -- employeesテーブルにfiscal_yearカラムが存在しない場合、追加
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'employees' AND column_name = 'fiscal_year') THEN
         ALTER TABLE employees ADD COLUMN fiscal_year INTEGER;
-        -- 現在の年をデフォルト値として設定
         UPDATE employees SET fiscal_year = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER;
-    END IF;
-
-    -- employee_monthly_statusテーブルのmonthカラムを確認
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'employee_monthly_status' AND column_name = 'month') THEN
-        ALTER TABLE employee_monthly_status ADD COLUMN month INTEGER DEFAULT 1;
     END IF;
 END $$;
 

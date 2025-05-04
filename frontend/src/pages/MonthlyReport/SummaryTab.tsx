@@ -1,20 +1,18 @@
-// src/pages/MonthlyReport/SummaryTab.tsx
 import React, { useState, useEffect } from 'react';
 import { MonthlyTotal } from './types';
 import { useYearMonth } from './YearMonthContext';
 import { 
   updateMonthlySummary, 
   confirmMonthlyReport,
-  createMonthlyReport,  // 新規追加
+  createMonthlyReport,
   handleApiError 
 } from '../../api/reportApi';
 
 // 親コンポーネントから受け取るpropsの型定義
 interface SummaryTabProps {
-  summaryData: MonthlyTotal | null; // nullも許容するように変更
+  summaryData: MonthlyTotal | null;
   onSummaryChange: (data: MonthlyTotal) => void;
   onRefreshData?: () => void;
-  // 以下をオプションとしてマーク
   isEditing?: boolean;
   onToggleEditMode?: () => void;
   onSaveSuccess?: () => void;
@@ -36,7 +34,7 @@ const defaultSummaryData: MonthlyTotal = {
   other_parttime_count: 0,
   total_disability_count: 0,
   employment_rate: 0,
-  legal_employment_rate: 2.3, // デフォルト値
+  legal_employment_rate: 2.3,
   required_count: 0,
   over_under_count: 0,
   status: '未確定',
@@ -56,27 +54,22 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
 }) => {
   console.log('SummaryTab.tsx loaded at:', new Date().toISOString());
   
-  // 年月コンテキストから現在の年月を取得
   const { fiscalYear, month } = useYearMonth();
   
-  // 状態管理
   const [isEditing, setIsEditing] = useState<boolean>(propIsEditing);
-  const [isCreating, setIsCreating] = useState<boolean>(false); // 新規作成モード
+  const [isCreating, setIsCreating] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
 
-  // ローカルデータ - データがnullの場合はデフォルト値を使用
   const [localData, setLocalData] = useState<MonthlyTotal>(summaryData || defaultSummaryData);
 
-  // props変更時にローカルデータを更新
   useEffect(() => {
     if (summaryData) {
       setLocalData(summaryData);
-      setIsCreating(false); // データがある場合は新規作成モードを解除
+      setIsCreating(false);
     } else {
-      // データがない場合は新規作成モードに設定
       setLocalData({
         ...defaultSummaryData,
         fiscal_year: fiscalYear,
@@ -86,7 +79,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     }
   }, [summaryData, fiscalYear, month]);
 
-  // 成功メッセージの自動クリア
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -96,7 +88,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     }
   }, [successMessage]);
 
-  // フィールド更新ハンドラー
   const handleFieldChange = (field: keyof MonthlyTotal, value: string | number) => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
     
@@ -107,10 +98,8 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     }));
   };
 
-  // 編集モード切り替え
   const toggleEditMode = () => {
     if (isEditing) {
-      // 編集モードを終了する場合、ローカルデータを元に戻す
       if (summaryData) {
         setLocalData(summaryData);
       } else {
@@ -123,10 +112,9 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
       setErrorMessage(null);
     }
     setIsEditing(!isEditing);
-    onToggleEditMode(); // 親コンポーネントにも通知
+    onToggleEditMode();
   };
 
-  // 新規作成モード切り替え
   const toggleCreateMode = () => {
     setIsCreating(true);
     setIsEditing(true);
@@ -137,14 +125,12 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     });
   };
 
-  // 保存ボタンのハンドラー
   const handleSave = async () => {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
     
     try {
-      // フォームデータの検証
       if (localData.legal_employment_rate <= 0) {
         throw new Error('法定雇用率は0より大きい値を入力してください');
       }
@@ -162,28 +148,21 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
       };
       
       if (isCreating) {
-        // 新規作成の場合
         updatedData = await createMonthlyReport(fiscalYear, month, dataToSend);
-        
-        // 新規作成モードを解除
         setIsCreating(false);
       } else {
-        // 更新の場合
         updatedData = await updateMonthlySummary(fiscalYear, month, dataToSend);
       }
       
-      // 更新されたデータを親コンポーネントに通知
       onSummaryChange(updatedData);
       
-      // データ更新後に親コンポーネントに通知
       if (onRefreshData) {
         onRefreshData();
       }
       
       setIsEditing(false);
-      onSaveSuccess(); // 親コンポーネントにも通知
+      onSaveSuccess();
       
-      // 成功メッセージを表示
       setSuccessMessage(`サマリーデータを${isCreating ? '作成' : '保存'}しました`);
     } catch (error) {
       console.error('サマリーデータ保存エラー:', error);
@@ -193,7 +172,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     }
   };
 
-  // 確定ボタンのハンドラー
   const handleConfirm = async () => {
     if (window.confirm('このレポートを確定しますか？確定後は編集できなくなります。')) {
       setIsConfirming(true);
@@ -201,18 +179,14 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
       setSuccessMessage(null);
       
       try {
-        // API呼び出し
         const confirmedData = await confirmMonthlyReport(fiscalYear, month);
         
-        // 更新されたデータを親コンポーネントに通知
         onSummaryChange(confirmedData);
         
-        // データ更新後に親コンポーネントに通知
         if (onRefreshData) {
           onRefreshData();
         }
         
-        // 成功メッセージを表示
         setSuccessMessage('レポートを確定しました');
       } catch (error) {
         console.error('レポート確定エラー:', error);
@@ -223,18 +197,22 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
     }
   };
 
-  // 状態の取得
   const status = localData?.status || '未確定';
   const isConfirmed = status === '確定済';
 
-  // 日付フォーマット
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
-  // データがない場合の初期表示（新規作成ボタンを表示）
+  // 数値の安全な表示関数を追加
+  const safeToFixed = (value: any, decimals: number = 2): string => {
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(num)) return '0.00';
+    return num.toFixed(decimals);
+  };
+
   if (!summaryData && !isCreating) {
     return (
       <div className="summary-tab-container">
@@ -329,7 +307,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
         </div>
       </div>
       
-      {/* 成功メッセージ */}
       {successMessage && (
         <div style={{ 
           backgroundColor: '#d4edda', 
@@ -343,7 +320,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
         </div>
       )}
       
-      {/* エラーメッセージ */}
       {errorMessage && (
         <div style={{ 
           backgroundColor: '#f8d7da', 
@@ -356,7 +332,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
         </div>
       )}
       
-      {/* ローディングインジケーター */}
       {(isLoading || isConfirming) && (
         <div style={{ 
           backgroundColor: '#e9ecef', 
@@ -369,7 +344,6 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
         </div>
       )}
       
-      {/* ステータス表示 - 新規作成時は表示しない */}
       {!isCreating && (
         <div style={{ 
           marginBottom: '1rem', 
@@ -682,7 +656,7 @@ const SummaryTab: React.FC<SummaryTabProps> = ({
               fontWeight: 'bold',
               color: localData.employment_rate < localData.legal_employment_rate ? 'red' : 'green'
             }} aria-label="実雇用率">
-              {localData.employment_rate.toFixed(2)} %
+              {safeToFixed(localData.employment_rate, 2)} %
             </div>
           </div>
           

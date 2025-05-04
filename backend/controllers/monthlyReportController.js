@@ -89,10 +89,12 @@ exports.getMonthlyReport = async (req, res) => {
           try {
             emp.monthlyStatus = JSON.parse(emp.monthly_status);
           } catch (e) {
-            emp.monthlyStatus = Array(12).fill(1);
+            // デフォルト値を空文字列に変更
+            emp.monthlyStatus = Array(12).fill('');
           }
         } else {
-          emp.monthlyStatus = Array(12).fill(1);
+          // デフォルト値を空文字列に変更
+          emp.monthlyStatus = Array(12).fill('');
         }
         return emp;
       });
@@ -986,7 +988,9 @@ exports.importEmployeesFromCSV = async (req, res) => {
         grade: values[4] || '',
         hire_date: values[5] || new Date().toISOString().split('T')[0],
         status: values[6] || '在籍',
-        fiscal_year: parseInt(year)
+        fiscal_year: parseInt(year),
+        // 月次ステータスを空文字列のデフォルト値で設定
+        monthly_status: JSON.stringify(Array(12).fill(''))
       };
     }).filter(item => item.employee_id && item.name); // 空行をフィルタリング
     

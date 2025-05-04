@@ -20,8 +20,11 @@ import axios from 'axios';
 import CSVImportModal from './CSVImportModal';
 import { generateCSVTemplate, downloadCSV } from './utils';
 
-// API base URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+// API base URL 
+// 開発環境ではproxy設定を使用するため、'/api'とする
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? '/api' 
+  : (process.env.REACT_APP_API_URL || 'http://localhost:5001/api');
 
 // サンプル従業員データ（デフォルト表示用）
 const sampleEmployees: Employee[] = [
@@ -172,12 +175,28 @@ const createDefaultMonthlyReport = async (year: number, month: number) => {
 // 指定した年月のレポートが存在するかチェックする関数
 const checkReportExists = async (year: number, month: number): Promise<boolean> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/monthly-reports/${year}/${month}`);
+    // apiClient または enhancedClient を使用（直接axiosを使用しない）
+    // APIベースURLはプロキシ設定と一致させるため、ここでは相対パスを使用
+    console.log(`存在チェック: /api/monthly-reports/${year}/${month}`);
+    const response = await axios.get(`/api/monthly-reports/${year}/${month}`);
     return !!response.data && !!response.data.success;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return false;
+    if (axios.isAxiosError(error)) {
+      // 404エラーの場合はレポートが存在しないと判断
+      if (error.response?.status === 404) {
+        return false;
+      }
+      
+      // HTMLレスポンスが返された場合（JSONパースエラーの原因）
+      const responseText = error.request?.responseText;
+      if (responseText && typeof responseText === 'string' && 
+          (responseText.includes('<!DOCTYPE') || 
+           responseText.includes('<html'))) {
+        console.error('HTML応答を検出:', error.config?.url);
+        return false;
+      }
     }
+    
     console.error('データ存在チェックエラー:', error);
     return false;
   }
@@ -349,7 +368,7 @@ const MonthlyReport: React.FC = () => {
             }
             
             // 従業員データが空の場合はサンプルデータを使用
-            const employeesData = data.data?.employees && data.data.employees.length > 0 
+            const employeesData = data?.data?.employees && data.data.employees.length > 0 
               ? data.data.employees 
               : sampleEmployees;
             
@@ -411,7 +430,9 @@ const MonthlyReport: React.FC = () => {
             emp.id === id 
               ? { 
                   ...emp, 
-                  [field]: field === 'monthlyStatus' ? JSON.parse(value) : value 
+                  [field]: field === 'monthlyStatus' ? 
+                    (typeof value === 'string' ? JSON.parse(value) : value) : 
+                    value 
                 } 
               : emp
           )
@@ -492,6 +513,14 @@ const MonthlyReport: React.FC = () => {
       console.log(`親コンポーネントで年度変更を検知: ${fiscalYear} → ${year}`);
       
       try {
+        // 無効な年度チェック
+        if (isNaN(year) || year <= 0) {
+          console.error('無効な年度が指定されました:', year);
+          setErrorMessage('無効な年度が指定されました。');
+          setTimeout(() => setErrorMessage(null), 5000);
+          return;
+        }
+        
         // 指定した年度のデータが存在するかチェック
         const exists = await checkReportExists(year, month);
         
@@ -538,6 +567,14 @@ const MonthlyReport: React.FC = () => {
       console.log(`月変更を検知: ${month} → ${newMonth}`);
       
       try {
+        // 無効な月チェック
+        if (isNaN(newMonth) || newMonth < 1 || newMonth > 12) {
+          console.error('無効な月が指定されました:', newMonth);
+          setErrorMessage('無効な月が指定されました。');
+          setTimeout(() => setErrorMessage(null), 5000);
+          return;
+        }
+        
         // 現在のステートを保存
         const prevMonth = month;
         
@@ -602,6 +639,21 @@ const MonthlyReport: React.FC = () => {
       console.log(`年月変更を検知: ${fiscalYear}年${month}月 → ${year}年${newMonth}月`);
       
       try {
+        // 無効な年月チェック
+        if (isNaN(year) || year <= 0) {
+          console.error('無効な年度が指定されました:', year);
+          setErrorMessage('無効な年度が指定されました。');
+          setTimeout(() => setErrorMessage(null), 5000);
+          return;
+        }
+        
+        if (isNaN(newMonth) || newMonth < 1 || newMonth > 12) {
+          console.error('無効な月が指定されました:', newMonth);
+          setErrorMessage('無効な月が指定されました。');
+          setTimeout(() => setErrorMessage(null), 5000);
+          return;
+        }
+        
         // 指定した年月のデータが存在するかチェック
         const exists = await checkReportExists(year, newMonth);
         
@@ -719,7 +771,8 @@ const MonthlyReport: React.FC = () => {
           <EmployeesTab 
             employees={(employees || []).map(emp => ({
               ...emp,
-              employee_id: String(emp.employee_id), // number型をstring型に変換
+              id: emp.id,
+              employee_id: emp.employee_id !== undefined ? String(emp.employee_id) : '', // number型をstring型に変換
               disability_type: emp.disability_type || '', // undefinedの場合は空文字列に変換
               disability: emp.disability || '', // 念のため
               grade: emp.grade || '', // 念のため

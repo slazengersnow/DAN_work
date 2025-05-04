@@ -4,7 +4,10 @@ import axios from 'axios';
 import databaseValidator from '../utils/databaseValidator';
 
 // API基本設定
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+// 開発環境ではproxy設定を使用するため、'/api'とする
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? '/api' 
+  : (process.env.REACT_APP_API_URL || 'http://localhost:5001/api');
 
 // デフォルトのタイムアウト設定
 const DEFAULT_TIMEOUT = 15000; // 15秒
@@ -66,6 +69,61 @@ enhancedClient.interceptors.response.use(
     // 再試行カウンターの初期化
     if (originalRequest.retryCount === undefined) {
       originalRequest.retryCount = 0;
+    }
+    
+    // HTMLレスポンスの検出と処理（JSONParse Error の原因）
+    const isHtmlResponse = error.request && 
+      error.request.responseText && 
+      (error.request.responseText.includes('<!DOCTYPE') || 
+       error.request.responseText.includes('<html') ||
+       error.request.responseText.includes('<!doctype') ||
+       error.request.responseText.includes('<HTML'));
+    
+    // Content-Type ヘッダーもチェック
+    const contentType = error.response?.headers?.['content-type'] || '';
+    const isHtmlContentType = contentType.includes('text/html');
+    
+    if (isHtmlResponse || isHtmlContentType) {
+      console.error('HTML形式のレスポンスを検出しました (JSONが期待される場所):', {
+        url: originalRequest.url,
+        method: originalRequest.method,
+        status: error.response?.status || 'unknown',
+        contentType: contentType,
+        responsePreview: error.request.responseText ? 
+          error.request.responseText.substring(0, 200) + '...' : 
+          '(レスポンステキストなし)'
+      });
+      
+      error.isHtmlResponse = true;
+      error.userMessage = '無効なAPIレスポンス: サーバーがJSONの代わりにHTMLを返しました。';
+      
+      // 404エラーの場合は、より明確なメッセージを提供
+      if (error.response && error.response.status === 404) {
+        error.userMessage = `APIエンドポイントが見つかりません: ${originalRequest.url}`;
+        console.error(`存在しないAPIエンドポイント: ${originalRequest.url}`);
+        
+        // リクエストを修正して再試行する可能性を確認
+        if (originalRequest.url && !originalRequest.retryWithFixedUrl) {
+          // URLの形式を修正して再試行
+          const fixedUrl = originalRequest.url.replace(/\/+/g, '/').replace(/^\/?/, '/');
+          if (fixedUrl !== originalRequest.url) {
+            console.log(`URL形式を修正して再試行: ${originalRequest.url} → ${fixedUrl}`);
+            originalRequest.url = fixedUrl;
+            originalRequest.retryWithFixedUrl = true;
+            return enhancedClient(originalRequest);
+          }
+        }
+      }
+      
+      return Promise.reject(error);
+    }
+    
+    // JSONパースエラーの特別処理
+    if (error.message && error.message.includes('Unexpected token')) {
+      console.error('JSONパースエラー:', error.message);
+      error.isJsonParseError = true;
+      error.userMessage = 'レスポンスデータを解析できませんでした。サーバーレスポンスが不正です。';
+      return Promise.reject(error);
     }
     
     // サーバーエラー（500）と再試行回数が上限以下の場合
