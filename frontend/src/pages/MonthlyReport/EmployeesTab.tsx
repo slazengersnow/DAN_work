@@ -16,6 +16,7 @@ export interface Employee {
   monthlyStatus?: any[];
   memo?: string;
   count?: number;
+  retirement_date?: string; // 退職日を追加
 }
 
 export interface MonthlyTotal {
@@ -1266,6 +1267,25 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // 依存配列を空に保ち、初回マウント時のみ実行。fiscalYearは不要（別のuseEffectが担当）
   }, []);
 
+  // localEmployees変更時に自動計算を実行
+  useEffect(() => {
+    // データがロードされた場合に自動計算を実行
+    if (localEmployees.length > 0) {
+      console.log(`[HC] localEmployees変更を検知 (${localEmployees.length}件) - 自動計算を実行します`);
+      
+      // 各従業員に対してHC自動計算を実行
+      localEmployees.forEach(employee => {
+        if (employee.hc !== undefined && employee.hire_date && employee.status) {
+          console.log(`[HC] 従業員ID=${employee.id}のHC自動計算を実行`);
+          // 少し遅延させて実行
+          setTimeout(() => {
+            updateMonthlyStatusFromHc(employee);
+          }, 100);
+        }
+      });
+    }
+  }, [localEmployees.length]); // localEmployees.lengthが変わった時に実行
+
   // 編集モード切り替えハンドラー
   const handleToggleEditMode = () => {
     console.log('編集モード切替ボタンクリック:', !actualIsEditing);
@@ -1304,7 +1324,17 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   // HC値の変更ハンドラー
   const handleHcChange = (id: number, value: string) => {
+    console.log(`[HC] handleHcChange呼び出し: ID=${id}, 値=${value}`);
     console.log(`HC値変更: ID=${id}, 値=${value}`);
+    
+    // 従業員データの確認
+    const currentEmployee = localEmployees.find(emp => emp.id === id);
+    console.log('[DEBUG] handleHcChange対象従業員:', {
+      従業員ID: id,
+      従業員データあり: !!currentEmployee,
+      HC値: currentEmployee?.hc,
+      新しい値: value
+    });
     
     // 数値入力チェック
     if (value === '') {
@@ -1316,6 +1346,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       
       // 空の場合はHC値をクリア
       setLocalEmployees(prev => {
+        // 現在の従業員を取得して確実に処理する
+        const currentEmployee = prev.find(emp => emp.id === id);
+        if (!currentEmployee) {
+          console.error(`ID=${id}の従業員が見つかりません`);
+          return prev;
+        }
+        
         const updated = prev.map(emp => {
           if (emp.id === id) {
             const updatedEmp = { ...emp, hc: undefined };
@@ -1323,6 +1360,27 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           }
           return emp;
         });
+        
+        // 月次ステータス値をクリア（HC値がなくなるため）
+        setTimeout(() => {
+          const employeeToUpdate = updated.find(emp => emp.id === id);
+          if (employeeToUpdate) {
+            console.log(`HC値クリア時の月次ステータス更新 - ID=${id}`);
+            
+            // HC値がundefinedなので、月次ステータスは全て空になる
+            setLocalEmployees(current => {
+              return current.map(emp => {
+                if (emp.id === id) {
+                  return { 
+                    ...emp, 
+                    monthlyStatus: Array(12).fill('') 
+                  };
+                }
+                return emp;
+              });
+            });
+          }
+        }, 50);
         
         // 親コンポーネントへの通知はバッチ処理のために遅延させる（非同期処理）
         setTimeout(() => {
@@ -1350,18 +1408,33 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     
     // ローカル従業員データの状態を更新
     setLocalEmployees(prev => {
+      // 現在の従業員を取得して確実に処理する
+      const currentEmployee = prev.find(emp => emp.id === id);
+      if (!currentEmployee) {
+        console.error(`ID=${id}の従業員が見つかりません`);
+        return prev;
+      }
+      
       const updated = prev.map(emp => {
         if (emp.id === id) {
           const updatedEmp = { ...emp, hc: numValue };
           console.log(`HC値を更新: `, updatedEmp);
-          
-          // 月次ステータス値を自動計算
-          updateMonthlyStatusFromHc(updatedEmp);
-          
           return updatedEmp;
         }
         return emp;
       });
+      
+      // 非同期で月次ステータス値を自動計算
+      setTimeout(() => {
+        const employeeToUpdate = updated.find(emp => emp.id === id);
+        if (employeeToUpdate) {
+          console.log(`[HC] HC値変更後の自動計算を実行します - ID=${id}, 値=${numValue}`);
+          console.log(`HC自動計算実行開始（HC値変更時） - ID=${id}, 値=${numValue}`);
+          // 必ず計算ロジックを呼び出す
+          updateMonthlyStatusFromHc(employeeToUpdate);
+          console.log(`HC自動計算実行完了（HC値変更時） - ID=${id}`);
+        }
+      }, 50);
       
       // 親コンポーネントへの通知はバッチ処理のために遅延させる（非同期処理）
       setTimeout(() => {
@@ -1369,7 +1442,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           console.log('HC値変更: 親コンポーネントに通知', updated.length, '件');
           onEmployeesUpdate(updated);
         }
-      }, 100);
+      }, 150); // 月次ステータス更新後に通知するために少し長めの遅延
       
       return updated;
     });
@@ -1378,17 +1451,28 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   
   // 採用日と状態に基づいて月次ステータスを更新する関数
   const updateMonthlyStatusFromHc = (employee: Employee) => {
+    console.log('[HC] 計算処理開始');
+    console.log(`===== HC自動計算関数開始 - ID=${employee.id} =====`);
+    
     // 必要なデータがない場合は何もしない
     if (!employee.hire_date || !employee.status || employee.hc === undefined) {
-      console.log('自動計算に必要なデータがありません:', { hire_date: employee.hire_date, status: employee.status, hc: employee.hc });
+      console.log('【エラー】自動計算に必要なデータがありません:', { hire_date: employee.hire_date, status: employee.status, hc: employee.hc });
       return;
     }
+    
+    console.log(`【HC自動計算】入力データ:`, {
+      従業員ID: employee.id,
+      従業員名: employee.name,
+      採用日: employee.hire_date,
+      状態: employee.status,
+      HC値: employee.hc
+    });
     
     try {
       // 採用日をDateオブジェクトに変換
       const hireDateParts = employee.hire_date.split('/');
       if (hireDateParts.length !== 3) {
-        console.error('採用日のフォーマットが不正です:', employee.hire_date);
+        console.error('【エラー】採用日のフォーマットが不正です:', employee.hire_date);
         return;
       }
       
@@ -1397,7 +1481,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       const hireDay = parseInt(hireDateParts[2]);
       
       if (isNaN(hireYear) || isNaN(hireMonth) || isNaN(hireDay)) {
-        console.error('採用日のパースに失敗しました:', { hireYear, hireMonth, hireDay });
+        console.error('【エラー】採用日のパースに失敗しました:', { hireYear, hireMonth, hireDay });
         return;
       }
       
@@ -1408,31 +1492,91 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       const displayYear = fiscalYear;
       const displayMonth = month;
       
+      // 2025年5月を固定値として使用（要件に合わせて）
+      const systemCurrentYear = 2025;
+      const systemCurrentMonth = 5;
+      
+      // 退職日の取得（退職状態の場合）
+      type RetirementMonthType = { year: number; month: number } | null;
+      let retirementMonth: RetirementMonthType = null;
+      if (employee.status === '退職' && employee.retirement_date) {
+        // 退職日がある場合はパース
+        const retirementParts = employee.retirement_date.split('/');
+        if (retirementParts.length === 3) {
+          const retireYear = parseInt(retirementParts[0]);
+          const retireMonth = parseInt(retirementParts[1]);
+          retirementMonth = { year: retireYear, month: retireMonth };
+          console.log(`【退職処理】退職日が設定されています: ${retireYear}年${retireMonth}月`);
+        }
+      } 
+      
+      // 年度表示関係の判定
+      const yearRelation = displayYear < systemCurrentYear ? "過去" : 
+                           displayYear === systemCurrentYear ? "現在" : "未来";
+      
+      console.log(`【HC自動計算】基本情報: 採用日=${hireYear}/${hireMonth}/${hireDay}, ` + 
+                  `表示年度(${yearRelation}年度)=${displayYear}/${displayMonth}, ` + 
+                  `現在日付(固定)=${systemCurrentYear}/${systemCurrentMonth}, ` + 
+                  `退職日=${retirementMonth ? `${retirementMonth.year}/${retirementMonth.month}` : '未設定'}`);
+      
       // 各月について処理
       monthNumbers.forEach((monthNum, index) => {
         // 会計年度を考慮して年を調整（1-3月は次の年）
         const calendarYear = monthNum >= 4 ? displayYear : displayYear + 1;
         
-        // 採用月と退職月をチェック
+        // 採用月以降かどうか
         const isAfterHireDate = isDateAfterHireDate(calendarYear, monthNum, hireYear, hireMonth);
+        
+        // 表示年度を考慮した現在月以前かどうか
+        const isBeforeCurrentRealMonth = isBeforeOrEqualCurrentMonth(calendarYear, monthNum, systemCurrentYear, systemCurrentMonth);
+        
+        // 退職月以前かどうか（退職状態の場合のみ関連）
+        let isBeforeRetirementMonth = true;
+        if (employee.status === '退職' && retirementMonth) {
+          isBeforeRetirementMonth = (calendarYear < retirementMonth.year) || 
+                                   (calendarYear === retirementMonth.year && monthNum <= retirementMonth.month);
+          console.log(`【退職月判定】${monthNumbers[index]}月: 退職月(${retirementMonth.year}/${retirementMonth.month})以前=${isBeforeRetirementMonth}`);
+        }
+        
+        // 詳細なログ出力（デバッグ用）
+        console.log(`【月次処理】[${index+1}]=${monthNumbers[index]}月: 暦年=${calendarYear}, ` +
+                    `採用日以降=${isAfterHireDate}, 表示対象=${isBeforeCurrentRealMonth}`);
         
         // 状態に応じた処理
         if (employee.status === '在籍') {
-          // 在籍の場合、採用日以降はHC値を設定
-          if (isAfterHireDate) {
+          // 在籍の場合、採用日以降かつ表示対象かどうかで判定
+          if (isAfterHireDate && isBeforeCurrentRealMonth) {
             newMonthlyStatus[index] = employee.hc!;
+            console.log(`  → 在籍: ${monthNumbers[index]}月にHC値${employee.hc}を設定`);
+          } else if (!isAfterHireDate) {
+            newMonthlyStatus[index] = '';
+            console.log(`  → 在籍: ${monthNumbers[index]}月は採用日前のため空白`);
           } else {
             newMonthlyStatus[index] = '';
+            console.log(`  → 在籍: ${monthNumbers[index]}月は未来月のため空白`);
           }
         } else if (employee.status === '退職') {
-          // 退職の場合、現在の月より前かつ採用日以降はHC値を設定、それ以外は空
-          if (isAfterHireDate && isBeforeCurrentDisplayMonth(calendarYear, monthNum, displayYear, displayMonth)) {
-            newMonthlyStatus[index] = employee.hc!;
+          // 退職の場合、採用日以降かつ退職月以前はHC値を設定
+          if (isAfterHireDate && isBeforeCurrentRealMonth) {
+            if (retirementMonth && !isBeforeRetirementMonth) {
+              // 退職月が設定されており、それより後の月は空白に
+              newMonthlyStatus[index] = '';
+              console.log(`  → 退職: ${monthNumbers[index]}月は退職月(${retirementMonth.year}/${retirementMonth.month})より後のため空白`);
+            } else {
+              // 退職月以前（または退職月未設定）なら表示
+              newMonthlyStatus[index] = employee.hc!;
+              console.log(`  → 退職: ${monthNumbers[index]}月にHC値${employee.hc}を設定`);
+            }
+          } else if (!isAfterHireDate) {
+            newMonthlyStatus[index] = '';
+            console.log(`  → 退職: ${monthNumbers[index]}月は採用日前のため空白`);
           } else {
             newMonthlyStatus[index] = '';
+            console.log(`  → 退職: ${monthNumbers[index]}月は未来月のため空白`);
           }
         } else {
           // その他の状態は変更なし
+          console.log(`  → その他の状態: ${employee.status} - 変更なし`);
         }
       });
       
@@ -1447,8 +1591,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       });
       
       console.log(`ID=${employee.id}の月次ステータスを自動計算しました:`, newMonthlyStatus);
+      console.log(`===== HC自動計算関数終了 - ID=${employee.id} =====`);
     } catch (error) {
       console.error('月次ステータスの自動計算でエラーが発生しました:', error);
+      console.log(`===== HC自動計算関数エラー終了 - ID=${employee.id} =====`);
     }
   };
   
@@ -1471,10 +1617,58 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     // それ以外は false
     return false;
   };
+  
+  // 指定した年月が表示中の年度を考慮して有効かどうかをチェックする関数
+  const isBeforeOrEqualCurrentMonth = (year: number, month: number, currentYear: number, currentMonth: number): boolean => {
+    console.log(`【日付比較】検証: 暦年${year}月${month} vs 現在${currentYear}月${currentMonth}`);
+    
+    // 表示中の年度（UIで選択された年度）
+    const displayFiscalYear = fiscalYear;
+    
+    // 2025年5月を固定値として扱う（要件に合わせて）
+    const systemCurrentYear = 2025;     // 2025
+    const systemCurrentMonth = 5;      // 5
+    
+    console.log(`【日付比較】現在日付(固定値): ${systemCurrentYear}年${systemCurrentMonth}月 (※要件に合わせて2025/5を使用)`);
+    console.log(`【日付比較】表示中の年度: ${displayFiscalYear}年度`);
+    
+    // 表示年度が過去の年度の場合（表示年度 < 現在システム年度）
+    // 過去年度のデータは全て表示するため常にtrueを返す
+    if (displayFiscalYear < systemCurrentYear) {
+      console.log(`【判定】過去年度(${displayFiscalYear}年)の表示: ${year}/${month}月 → すべて表示する`);
+      return true;
+    }
+    
+    // 表示年度が現在年度の場合（表示年度 = 現在システム年度）
+    // 現在月(5月)までを表示
+    if (displayFiscalYear === systemCurrentYear) {
+      // 会計年度の考慮に関係なく、システムの現在月までを表示
+      const result = (year < systemCurrentYear) || 
+                     (year === systemCurrentYear && month <= systemCurrentMonth);
+      
+      console.log(`【判定】現在年度(${displayFiscalYear}年)の表示: ${year}/${month}月 vs 現在${systemCurrentYear}/${systemCurrentMonth}月 → ${result ? '表示する' : '表示しない'}`);
+      return result;
+    }
+    
+    // 表示年度が未来年度の場合（表示年度 > 現在システム年度）
+    // 現在（システム）日付までのみ表示（※通常は発生しない条件）
+    if (displayFiscalYear > systemCurrentYear) {
+      // 未来年度の場合は特別処理：現在月までのみ表示
+      const result = (year < systemCurrentYear) || 
+                     (year === systemCurrentYear && month <= systemCurrentMonth);
+      
+      console.log(`【判定】未来年度(${displayFiscalYear}年)の表示: ${year}/${month}月 vs 現在${systemCurrentYear}/${systemCurrentMonth}月 → ${result ? '表示する' : '表示しない'}`);
+      return result;
+    }
+    
+    // それ以外は false
+    console.log(`【判定】不明な条件のため表示しない: ${year}/${month}月`);
+    return false;
+  };
 
   // フィールド更新ハンドラー
   const handleFieldChange = (id: number, field: string, value: string | number) => {
-    console.log(`フィールド変更: ID=${id}, フィールド=${field}, 値=${value}`);
+    console.log(`【フィールド変更】ID=${id}, フィールド=${field}, 値=${value}, 型=${typeof value}`);
     
     // 入力値の状態を更新
     setInputValues(prev => ({
@@ -1484,6 +1678,19 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     
     // ローカル従業員データの状態を更新
     setLocalEmployees(prev => {
+      // 変更前のデータを取得（退職処理のためのログとチェック）
+      const prevEmployee = prev.find(emp => emp.id === id);
+      if (prevEmployee) {
+        console.log(`【変更前】従業員データ:`, {
+          ID: prevEmployee.id,
+          名前: prevEmployee.name,
+          状態: prevEmployee.status,
+          採用日: prevEmployee.hire_date,
+          退職日: prevEmployee.retirement_date,
+          HC: prevEmployee.hc
+        });
+      }
+      
       return prev.map(emp => {
         if (emp.id === id) {
           // 値の適切な型変換を行う
@@ -1492,15 +1699,51 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             convertedValue = String(value);
           }
           
-          const updatedEmp = { ...emp, [field]: convertedValue };
-          console.log(`フィールド "${field}" を更新: `, updatedEmp);
+          // フィールド更新と退職処理を一度に行う
+          let updatedFields: Record<string, any> = { [field]: convertedValue };
           
-          // 状態が変更された場合は、HC値に基づいて月次ステータスを再計算
-          if (field === 'status') {
+          // 重要: 「退職」状態への変更を特別に処理
+          if (field === 'status' && convertedValue === '退職') {
+            console.log(`【退職処理】従業員が退職状態に変更されました - ID=${id}`);
+            
+            // 退職日が未設定の場合は、現在の表示月を退職月として設定
+            if (!emp.retirement_date) {
+              // 現在の年月を退職日として設定（2025年5月を使用）
+              const retirementYear = 2025; 
+              const retirementMonth = 5;
+              const retirementDay = 1; // 月初日を使用
+              
+              const retirementDate = `${retirementYear}/${retirementMonth}/${retirementDay}`;
+              // フィールド更新に退職日も追加
+              updatedFields.retirement_date = retirementDate;
+              
+              console.log(`【退職処理】退職日を自動設定しました: ${retirementDate}`);
+            }
+          }
+          
+          // すべての更新フィールドを適用
+          const updatedEmp = { ...emp, ...updatedFields };
+          
+          console.log(`【更新後】フィールド "${field}" を更新:`, {
+            ID: updatedEmp.id,
+            名前: updatedEmp.name,
+            状態: updatedEmp.status,
+            採用日: updatedEmp.hire_date,
+            退職日: updatedEmp.retirement_date,
+            HC: updatedEmp.hc
+          });
+          
+          // 採用日または状態が変更された場合は、HC値に基づいて月次ステータスを再計算
+          if (field === 'status' || field === 'hire_date') {
+            console.log(`[HC] ${field}が変更されたため自動計算を実行します`);
+            console.log(`【重要フィールド変更】"${field}" が変更されたため、HC自動計算を実行します`);
+            
+            // 少し遅延して実行（状態が先に更新されるのを待つ）
             setTimeout(() => {
-              // 非同期で月次ステータスを更新（状態が先に更新されるのを待つ）
+              console.log(`【HC自動計算】実行開始 - ID=${id}, フィールド=${field}, 値=${value}`);
               updateMonthlyStatusFromHc(updatedEmp);
-            }, 0);
+              console.log(`【HC自動計算】実行完了 - ID=${id}`);
+            }, 50); // 確実に更新後に実行されるよう少し長めの遅延を設定
           }
           
           return updatedEmp;
@@ -1512,34 +1755,97 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   // 新規行データの更新ハンドラー
   const handleNewRowFieldChange = (field: string, value: string | number) => {
-    console.log(`新規行フィールド変更: フィールド=${field}, 値=${value}`);
+    console.log(`【新規行】フィールド変更: フィールド=${field}, 値=${value}, 型=${typeof value}`);
     
     setInputValues(prev => ({
       ...prev,
       [`new-${field}`]: value
     }));
     
+    // 重要: 「退職」状態への変更を特別に処理
+    if (field === 'status' && value === '退職') {
+      console.log(`【新規行】退職状態に変更されました`);
+      
+      // 退職日が未設定の場合は、現在の表示月を退職月として設定
+      const hasRetirementDate = newRowData && typeof newRowData === 'object' && 'retirement_date' in newRowData && Boolean(newRowData.retirement_date);
+      if (!hasRetirementDate) {
+        // 現在の年月を退職日として設定（2025年5月を使用）
+        const retirementYear = 2025; 
+        const retirementMonth = 5;
+        const retirementDay = 1; // 月初日を使用
+        
+        const retirementDate = `${retirementYear}/${retirementMonth}/${retirementDay}`;
+        
+        setNewRowData(prev => ({
+          ...prev,
+          [field]: value,
+          retirement_date: retirementDate
+        }));
+        
+        console.log(`【新規行】退職日を自動設定しました: ${retirementDate}`);
+        
+        // 採用日または状態が変更された場合は、HC値に基づいて月次ステータスを再計算
+        if (newRowData.hc !== undefined) {
+          console.log(`[HC] 新規行退職時: 自動計算を実行します`);
+          console.log(`【新規行】重要フィールド "${field}" が変更されたため、HC自動計算を実行します`);
+          
+          setTimeout(() => {
+            // 非同期で月次ステータスを更新（状態変更が適用されるのを待つ）
+            const updatedNewRowData = { 
+              ...newRowData,
+              [field]: value,
+              retirement_date: retirementDate
+            };
+            
+            console.log(`【新規行】HC自動計算実行開始: `, updatedNewRowData);
+            // 型を明示的に指定してキャスト
+            updateMonthlyStatusForNewRow(updatedNewRowData as NewRowData);
+            console.log(`【新規行】HC自動計算実行完了`);
+          }, 100);
+        }
+        
+        return; // 早期リターン
+      }
+    }
+    
+    // 通常のフィールド更新
     setNewRowData(prev => ({
       ...prev,
       [field]: value
     }));
     
-    // 状態が変更された場合は、HC値に基づいて月次ステータスを再計算
-    if (field === 'status' && value && newRowData.hc !== undefined) {
+    // 採用日または状態が変更された場合は、HC値に基づいて月次ステータスを再計算
+    if ((field === 'status' || field === 'hire_date') && newRowData.hc !== undefined) {
+      console.log(`[HC] 新規行: ${field}が変更されたため自動計算を実行します`);
+      console.log(`【新規行】重要フィールド "${field}" が変更されたため、HC自動計算を実行します`);
+      
       setTimeout(() => {
         // 非同期で月次ステータスを更新（状態変更が適用されるのを待つ）
         const updatedNewRowData = { 
           ...newRowData, 
-          [field]: String(value) // 明示的に文字列に変換
+          [field]: field === 'status' ? String(value) : value // 状態は明示的に文字列に変換
         };
-        updateMonthlyStatusForNewRow(updatedNewRowData);
-      }, 0);
+        
+        console.log(`新規行 HC自動計算実行開始 - フィールド=${field}, 値=${value}`);
+        updateMonthlyStatusForNewRow(updatedNewRowData as NewRowData);
+        console.log(`新規行 HC自動計算実行完了`);
+      }, 50); // 確実に更新後に実行されるよう少し長めの遅延を設定
     }
   };
   
   // 新規行のHC値変更ハンドラー
   const handleNewRowHcChange = (value: string) => {
+    console.log(`[HC] handleNewRowHcChange呼び出し: 値=${value}`);
     console.log(`新規行のHC値変更: 値=${value}`);
+    
+    // 新規行データの確認
+    console.log('[DEBUG] handleNewRowHcChange対象データ:', {
+      新規行データあり: !!newRowData,
+      現在のHC値: newRowData?.hc,
+      新しい値: value,
+      状態: newRowData?.status,
+      採用日: newRowData?.hire_date
+    });
     
     // 数値入力チェック
     if (value === '') {
@@ -1550,10 +1856,23 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       }));
       
       // 空の場合はHC値をクリア
-      setNewRowData(prev => ({
-        ...prev,
-        hc: undefined
-      }));
+      setNewRowData(prev => {
+        const updated = {
+          ...prev,
+          hc: undefined
+        };
+        
+        // HC値がクリアされた場合は月次ステータスも全てクリア
+        setTimeout(() => {
+          console.log(`新規行: HC値クリア時の月次ステータス更新`);
+          setNewRowData(current => ({
+            ...current,
+            monthlyStatus: Array(12).fill('')
+          }));
+        }, 50);
+        
+        return updated;
+      });
       setErrorMessage(null);
       return;
     }
@@ -1583,16 +1902,25 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     };
     setNewRowData(updatedNewRowData);
     
-    // 月次ステータス値を自動計算
+    // 月次ステータス値を自動計算（採用日と状態がある場合のみ）
     if (updatedNewRowData.status && updatedNewRowData.hire_date) {
-      updateMonthlyStatusForNewRow(updatedNewRowData);
+      console.log(`[HC] 新規行HC値変更後の自動計算を実行します - 値=${numValue}`);
+      console.log(`新規行 HC自動計算実行開始（HC値変更時） - 値=${numValue}`);
+      // 必ず計算ロジックを呼び出す
+      updateMonthlyStatusForNewRow(updatedNewRowData as NewRowData);
+      console.log(`新規行 HC自動計算実行完了（HC値変更時）`);
+    } else {
+      console.log(`新規行: HC値を${numValue}に設定しましたが、採用日または状態が設定されていないため自動計算を実行しません`, {
+        status: updatedNewRowData.status,
+        hire_date: updatedNewRowData.hire_date
+      });
     }
     
     setErrorMessage(null);
   };
   
   // 新規行の採用日と状態に基づいて月次ステータスを更新する関数
-  const updateMonthlyStatusForNewRow = (rowData: { 
+  interface NewRowData {
     no?: number;
     employee_id: string | number;
     name: string;
@@ -1605,12 +1933,37 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     monthlyStatus?: any[];
     memo?: string;
     count?: number;
-  }) => {
+    retirement_date?: string;
+  }
+  
+  const updateMonthlyStatusForNewRow = (rowData: NewRowData) => {
+    console.log('[HC] 新規行計算処理開始');
+    console.log(`===== 【新規行】HC自動計算関数開始 =====`);
+    
     // 必要なデータがない場合は何もしない
     if (!rowData.hire_date || !rowData.status || rowData.hc === undefined) {
-      console.log('新規行の自動計算に必要なデータがありません:', { hire_date: rowData.hire_date, status: rowData.status, hc: rowData.hc });
+      console.log('【新規行】自動計算に必要なデータがありません:', { hire_date: rowData.hire_date, status: rowData.status, hc: rowData.hc });
       return;
     }
+    
+    // 退職状態の場合に退職日の確認
+    if (rowData.status === '退職' && !rowData.retirement_date) {
+      console.log('【新規行】退職状態だが退職日が未設定のため、現在月を退職日として自動設定します');
+      
+      // 現在の年月を退職日として設定（2025年5月を使用）
+      const retirementYear = 2025; 
+      const retirementMonth = 5;
+      const retirementDay = 1; // 月初日を使用
+      
+      rowData.retirement_date = `${retirementYear}/${retirementMonth}/${retirementDay}`;
+    }
+    
+    console.log(`新規行 HC自動計算用データ:`, {
+      従業員名: rowData.name,
+      採用日: rowData.hire_date,
+      状態: rowData.status,
+      HC値: rowData.hc
+    });
     
     try {
       // 採用日をDateオブジェクトに変換
@@ -1636,31 +1989,89 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       const displayYear = fiscalYear;
       const displayMonth = month;
       
+      // 現在の実際の年月を取得（システム日付）
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1; // JavaScriptの月は0始まり
+      
+      // システム年度と表示年度の関係を分かりやすく表示
+      const yearRelation = displayYear < currentYear ? "過去" : 
+                           displayYear === currentYear ? "現在" : "未来";
+      
+      console.log(`新規行 HC自動計算 - 採用日: ${hireYear}/${hireMonth}/${hireDay}, ` + 
+                  `表示年度(${yearRelation}年度): ${displayYear}/${displayMonth}, ` + 
+                  `現在日付: ${currentYear}/${currentMonth}`);
+      
       // 各月について処理
       monthNumbers.forEach((monthNum, index) => {
         // 会計年度を考慮して年を調整（1-3月は次の年）
         const calendarYear = monthNum >= 4 ? displayYear : displayYear + 1;
         
-        // 採用月と退職月をチェック
+        // 採用月以降かどうか
         const isAfterHireDate = isDateAfterHireDate(calendarYear, monthNum, hireYear, hireMonth);
+        
+        // 表示年度を考慮した現在月以前かどうか
+        const isBeforeCurrentRealMonth = isBeforeOrEqualCurrentMonth(calendarYear, monthNum, currentYear, currentMonth);
+        
+        // 詳細なログ出力（デバッグ用）
+        console.log(`新規行 月[${index+1}]=${monthNumbers[index]}月の処理: 暦年${calendarYear}, ` +
+                    `採用日以降=${isAfterHireDate}, 表示対象=${isBeforeCurrentRealMonth}`);
         
         // 状態に応じた処理
         if (rowData.status === '在籍') {
-          // 在籍の場合、採用日以降はHC値を設定
-          if (isAfterHireDate) {
+          // 在籍の場合、採用日以降かつ表示対象かどうかで判定
+          if (isAfterHireDate && isBeforeCurrentRealMonth) {
             newMonthlyStatus[index] = rowData.hc!;
+            console.log(`  → 在籍: ${monthNumbers[index]}月にHC値${rowData.hc}を設定`);
+          } else if (!isAfterHireDate) {
+            newMonthlyStatus[index] = '';
+            console.log(`  → 在籍: ${monthNumbers[index]}月は採用日前のため空白`);
           } else {
             newMonthlyStatus[index] = '';
+            console.log(`  → 在籍: ${monthNumbers[index]}月は未来月のため空白`);
           }
         } else if (rowData.status === '退職') {
-          // 退職の場合、現在の月より前かつ採用日以降はHC値を設定、それ以外は空
-          if (isAfterHireDate && isBeforeCurrentDisplayMonth(calendarYear, monthNum, displayYear, displayMonth)) {
-            newMonthlyStatus[index] = rowData.hc!;
+          // 退職日の取得
+          type RetirementMonthType = { year: number; month: number } | null;
+          let retirementMonth: RetirementMonthType = null;
+          if (rowData.retirement_date) {
+            const retirementParts = rowData.retirement_date.split('/');
+            if (retirementParts.length === 3) {
+              const retireYear = parseInt(retirementParts[0]);
+              const retireMonth = parseInt(retirementParts[1]);
+              retirementMonth = { year: retireYear, month: retireMonth };
+            }
+          }
+          
+          // 退職月以前かどうか
+          let isBeforeRetirementMonth = true;
+          if (retirementMonth) {
+            isBeforeRetirementMonth = (calendarYear < retirementMonth.year) || 
+                                     (calendarYear === retirementMonth.year && monthNum <= retirementMonth.month);
+            console.log(`【新規行】【退職月判定】${monthNumbers[index]}月: 退職月(${retirementMonth.year}/${retirementMonth.month})以前=${isBeforeRetirementMonth}`);
+          }
+          
+          // 退職の場合、採用日以降かつ表示月以前かつ退職月以前はHC値を設定
+          if (isAfterHireDate && isBeforeCurrentRealMonth) {
+            if (retirementMonth && !isBeforeRetirementMonth) {
+              // 退職月が設定されており、それより後の月は空白に
+              newMonthlyStatus[index] = '';
+              console.log(`  → 退職: ${monthNumbers[index]}月は退職月(${retirementMonth.year}/${retirementMonth.month})より後のため空白`);
+            } else {
+              // 退職月以前（または退職月未設定）なら表示
+              newMonthlyStatus[index] = rowData.hc!;
+              console.log(`  → 退職: ${monthNumbers[index]}月にHC値${rowData.hc}を設定`);
+            }
+          } else if (!isAfterHireDate) {
+            newMonthlyStatus[index] = '';
+            console.log(`  → 退職: ${monthNumbers[index]}月は採用日前のため空白`);
           } else {
             newMonthlyStatus[index] = '';
+            console.log(`  → 退職: ${monthNumbers[index]}月は未来月のため空白`);
           }
         } else {
           // その他の状態は変更なし
+          console.log(`  → その他の状態: ${rowData.status} - 変更なし`);
         }
       });
       
@@ -1671,8 +2082,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       }));
       
       console.log('新規行の月次ステータスを自動計算しました:', newMonthlyStatus);
+      console.log(`===== 新規行 HC自動計算関数終了 =====`);
     } catch (error) {
       console.error('新規行の月次ステータスの自動計算でエラーが発生しました:', error);
+      console.log(`===== 新規行 HC自動計算関数エラー終了 =====`);
     }
   };
 
@@ -2334,6 +2747,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     yearOptions.push(year);
   }
 
+  // デバッグ情報の出力
+  console.log('[DEBUG] HC入力欄のレンダリング状態:', {
+    従業員データ数: localEmployees.length,
+    最初の従業員のHC値: localEmployees[0]?.hc,
+    編集モード: isEditing,
+    実際の編集モード: actualIsEditing
+  });
+  
   return (
     <div className="employees-tab-container">
       <div className="data-container">
@@ -2674,30 +3095,32 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   </td>
                   {/* HC入力欄 */}
                   <td style={{ padding: '4px', textAlign: 'center' }}>
-                    {actualIsEditing ? (
-                      <select 
-                        ref={(el) => { inputRefs.current[`${employee.id}-hc`] = el; }}
-                        value={inputValues[`${employee.id}-hc`] ?? (employee.hc === 0 ? '0' : (employee.hc || ''))}
-                        onChange={(e) => handleHcChange(employee.id, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, `${employee.id}-hc`)}
-                        style={{ 
-                          width: '55px',
-                          padding: '2px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          textAlign: 'center',
-                          backgroundColor: '#fff'
-                        }}
-                      >
-                        <option value="">-</option>
-                        <option value="0">0</option>
-                        <option value="0.5">0.5</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                      </select>
-                    ) : (
-                      employee.hc === 0 ? '0' : employee.hc || '-'
-                    )}
+                    {/* デバッグログをJSX内に移動 */}
+                    {(() => { console.log('[DEBUG] HC入力欄がレンダリングされました', { employeeId: employee.id }); return null; })()}
+                    <select 
+                      ref={(el) => { inputRefs.current[`${employee.id}-hc`] = el; }}
+                      value={inputValues[`${employee.id}-hc`] ?? (employee.hc === 0 ? '0' : (employee.hc || ''))}
+                      onChange={(e) => {
+                        console.log(`[DEBUG] HC値変更: ID=${employee.id}, 値=${e.target.value}`);
+                        handleHcChange(employee.id, e.target.value);
+                      }}
+                      onBlur={(e) => handleHcChange(employee.id, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, `${employee.id}-hc`)}
+                      style={{ 
+                        width: '55px',
+                        padding: '2px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        textAlign: 'center',
+                        backgroundColor: '#fff'
+                      }}
+                    >
+                      <option value="">-</option>
+                      <option value="0">0</option>
+                      <option value="0.5">0.5</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                    </select>
                   </td>
                   {/* 月次ステータス入力欄 */}
                   {(employee.monthlyStatus || Array(12).fill('')).map((status, monthIndex) => (
@@ -2911,10 +3334,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   </td>
                   {/* 新規行のHC入力欄 */}
                   <td style={{ padding: '4px', textAlign: 'center' }}>
+                    {/* デバッグログをJSX内に移動 */}
+                    {(() => { console.log('[DEBUG] 新規行HC入力欄がレンダリングされました'); return null; })()}
                     <select 
                       ref={(el) => { inputRefs.current[`new-hc`] = el; }}
                       value={inputValues[`new-hc`] ?? (newRowData.hc === 0 ? '0' : newRowData.hc || '')}
                       onChange={(e) => handleNewRowHcChange(e.target.value)}
+                      onBlur={(e) => handleNewRowHcChange(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, `new-hc`)}
                       style={{ 
                         width: '55px',

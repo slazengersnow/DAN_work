@@ -119,6 +119,9 @@ export interface Employee {
   transferOutDate?: string;
   nextWorkplace?: string;
   
+  // 退職情報
+  retirement_date?: string; // 退職日（YYYY/MM/DD形式）
+  
   // 勤務条件
   workHours?: string;
   workDaysPerWeek?: string;
