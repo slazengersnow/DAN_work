@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useYearMonth } from './YearMonthContext';
 
+// WH（雇用形態）の選択肢定義
+const WH_OPTIONS = [
+  { value: '正社員', label: '正社員' },
+  { value: '短時間労働者', label: '短時間労働者' },
+  { value: '特定短時間労働者', label: '特定短時間労働者' }
+] as const;
+
 // 型定義
 export interface Employee {
   id: number;
@@ -12,6 +19,7 @@ export interface Employee {
   grade: string;
   hire_date: string;
   status: string;
+  wh?: '正社員' | '短時間労働者' | '特定短時間労働者';  // 雇用形態を追加
   hc?: number;  // HC値を追加
   monthlyStatus?: any[];
   memo?: string;
@@ -1153,12 +1161,43 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     });
   }, [fiscalYear]); // fiscalYearが変わったときにのみ実行
 
-  // この useEffect は不要になりました（初期化用の useEffect で fiscalYear 変更時の処理も対応しているため）
+  // 従業員データが変更された時、または年度が変更された時にHC計算を実行
+  useEffect(() => {
+    // 従業員データが存在する場合
+    if (localEmployees.length > 0) {
+      console.log(`[監視] 従業員データが変更されました。${localEmployees.length}人に対してHC計算を実行します。`);
+      
+      // 各従業員に対してHC計算を実行
+      setTimeout(() => {
+        localEmployees.forEach(employee => {
+          if (employee.status && employee.hire_date && employee.hc !== undefined) {
+            console.log(`[監視] ID=${employee.id}のHC計算を実行`);
+            updateMonthlyStatusFromHc(employee);
+          }
+        });
+      }, 300);
+    }
+  }, [fiscalYear, month]); // fiscalYearまたはmonthが変更されたときに実行
 
   // 初回マウント時のみ実行するuseEffect
   useEffect(() => {
     // 初回マウント時のみローカルストレージから読み込み（マウント時のみ実行されるようにする）
     console.log('初回マウント時の従業員データ初期化処理');
+    
+    // 従業員データが読み込まれた後、HC自動計算を実行
+    if (localEmployees.length > 0) {
+      console.log(`[初期化] ${localEmployees.length}人の従業員データが読み込まれました。HC計算を実行します。`);
+      
+      // 各従業員に対してHC計算を実行
+      setTimeout(() => {
+        localEmployees.forEach(employee => {
+          if (employee.status && employee.hire_date && employee.hc !== undefined) {
+            console.log(`[初期化] ID=${employee.id}のHC計算を実行`);
+            updateMonthlyStatusFromHc(employee);
+          }
+        });
+      }, 500);
+    }
     
     // ローカルストレージを最初に読み込み
     const loadEmployeeData = async () => {
@@ -1332,8 +1371,13 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     console.log('[DEBUG] handleHcChange対象従業員:', {
       従業員ID: id,
       従業員データあり: !!currentEmployee,
+      従業員名: currentEmployee?.name,
+      状態: currentEmployee?.status,
+      採用日: currentEmployee?.hire_date,
+      雇用形態: currentEmployee?.wh,
       HC値: currentEmployee?.hc,
-      新しい値: value
+      新しい値: value,
+      退職日: currentEmployee?.retirement_date
     });
     
     // 数値入力チェック
@@ -1465,7 +1509,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       従業員名: employee.name,
       採用日: employee.hire_date,
       状態: employee.status,
-      HC値: employee.hc
+      雇用形態: employee.wh || '正社員',
+      HC値: employee.hc,
+      退職日: employee.retirement_date || '未設定'
     });
     
     try {
@@ -1556,7 +1602,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             console.log(`  → 在籍: ${monthNumbers[index]}月は未来月のため空白`);
           }
         } else if (employee.status === '退職') {
-          // 退職の場合、採用日以降かつ退職月以前はHC値を設定
+          // 退職の場合、採用日以降かつ退職月以前かつ現在月以前はHC値を設定
           if (isAfterHireDate && isBeforeCurrentRealMonth) {
             if (retirementMonth && !isBeforeRetirementMonth) {
               // 退職月が設定されており、それより後の月は空白に
@@ -1565,7 +1611,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             } else {
               // 退職月以前（または退職月未設定）なら表示
               newMonthlyStatus[index] = employee.hc!;
-              console.log(`  → 退職: ${monthNumbers[index]}月にHC値${employee.hc}を設定`);
+              console.log(`  → 退職: ${monthNumbers[index]}月にHC値${employee.hc}を設定 (${calendarYear}年${monthNum}月)`);
             }
           } else if (!isAfterHireDate) {
             newMonthlyStatus[index] = '';
@@ -1626,23 +1672,24 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     const displayFiscalYear = fiscalYear;
     
     // 2025年5月を固定値として扱う（要件に合わせて）
-    const systemCurrentYear = 2025;     // 2025
-    const systemCurrentMonth = 5;      // 5
+    // システム上の「現在」は常に2025年5月として扱う
+    const systemCurrentYear = 2025;
+    const systemCurrentMonth = 5;
     
     console.log(`【日付比較】現在日付(固定値): ${systemCurrentYear}年${systemCurrentMonth}月 (※要件に合わせて2025/5を使用)`);
     console.log(`【日付比較】表示中の年度: ${displayFiscalYear}年度`);
     
     // 表示年度が過去の年度の場合（表示年度 < 現在システム年度）
-    // 過去年度のデータは全て表示するため常にtrueを返す
+    // 2024年度やそれ以前の過去年度データは全て表示（HC計算）するため常にtrueを返す
     if (displayFiscalYear < systemCurrentYear) {
       console.log(`【判定】過去年度(${displayFiscalYear}年)の表示: ${year}/${month}月 → すべて表示する`);
       return true;
     }
     
-    // 表示年度が現在年度の場合（表示年度 = 現在システム年度）
-    // 現在月(5月)までを表示
+    // 表示年度が現在年度の場合（表示年度 = 現在システム年度 = 2025年度）
+    // 現在年度なら5月までの月を表示対象とする
     if (displayFiscalYear === systemCurrentYear) {
-      // 会計年度の考慮に関係なく、システムの現在月までを表示
+      // 4-12月は2025年、1-3月は2026年の暦月として処理
       const result = (year < systemCurrentYear) || 
                      (year === systemCurrentYear && month <= systemCurrentMonth);
       
@@ -1651,7 +1698,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
     
     // 表示年度が未来年度の場合（表示年度 > 現在システム年度）
-    // 現在（システム）日付までのみ表示（※通常は発生しない条件）
+    // 現在（システム）日付までのみ表示（※通常は発生しない条件だが念のため）
     if (displayFiscalYear > systemCurrentYear) {
       // 未来年度の場合は特別処理：現在月までのみ表示
       const result = (year < systemCurrentYear) || 
@@ -1661,7 +1708,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
       return result;
     }
     
-    // それ以外は false
+    // それ以外は表示しない（通常はここには来ない）
     console.log(`【判定】不明な条件のため表示しない: ${year}/${month}月`);
     return false;
   };
@@ -2903,6 +2950,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 <th style={{ padding: '8px', textAlign: 'left' }}>等級</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>採用日</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>状態</th>
+                <th style={{ padding: '8px', textAlign: 'left' }}>WH</th>
                 <th style={{ padding: '8px', textAlign: 'center' }}>HC</th>
                 {months.map((month, index) => (
                   <th key={`month-${index}`} style={{ padding: '8px', textAlign: 'center' }}>{month}</th>
@@ -3093,23 +3141,61 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                       </span>
                     )}
                   </td>
+                  {/* WH入力欄（雇用形態） */}
+                  <td style={{ padding: '8px' }}>
+                    {actualIsEditing ? (
+                      <select 
+                        ref={(el) => { inputRefs.current[`${employee.id}-wh`] = el; }}
+                        value={inputValues[`${employee.id}-wh`] ?? employee.wh ?? '正社員'}
+                        onChange={(e) => handleFieldChange(employee.id, 'wh', e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, `${employee.id}-wh`)}
+                        style={{ 
+                          width: '100%',
+                          padding: '2px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          backgroundColor: '#fff'
+                        }}
+                      >
+                        {WH_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      employee.wh || '正社員'
+                    )}
+                  </td>
                   {/* HC入力欄 */}
                   <td style={{ padding: '4px', textAlign: 'center' }}>
                     {/* デバッグログをJSX内に移動 */}
-                    {(() => { console.log('[DEBUG] HC入力欄がレンダリングされました', { employeeId: employee.id }); return null; })()}
+                    {(() => { console.log('[DEBUG] HC入力欄がレンダリングされました', { employeeId: employee.id, 状態: employee.status, 雇用形態: employee.wh || '正社員', HC値: employee.hc, 退職日: employee.retirement_date }); return null; })()}
                     <select 
                       ref={(el) => { inputRefs.current[`${employee.id}-hc`] = el; }}
                       value={inputValues[`${employee.id}-hc`] ?? (employee.hc === 0 ? '0' : (employee.hc || ''))}
                       onChange={(e) => {
                         console.log(`[DEBUG] HC値変更: ID=${employee.id}, 値=${e.target.value}`);
                         handleHcChange(employee.id, e.target.value);
+                        
+                        // HC値が変更された後に月次ステータスの計算を確実に実行
+                        setTimeout(() => {
+                          console.log(`[DEBUG] HC値変更後の確認: ID=${employee.id}`);
+                          const updatedEmployee = localEmployees.find(emp => emp.id === employee.id);
+                          if (updatedEmployee && updatedEmployee.hc !== undefined) {
+                            updateMonthlyStatusFromHc(updatedEmployee);
+                          }
+                        }, 150);
                       }}
-                      onBlur={(e) => handleHcChange(employee.id, e.target.value)}
+                      onBlur={(e) => {
+                        // フォーカスを外したときも計算を再実行
+                        handleHcChange(employee.id, e.target.value);
+                      }}
                       onKeyDown={(e) => handleKeyDown(e, `${employee.id}-hc`)}
                       style={{ 
                         width: '55px',
                         padding: '2px',
-                        border: '1px solid #ddd',
+                        border: '1px solid #007bff',
                         borderRadius: '4px',
                         textAlign: 'center',
                         backgroundColor: '#fff'
@@ -3332,14 +3418,44 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                       <option value="退職">退職</option>
                     </select>
                   </td>
+                  {/* 新規行のWH入力欄（雇用形態） */}
+                  <td style={{ padding: '8px' }}>
+                    <select 
+                      ref={(el) => { inputRefs.current[`new-wh`] = el; }}
+                      value={inputValues[`new-wh`] ?? newRowData.wh ?? '正社員'}
+                      onChange={(e) => handleNewRowFieldChange('wh', e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, `new-wh`)}
+                      style={{ 
+                        width: '100%',
+                        padding: '4px',
+                        border: '1px solid #007bff',
+                        borderRadius: '4px',
+                        backgroundColor: '#fff'
+                      }}
+                    >
+                      {WH_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   {/* 新規行のHC入力欄 */}
                   <td style={{ padding: '4px', textAlign: 'center' }}>
                     {/* デバッグログをJSX内に移動 */}
-                    {(() => { console.log('[DEBUG] 新規行HC入力欄がレンダリングされました'); return null; })()}
+                    {(() => { console.log('[DEBUG] 新規行HC入力欄がレンダリングされました', { 状態: newRowData.status, 雇用形態: newRowData.wh || '正社員', HC値: newRowData.hc }); return null; })()}
                     <select 
                       ref={(el) => { inputRefs.current[`new-hc`] = el; }}
                       value={inputValues[`new-hc`] ?? (newRowData.hc === 0 ? '0' : newRowData.hc || '')}
-                      onChange={(e) => handleNewRowHcChange(e.target.value)}
+                      onChange={(e) => {
+                        handleNewRowHcChange(e.target.value);
+                        
+                        // HC値変更後、月次ステータスを再計算
+                        setTimeout(() => {
+                          console.log(`[DEBUG] 新規行 HC値変更後の確認`);
+                          updateMonthlyStatusForNewRow(newRowData);
+                        }, 150);
+                      }}
                       onBlur={(e) => handleNewRowHcChange(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, `new-hc`)}
                       style={{ 
