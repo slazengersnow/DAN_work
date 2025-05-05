@@ -25,6 +25,9 @@ export interface Employee {
   memo?: string;
   count?: number;
   retirement_date?: string; // 退職日を追加
+  fiscal_year?: number;  // 年度情報
+  inheritedFrom?: number;  // データの引き継ぎ元年度
+  _timestamp?: string;  // タイムスタンプ
 }
 
 export interface MonthlyTotal {
@@ -1161,6 +1164,617 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     });
   }, [fiscalYear]); // fiscalYearが変わったときにのみ実行
 
+  // 従業員データ自動引き継ぎ関数
+  const inheritEmployeeData = (employee: Employee, fromYear: number, toYear: number): Employee | null => {
+    console.log(`従業員 ID=${employee.id}, 名前=${employee.name} のデータ引き継ぎ処理を開始`);
+    
+    // 状態チェック - 在籍状態でない場合は引き継がない
+    if (employee.status !== '在籍') {
+      console.log(`従業員 ID=${employee.id} の状態が「在籍」ではないため (${employee.status})、引き継ぎません`);
+      return null;
+    }
+    
+    // 採用日のチェック
+    if (!employee.hire_date) {
+      console.log(`従業員 ID=${employee.id} の採用日が未設定のため、引き継ぎません`);
+      return null;
+    }
+    
+    const hireDateParts = employee.hire_date.split('/');
+    if (hireDateParts.length !== 3) {
+      console.log(`従業員 ID=${employee.id} の採用日 ${employee.hire_date} のフォーマットが不正です`);
+      return null;
+    }
+    
+    const hireYear = parseInt(hireDateParts[0]);
+    const hireMonth = parseInt(hireDateParts[1]);
+    const hireDay = parseInt(hireDateParts[2]);
+    
+    console.log(`採用日: ${hireYear}/${hireMonth}/${hireDay}, 引継元年度: ${fromYear}, 引継先年度: ${toYear}`);
+    
+    // 新しい年度のデータを作成
+    const newEmployee: Employee = {
+      ...employee,
+      fiscal_year: toYear, // 年度を更新
+      inheritedFrom: fromYear, // 引き継ぎ元情報を追加
+      _timestamp: new Date().toISOString() // タイムスタンプ更新
+    };
+    
+    console.log(`${toYear}年度に従業員 ID=${employee.id} のデータを引き継ぎました`);
+    return newEmployee;
+  };
+  
+  // 全従業員データの一括引き継ぎ処理
+  const bulkInheritEmployeeData = (employees: Employee[], fromYear: number, toYear: number) => {
+    console.log(`\n===== ${fromYear}年度から${toYear}年度への一括引き継ぎ処理 =====`);
+    
+    const inheritedEmployees: Employee[] = [];
+    const skippedEmployees: {id: number, name: string, reason: string}[] = [];
+    
+    employees.forEach(employee => {
+      const inheritedEmployee = inheritEmployeeData(employee, fromYear, toYear);
+      
+      if (inheritedEmployee) {
+        inheritedEmployees.push(inheritedEmployee);
+      } else {
+        skippedEmployees.push({
+          id: employee.id,
+          name: employee.name,
+          reason: "状態が在籍でないか、採用日が無効"
+        });
+      }
+    });
+    
+    console.log(`引き継ぎ結果: 成功=${inheritedEmployees.length}件, スキップ=${skippedEmployees.length}件`);
+    return {
+      inheritedEmployees,
+      skippedEmployees
+    };
+  };
+  
+  // 改良版データ引き継ぎ機能
+  const checkAndInheritEmployeeData = (fromYear: number, toYear: number) => {
+    console.log(`改良版従業員データの引き継ぎチェック開始: ${fromYear} → ${toYear}`);
+    
+    // 前年度のデータを取得
+    const fromKey = `EMPLOYEE_DATA_${fromYear}`;
+    const fromData = localStorage.getItem(fromKey);
+    
+    if (!fromData) {
+      console.log(`${fromYear}年度のデータが見つかりません`);
+      return { success: false, message: `${fromYear}年度のデータが見つかりません` };
+    }
+    
+    // 対象年度のデータを確認
+    const toKey = `EMPLOYEE_DATA_${toYear}`;
+    const toData = localStorage.getItem(toKey);
+    
+    // データ形式を判定して処理
+    try {
+      // 前年度データを解析
+      const isFromObject = fromData.trim().startsWith('{');
+      let fromEmployees: any[] = [];
+      
+      if (isFromObject) {
+        // オブジェクト形式の場合
+        const fromEmployeeObj = JSON.parse(fromData);
+        fromEmployees = Object.values(fromEmployeeObj);
+      } else {
+        // 配列形式の場合
+        fromEmployees = JSON.parse(fromData);
+      }
+      
+      console.log(`${fromYear}年度の従業員数: ${fromEmployees.length}`);
+      
+      // 対象年度データを解析
+      let toEmployees: any[] = [];
+      let toEmployeeObj: Record<string, any> = {};
+      
+      if (toData) {
+        const isToObject = toData.trim().startsWith('{');
+        
+        if (isToObject) {
+          toEmployeeObj = JSON.parse(toData);
+          toEmployees = Object.values(toEmployeeObj);
+        } else {
+          toEmployees = JSON.parse(toData);
+          
+          // 配列からオブジェクトに変換
+          toEmployees.forEach(emp => {
+            if (emp && emp.id) {
+              toEmployeeObj[emp.id] = emp;
+            }
+          });
+        }
+        
+        console.log(`${toYear}年度の従業員数: ${toEmployees.length}`);
+      } else {
+        console.log(`${toYear}年度のデータは存在しません。新規作成します。`);
+      }
+      
+      // 前年度の在籍者をフィルタリング
+      const activeEmployees = fromEmployees.filter(emp => {
+        // 状態が「在籍」かを確認（複数の表記に対応）
+        return emp.status === '在籍' || 
+               emp.status === '雇用継続' || 
+               emp.employmentStatus === '在籍';
+      });
+      
+      console.log(`引き継ぎ対象（在籍者）数: ${activeEmployees.length}`);
+      
+      // 引き継ぎ処理
+      const inheritedEmployees: any[] = [];
+      const skippedEmployees: any[] = [];
+      
+      activeEmployees.forEach(emp => {
+        // IDの重複チェック
+        const employeeId = emp.id;
+        const exists = toEmployeeObj[employeeId] !== undefined;
+        
+        if (exists) {
+          console.log(`従業員ID=${employeeId}, 名前=${emp.name || '名前なし'} は既に${toYear}年度に存在するためスキップします`);
+          skippedEmployees.push({
+            id: employeeId,
+            name: emp.name || '名前なし',
+            reason: '既に存在'
+          });
+          return;
+        }
+        
+        // 引き継ぎデータの作成
+        const inheritedEmployee = {
+          ...emp,
+          fiscal_year: toYear,
+          inheritedFrom: fromYear,
+          _timestamp: new Date().toISOString()
+        };
+        
+        // 月次データをリセット
+        if (inheritedEmployee.monthlyStatus) {
+          inheritedEmployee.monthlyStatus = Array(12).fill('');
+        }
+        
+        inheritedEmployees.push(inheritedEmployee);
+        toEmployeeObj[employeeId] = inheritedEmployee;
+      });
+      
+      // 対象年度のデータを保存
+      if (inheritedEmployees.length > 0) {
+        localStorage.setItem(toKey, JSON.stringify(toEmployeeObj));
+        console.log(`${toYear}年度に${inheritedEmployees.length}件のデータを引き継ぎました`);
+      }
+      
+      return {
+        success: true,
+        inheritedCount: inheritedEmployees.length,
+        skippedCount: skippedEmployees.length,
+        message: `${fromYear}年度から${toYear}年度へ${inheritedEmployees.length}件のデータを引き継ぎました（${skippedEmployees.length}件はスキップされました）`
+      };
+      
+    } catch (error) {
+      console.error(`データ引き継ぎ処理でエラーが発生しました:`, error);
+      return { 
+        success: false, 
+        message: `データ引き継ぎ処理でエラーが発生しました: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
+  };
+  
+  // 手動でデータ引き継ぎを実行する関数
+  const manualInheritData = (fromYear: number, toYear: number) => {
+    // バックアップの作成
+    try {
+      const fromKey = `EMPLOYEE_DATA_${fromYear}`;
+      const toKey = `EMPLOYEE_DATA_${toYear}`;
+      
+      localStorage.setItem(`${fromKey}_BACKUP`, localStorage.getItem(fromKey) || '');
+      localStorage.setItem(`${toKey}_BACKUP`, localStorage.getItem(toKey) || '');
+      
+      console.log(`バックアップを作成しました: ${fromKey}_BACKUP, ${toKey}_BACKUP`);
+    } catch (error) {
+      console.error(`バックアップ作成中にエラーが発生しました:`, error);
+    }
+    
+    // データ引き継ぎの実行
+    const result = checkAndInheritEmployeeData(fromYear, toYear);
+    
+    if (result.success) {
+      setSuccessMessage(result.message);
+      // データの再読み込み
+      fetchEmployeesByYear(fiscalYear);
+    } else {
+      setErrorMessage(result.message);
+    }
+    
+    setTimeout(() => {
+      setSuccessMessage(null);
+      setErrorMessage(null);
+    }, 5000);
+    
+    return result;
+  };
+
+  // 従業員データをDBから削除するスクリプト
+  
+  // 1. 削除対象の従業員を確認する関数
+  const checkEmployeeToDelete = async (employeeId: number) => {
+    console.log("=== 削除対象の従業員確認 ===");
+    
+    try {
+      // 現在選択中の年度のデータを確認
+      const storageKey = `EMPLOYEE_DATA_${fiscalYear}`;
+      const allData = localStorage.getItem(storageKey);
+      
+      if (!allData) {
+        console.log(`${fiscalYear}年度のデータが見つかりません`);
+        return null;
+      }
+      
+      // データ形式に応じて処理
+      let employeeData: any = null;
+      const isObject = allData.trim().startsWith('{');
+      
+      if (isObject) {
+        const data = JSON.parse(allData);
+        employeeData = data[employeeId];
+      } else {
+        const data = JSON.parse(allData);
+        employeeData = data.find((emp: any) => emp.id === employeeId);
+      }
+      
+      if (!employeeData) {
+        console.log(`従業員ID=${employeeId}が見つかりません`);
+        return null;
+      }
+      
+      // 詳細ログ出力
+      console.log("=== 削除対象の従業員 ===");
+      console.log({
+        ID: employeeData.id,
+        名前: employeeData.name,
+        社員ID: employeeData.employee_id,
+        障害区分: employeeData.disability_type,
+        状態: employeeData.status,
+        採用日: employeeData.hire_date
+      });
+      
+      return employeeData;
+    } catch (error) {
+      console.error("従業員確認エラー:", error);
+      return null;
+    }
+  };
+  
+  // 2. 従業員データの削除を実行する関数
+  const deleteEmployeeFromDB = async (employeeId: number) => {
+    console.log(`\n=== 従業員ID ${employeeId} の削除処理を開始 ===`);
+    
+    try {
+      // まずはバックアップを作成
+      const backupResult = await createEmployeeBackup(employeeId);
+      if (!backupResult.success) {
+        return backupResult;
+      }
+      
+      // トランザクション相当の処理 - まず関連データを確認
+      
+      // 関連する月次データを確認
+      const hasRelatedMonthlyData = await checkRelatedMonthlyData(employeeId);
+      console.log(`関連する月次データ: ${hasRelatedMonthlyData ? 'あり' : 'なし'}`);
+      
+      // 削除前にログを出力
+      const employeeToDelete = await checkEmployeeToDelete(employeeId);
+      if (!employeeToDelete) {
+        return {
+          success: false,
+          message: `従業員ID=${employeeId}が見つかりません`
+        };
+      }
+      
+      // DBからデータを削除
+      const deleteResult = await reportApi.deleteEmployeeData(fiscalYear, employeeId);
+      console.log("API削除結果:", deleteResult);
+      
+      if (deleteResult && deleteResult.success) {
+        // LocalStorageからも削除
+        await deleteEmployeeFromLocalStorage(employeeId);
+        
+        // UIの更新（既存の機能を使用）
+        setLocalEmployees(prev => prev.filter(emp => emp.id !== employeeId));
+        setOriginalEmployees(prev => prev.filter(emp => emp.id !== employeeId));
+        
+        return {
+          success: true,
+          message: `従業員ID=${employeeId}を削除しました`,
+          backupPath: backupResult.backupPath
+        };
+      }
+      
+      return {
+        success: false,
+        message: "削除処理に失敗しました"
+      };
+      
+    } catch (error) {
+      console.error("削除エラー:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  };
+  
+  // 3. LocalStorageから従業員データを削除する関数
+  const deleteEmployeeFromLocalStorage = async (employeeId: number) => {
+    try {
+      const storageKey = `EMPLOYEE_DATA_${fiscalYear}`;
+      const data = localStorage.getItem(storageKey);
+      
+      if (!data) {
+        console.log(`${fiscalYear}年度のデータが見つかりません`);
+        return false;
+      }
+      
+      // データ形式に応じて処理
+      const isObject = data.trim().startsWith('{');
+      
+      if (isObject) {
+        // オブジェクト形式
+        const employeeData = JSON.parse(data);
+        if (employeeData[employeeId]) {
+          // 該当する従業員データを削除
+          delete employeeData[employeeId];
+          localStorage.setItem(storageKey, JSON.stringify(employeeData));
+          console.log(`LocalStorage(オブジェクト形式)から従業員ID=${employeeId}を削除しました`);
+          return true;
+        }
+      } else {
+        // 配列形式
+        const employeeData = JSON.parse(data);
+        const filteredData = employeeData.filter((emp: any) => emp.id !== employeeId);
+        localStorage.setItem(storageKey, JSON.stringify(filteredData));
+        console.log(`LocalStorage(配列形式)から従業員ID=${employeeId}を削除しました`);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("LocalStorage削除エラー:", error);
+      return false;
+    }
+  };
+  
+  // 4. 関連する月次データをチェックする関数
+  const checkRelatedMonthlyData = async (employeeId: number) => {
+    try {
+      // 仮の実装 - 実際にはMonthlyReportデータを確認する
+      console.log(`従業員ID=${employeeId}の関連月次データをチェック`);
+      
+      const storageKeys = Object.keys(localStorage)
+        .filter(key => key.startsWith('MONTHLY_REPORT_') || key.startsWith('PAYMENT_REPORT_'));
+      
+      for (const key of storageKeys) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          if (data.includes(`"employee_id":${employeeId}`) || 
+              data.includes(`"employeeId":${employeeId}`) || 
+              data.includes(`"id":${employeeId}`)) {
+            console.log(`関連データが見つかりました: ${key}`);
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("関連データチェックエラー:", error);
+      return false;
+    }
+  };
+  
+  // 5. 従業員データのバックアップを作成する関数
+  const createEmployeeBackup = async (employeeId: number) => {
+    try {
+      const employeeData = await checkEmployeeToDelete(employeeId);
+      if (!employeeData) {
+        return {
+          success: false,
+          message: `従業員ID=${employeeId}が見つかりません`
+        };
+      }
+      
+      // バックアップキーの生成
+      const timestamp = new Date().getTime();
+      const backupKey = `EMPLOYEE_BACKUP_${employeeId}_${fiscalYear}_${timestamp}`;
+      
+      // バックアップの保存
+      localStorage.setItem(backupKey, JSON.stringify(employeeData));
+      console.log(`バックアップを作成しました: ${backupKey}`);
+      
+      return {
+        success: true,
+        message: `従業員ID=${employeeId}のバックアップを作成しました`,
+        backupPath: backupKey
+      };
+    } catch (error) {
+      console.error("バックアップ作成エラー:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  };
+  
+  // 6. 複数従業員の削除（必要な場合）
+  const deleteMultipleEmployees = async (employeeIds: number[]) => {
+    console.log(`\n=== ${employeeIds.length}人の従業員削除処理 ===`);
+    
+    // 結果を格納する配列に明示的な型を定義
+    type DeleteResult = {
+      id: number;
+      success: boolean;
+      message?: string;
+      error?: string;
+      backupPath?: string;
+    };
+    
+    const results: DeleteResult[] = [];
+    
+    for (const id of employeeIds) {
+      console.log(`\n--- 従業員ID=${id}の削除処理 ---`);
+      const result = await deleteEmployeeFromDB(id);
+      results.push({ id, ...result } as DeleteResult);
+    }
+    
+    console.log("\n=== 全削除処理の結果 ===");
+    console.table(results);
+    
+    return results;
+  };
+  
+  // 7. 安全な削除（バックアップ付き）- すでにdeleteEmployeeFromDBに実装済み
+  
+  // 8. フロントエンドでの削除処理デバッグ用
+  const debugDeleteFromUI = () => {
+    // 削除ボタンを探す
+    console.log("UIの削除機能をデバッグします...");
+    
+    // 現在表示されている従業員データを確認
+    console.log(`現在のページには${localEmployees.length}人の従業員データが表示されています`);
+    
+    if (localEmployees.length > 0) {
+      const firstEmployee = localEmployees[0];
+      console.log(`最初の従業員: ID=${firstEmployee.id}, 名前=${firstEmployee.name}`);
+      
+      // 削除ボタンをシミュレート
+      const willDelete = window.confirm(`テスト削除: 従業員「${firstEmployee.name}」(ID=${firstEmployee.id})を削除しますか？`);
+      
+      if (willDelete) {
+        console.log(`従業員ID=${firstEmployee.id}の削除をシミュレートします...`);
+        
+        // 通常の削除ルーチンを使用
+        deleteEmployeeFromDB(firstEmployee.id)
+          .then(result => {
+            console.log("削除結果:", result);
+            if (result.success) {
+              setSuccessMessage(`テスト削除成功: ${result.message}`);
+            } else {
+              setErrorMessage(`テスト削除失敗: ${result.message}`);
+            }
+            setTimeout(() => {
+              setSuccessMessage(null);
+              setErrorMessage(null);
+            }, 3000);
+          });
+      }
+    }
+  };
+  
+  // LocalStorageデータ構造分析関数
+  const analyzeLocalStorageData = () => {
+    console.log("=== LocalStorage データ構造分析 ===");
+    
+    // 全年度のデータキーを取得
+    const keys = Object.keys(localStorage).filter(key => key.startsWith('EMPLOYEE_DATA_'));
+    console.log(`従業員データキー: ${keys.join(', ')}`);
+    
+    // 各年度のデータを分析
+    keys.forEach(key => {
+      try {
+        const yearMatch = key.match(/EMPLOYEE_DATA_(\d+)/);
+        if (!yearMatch) return;
+        
+        const year = yearMatch[1];
+        const rawData = localStorage.getItem(key);
+        if (!rawData) {
+          console.log(`${year}年度のデータは空です`);
+          return;
+        }
+        
+        // データ形式を判定
+        const isObject = rawData.trim().startsWith('{');
+        
+        // パースしてデータ構造を分析
+        let data;
+        if (isObject) {
+          // オブジェクト形式（従業員IDがキー）
+          data = JSON.parse(rawData);
+          const employeeIds = Object.keys(data);
+          console.log(`${year}年度: オブジェクト形式, ${employeeIds.length}件`);
+          
+          // サンプルデータを表示
+          if (employeeIds.length > 0) {
+            const sampleId = employeeIds[0];
+            const sampleEmployee = data[sampleId];
+            console.log(`サンプル(ID=${sampleId}):`, {
+              id: sampleEmployee.id,
+              name: sampleEmployee.name,
+              status: sampleEmployee.status,
+              keys: Object.keys(sampleEmployee)
+            });
+          }
+        } else {
+          // 配列形式
+          data = JSON.parse(rawData);
+          console.log(`${year}年度: 配列形式, ${data.length}件`);
+          
+          // サンプルデータを表示
+          if (data.length > 0) {
+            const sampleEmployee = data[0];
+            console.log(`サンプル(index=0):`, {
+              id: sampleEmployee.id,
+              name: sampleEmployee.name,
+              status: sampleEmployee.status,
+              keys: Object.keys(sampleEmployee)
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`${key}の分析中にエラー:`, error);
+      }
+    });
+    
+    console.log("=== 分析完了 ===");
+  };
+  
+  // 配列データをオブジェクト形式に変換する関数
+  const convertArrayToObjectFormat = (employees, year) => {
+    const storageKey = `EMPLOYEE_DATA_${year}`;
+    try {
+      // 現在のデータを確認
+      const currentData = localStorage.getItem(storageKey);
+      if (!currentData) {
+        console.log(`${year}年度のデータが存在しません`);
+        return false;
+      }
+      
+      // データ形式を判定
+      const isObject = currentData.trim().startsWith('{');
+      if (isObject) {
+        console.log(`${year}年度のデータは既にオブジェクト形式です`);
+        return true;
+      }
+      
+      // 配列からオブジェクトに変換
+      const dataArray = JSON.parse(currentData);
+      const dataObject = {};
+      
+      dataArray.forEach(emp => {
+        if (emp && emp.id) {
+          dataObject[emp.id] = emp;
+        }
+      });
+      
+      // 変換したデータを保存
+      localStorage.setItem(storageKey, JSON.stringify(dataObject));
+      console.log(`${year}年度のデータを配列からオブジェクト形式に変換しました (${Object.keys(dataObject).length}件)`);
+      return true;
+    } catch (error) {
+      console.error(`${year}年度のデータ変換中にエラー:`, error);
+      return false;
+    }
+  };
+
   // 従業員データが変更された時、または年度が変更された時にHC計算を実行
   useEffect(() => {
     // 従業員データが存在する場合
@@ -1746,6 +2360,38 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
             convertedValue = String(value);
           }
           
+          // 状態が退職に変更された場合、将来年度のデータをクリーンアップする
+          if (field === 'status' && value === '退職' && emp.status !== '退職') {
+            console.log(`従業員ID=${id}の状態が退職に変更されました。将来年度のデータをクリーンアップします。`);
+            
+            // 現在の年度を取得
+            const currentFiscalYear = fiscalYear;
+            
+            // 未来の年度に対して処理を行う（現在の年度+1から2030年まで）
+            for (let year = currentFiscalYear + 1; year <= 2030; year++) {
+              const futureYearStorageKey = `EMPLOYEE_DATA_${year}`;
+              try {
+                // 該当年度のデータを取得
+                const futureYearData = localStorage.getItem(futureYearStorageKey);
+                if (futureYearData) {
+                  const parsedData = JSON.parse(futureYearData);
+                  
+                  // 退職従業員のデータがあるか確認
+                  if (parsedData[id]) {
+                    // 退職従業員のデータを削除
+                    delete parsedData[id];
+                    
+                    // 更新したデータを保存
+                    localStorage.setItem(futureYearStorageKey, JSON.stringify(parsedData));
+                    console.log(`従業員ID=${id}の${year}年度のデータを削除しました`);
+                  }
+                }
+              } catch (error) {
+                console.error(`${year}年度のデータクリーンアップでエラーが発生しました:`, error);
+              }
+            }
+          }
+          
           // フィールド更新と退職処理を一度に行う
           let updatedFields: Record<string, any> = { [field]: convertedValue };
           
@@ -2276,7 +2922,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   // 従業員データの削除ハンドラー
   const handleDeleteEmployee = async (id: number) => {
-    if (!window.confirm('この従業員データを削除してもよろしいですか？')) {
+    console.log(`従業員削除ボタンがクリックされました: ID=${id}`);
+    
+    if (!window.confirm('この従業員データを削除してもよろしいですか？\n（バックアップが自動的に作成されます）')) {
+      console.log('削除操作がキャンセルされました');
       return;
     }
     
@@ -2284,20 +2933,32 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
     
     try {
       console.log(`従業員削除開始: ID=${id}`);
-      await reportApi.deleteEmployeeData(fiscalYear, id);
       
-      setLocalEmployees(prev => prev.filter(emp => emp.id !== id));
-      setOriginalEmployees(prev => prev.filter(emp => emp.id !== id));
+      // 新しい削除関数を使用
+      const result = await deleteEmployeeFromDB(id);
+      console.log('削除結果:', result);
       
-      setSuccessMessage('従業員データを削除しました');
-      setTimeout(() => setSuccessMessage(null), 3000);
-      
-      if (onRefreshData) {
-        onRefreshData();
+      if (result.success) {
+        // 削除成功時はUIを更新（すでにdeleteEmployeeFromDB内で実行されているが、念のため）
+        setLocalEmployees(prev => prev.filter(emp => emp.id !== id));
+        setOriginalEmployees(prev => prev.filter(emp => emp.id !== id));
+        
+        // 成功メッセージ
+        setSuccessMessage(`従業員データを削除しました。バックアップ: ${result.backupPath}`);
+        setTimeout(() => setSuccessMessage(null), 5000);
+        
+        // データ更新通知
+        if (onRefreshData) {
+          onRefreshData();
+        }
+      } else {
+        // 削除失敗
+        setErrorMessage(result.message || '削除処理に失敗しました');
+        setTimeout(() => setErrorMessage(null), 5000);
       }
     } catch (error: any) {
       console.error('従業員削除エラー:', error);
-      setErrorMessage(reportApi.handleApiError(error));
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setIsLoading(false);
     }
@@ -2828,7 +3489,45 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 value={fiscalYear}
                 onChange={(e) => {
                   const newYear = parseInt(e.target.value, 10);
+                  const previousYear = fiscalYear;
+                  
+                  console.log(`年度変更: ${previousYear} → ${newYear}`);
+                  
+                  // 基本的な年度変更処理
                   setFiscalYear(newYear);
+                  
+                  // 変更先の年度が次の年度の場合、データの引き継ぎ処理を行う
+                  if (newYear === previousYear + 1) {
+                    console.log(`次年度へのデータ引き継ぎを確認: ${previousYear} → ${newYear}`);
+                    
+                    // 現在のローカルストレージデータを確認
+                    const nextYearStorageKey = `EMPLOYEE_DATA_${newYear}`;
+                    const nextYearData = localStorage.getItem(nextYearStorageKey);
+                    
+                    if (!nextYearData) {
+                      console.log(`${newYear}年度のデータが存在しないため、データ引き継ぎを実行します`);
+                      
+                      // 確認ダイアログを表示
+                      if (window.confirm(`${previousYear}年度から${newYear}年度へデータを引き継ぎますか？`)) {
+                        // 改良版のデータ引き継ぎ機能を使用
+                        const result = checkAndInheritEmployeeData(previousYear, newYear);
+                        
+                        if (result.success) {
+                          setSuccessMessage(result.message);
+                          setTimeout(() => setSuccessMessage(null), 5000);
+                        } else {
+                          setErrorMessage(result.message);
+                          setTimeout(() => setErrorMessage(null), 5000);
+                        }
+                      } else {
+                        console.log('データ引き継ぎはユーザーによってキャンセルされました');
+                      }
+                    } else {
+                      console.log(`${newYear}年度のデータが既に存在するため、データ引き継ぎをスキップします`);
+                    }
+                  }
+                  
+                  // データ取得処理
                   fetchEmployeesByYear(newYear);
                 }}
                 style={{
@@ -2844,8 +3543,84 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
               </select>
             </div>
 
-            {/* 編集・新規作成ボタン群 */}
+            {/* データ引き継ぎと編集ボタン群 */}
             <div style={{ display: 'flex', gap: '10px' }}>
+              {!isAddingNewRow && !actualIsEditing && (
+                <>
+                  {/* データ引き継ぎボタン */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // 前年度からデータを引き継ぐ
+                      const fromYear = fiscalYear - 1;
+                      const toYear = fiscalYear;
+                      
+                      if (window.confirm(`${fromYear}年度から${toYear}年度へデータを引き継ぎますか？`)) {
+                        // 改良版のデータ引き継ぎ機能を使用
+                        manualInheritData(fromYear, toYear);
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#17a2b8',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem'
+                    }}
+                    title="前年度から現在年度へデータを引き継ぎます"
+                  >
+                    データ引き継ぎ
+                  </button>
+                  
+                  {/* データ分析ボタン */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // データ構造分析の実行
+                      analyzeLocalStorageData();
+                      window.alert('データ構造分析がコンソールに出力されました。F12キーを押してコンソールを確認してください。');
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem'
+                    }}
+                    title="データ構造分析"
+                  >
+                    データ分析
+                  </button>
+                  
+                  {/* 削除機能テストボタン - 開発環境のみ表示 */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // 従業員削除機能のデバッグテスト
+                        debugDeleteFromUI();
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                      }}
+                      title="削除機能のテスト（開発環境のみ）"
+                    >
+                      削除テスト
+                    </button>
+                  )}
+                </>
+              )}
+              
               {!isAddingNewRow && !actualIsEditing && (
                 <button 
                   type="button"
@@ -2950,7 +3725,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 <th style={{ padding: '8px', textAlign: 'left' }}>等級</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>採用日</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>状態</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>WH</th>
+                <th style={{ padding: '8px', textAlign: 'left', minWidth: '140px' }}>WH</th>
                 <th style={{ padding: '8px', textAlign: 'center' }}>HC</th>
                 {months.map((month, index) => (
                   <th key={`month-${index}`} style={{ padding: '8px', textAlign: 'center' }}>{month}</th>
@@ -3142,7 +3917,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                     )}
                   </td>
                   {/* WH入力欄（雇用形態） */}
-                  <td style={{ padding: '8px' }}>
+                  <td style={{ padding: '8px', minWidth: '140px' }}>
                     {actualIsEditing ? (
                       <select 
                         ref={(el) => { inputRefs.current[`${employee.id}-wh`] = el; }}
@@ -3150,9 +3925,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                         onChange={(e) => handleFieldChange(employee.id, 'wh', e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, `${employee.id}-wh`)}
                         style={{ 
-                          width: '100%',
+                          width: '140px',
                           padding: '2px',
-                          border: '1px solid #ddd',
+                          border: '1px solid #007bff',
                           borderRadius: '4px',
                           backgroundColor: '#fff'
                         }}
@@ -3252,23 +4027,51 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                     )}
                   </td>
                   <td style={{ padding: '8px' }}>
-                    {actualIsEditing && (
-                      <button
-                        onClick={() => handleDeleteEmployee(employee.id)}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '12px'
-                        }}
-                        disabled={isLoading}
-                        title="この従業員を削除"
-                      >
-                        削除
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      {/* 編集モード中の削除ボタン */}
+                      {actualIsEditing && (
+                        <button
+                          onClick={() => {
+                            console.log(`削除ボタンがクリックされました: ID=${employee.id}, 名前=${employee.name}`);
+                            handleDeleteEmployee(employee.id);
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px'
+                          }}
+                          disabled={isLoading}
+                          title="この従業員を削除"
+                        >
+                          削除
+                        </button>
+                      )}
+                      
+                      {/* 非編集モード時の削除アイコン */}
+                      {!actualIsEditing && (
+                        <button
+                          onClick={() => {
+                            console.log(`削除アイコンがクリックされました: ID=${employee.id}, 名前=${employee.name}`);
+                            handleDeleteEmployee(employee.id);
+                          }}
+                          style={{
+                            padding: '4px',
+                            backgroundColor: 'transparent',
+                            color: '#dc3545',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px'
+                          }}
+                          disabled={isLoading}
+                          title="この従業員を削除"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -3419,14 +4222,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                     </select>
                   </td>
                   {/* 新規行のWH入力欄（雇用形態） */}
-                  <td style={{ padding: '8px' }}>
+                  <td style={{ padding: '8px', minWidth: '140px' }}>
                     <select 
                       ref={(el) => { inputRefs.current[`new-wh`] = el; }}
                       value={inputValues[`new-wh`] ?? newRowData.wh ?? '正社員'}
                       onChange={(e) => handleNewRowFieldChange('wh', e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, `new-wh`)}
                       style={{ 
-                        width: '100%',
+                        width: '140px',
                         padding: '4px',
                         border: '1px solid #007bff',
                         borderRadius: '4px',
