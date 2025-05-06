@@ -222,7 +222,7 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
           // 年度行が検出された場合、修正されたCSVを使用
           const contentToProcess = yearRowResult.hasYearRow ? yearRowResult.modifiedCsv : csvContent;
           
-          if (yearRowResult.hasYearRow) {
+          if (yearRowResult.hasYearRow && yearRowResult.yearRowValue !== undefined) {
             console.log("年度行を含むCSVを処理します（年度: " + yearRowResult.yearRowValue + "）");
             setDetectedYear(yearRowResult.yearRowValue);
           } else {
