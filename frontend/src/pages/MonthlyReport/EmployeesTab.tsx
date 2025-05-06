@@ -1766,23 +1766,52 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   };
   
   // 月次データのデフォルト状態を生成
-  const generateDefaultMonthlyStatus = (hcValue: number | string): Record<string, number> => {
+  const generateDefaultMonthlyStatus = (hcValue: number | string): number[] => {
     const hc = typeof hcValue === 'string' ? parseFloat(hcValue) || 1 : hcValue || 1;
     
-    return {
-      '4月': hc,
-      '5月': hc,
-      '6月': hc,
-      '7月': hc,
-      '8月': hc,
-      '9月': hc,
-      '10月': hc,
-      '11月': hc,
-      '12月': hc,
-      '1月': hc,
-      '2月': hc,
-      '3月': hc
-    };
+    // 12ヶ月分の配列を生成
+    return Array(12).fill(hc);
+  };
+  
+  // 月次データの処理 - 様々な形式に対応
+  const processMonthlyStatus = (monthlyData: any, defaultHcValue: number | string): number[] => {
+    const hc = typeof defaultHcValue === 'string' ? parseFloat(defaultHcValue) || 1 : defaultHcValue || 1;
+    
+    // データがない場合
+    if (!monthlyData) {
+      return generateDefaultMonthlyStatus(hc);
+    }
+    
+    // すでに配列の場合
+    if (Array.isArray(monthlyData)) {
+      return monthlyData.map(val => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          const num = parseFloat(val);
+          return isNaN(num) ? hc : num;
+        }
+        return hc;
+      });
+    }
+    
+    // オブジェクト形式の場合 (キーに月名が含まれている場合)
+    if (typeof monthlyData === 'object' && monthlyData !== null) {
+      const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
+      return months.map(month => {
+        if (month in monthlyData) {
+          const val = monthlyData[month];
+          if (typeof val === 'number') return val;
+          if (typeof val === 'string') {
+            const num = parseFloat(val);
+            return isNaN(num) ? hc : num;
+          }
+        }
+        return hc;
+      });
+    }
+    
+    // その他の場合は全て同じ値で埋める
+    return generateDefaultMonthlyStatus(hc);
   };
   
   // 指定年度の従業員データをローカルストレージから取得
@@ -1916,7 +1945,7 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           wh: employee.employment_type || employee.wh || '正社員',
           hc: parseFloat(String(employee.hc_value || employee.hc)) || 1,
           retirement_date: employee.retirement_date || null,
-          monthlyStatus: employee.monthly_status || generateDefaultMonthlyStatus(employee.hc_value || employee.hc || 1),
+          monthlyStatus: processMonthlyStatus(employee.monthly_status, employee.hc_value || employee.hc || 1),
           fiscal_year: targetYear
         };
         

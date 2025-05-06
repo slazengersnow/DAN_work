@@ -1,0 +1,119 @@
+{
+  "serverFile": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/server.js",
+  "routeFiles": [
+    {
+      "name": "auth.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/auth.js",
+      "isImportant": false
+    },
+    {
+      "name": "employee.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/employee.js",
+      "isImportant": true
+    },
+    {
+      "name": "employeeRoutes.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/employeeRoutes.js",
+      "isImportant": true
+    },
+    {
+      "name": "monthlyReportRoutes.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/monthlyReportRoutes.js",
+      "isImportant": true
+    },
+    {
+      "name": "paymentReportRoutes.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/paymentReportRoutes.js",
+      "isImportant": false
+    },
+    {
+      "name": "report.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/report.js",
+      "isImportant": true
+    },
+    {
+      "name": "settings.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/settings.js",
+      "isImportant": true
+    },
+    {
+      "name": "settingsRoutes.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/routes/settingsRoutes.js",
+      "isImportant": true
+    }
+  ],
+  "controllerFiles": [
+    {
+      "name": "authController.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/controllers/authController.js",
+      "isImportant": false
+    },
+    {
+      "name": "employeeController.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/controllers/employeeController.js",
+      "isImportant": true
+    },
+    {
+      "name": "monthlyReportController.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/controllers/monthlyReportController.js",
+      "isImportant": true
+    },
+    {
+      "name": "paymentReportController.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/controllers/paymentReportController.js",
+      "isImportant": false
+    },
+    {
+      "name": "settingsController.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/controllers/settingsController.js",
+      "isImportant": true
+    }
+  ],
+  "middlewareFiles": [
+    {
+      "name": "auth.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/middleware/auth.js",
+      "isImportant": true
+    },
+    {
+      "name": "validation.js",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/middleware/validation.js",
+      "isImportant": true
+    }
+  ],
+  "envSettings": {
+    "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/backend/.env",
+    "vars": {
+      "PORT": "5001",
+      "NODE_ENV": "development",
+      "DB_USER": "postgres",
+      "DB_HOST": "localhost",
+      "DB_NAME": "disability_employment",
+      "DB_PASSWORD": "postgres",
+      "DB_PORT": "5432",
+      "PGUSER": "postgres",
+      "PGHOST": "localhost",
+      "PGDATABASE": "disability_employment",
+      "PGPASSWORD": "postgres",
+      "PGPORT": "5432",
+      "JWT_SECRET": "your_jwt_secret_key",
+      "JWT_EXPIRE": "1d",
+      "REACT_APP_API_URL": "http://localhost:5001/api"
+    }
+  },
+  "issues": [
+    "server.jsで明示的なポート設定が見つかりません",
+    "重要なルートが不足している可能性があります: employees",
+    "authController.js でres.json/sendが使用されていません",
+    "employeeController.js でres.json/sendが使用されていません",
+    "paymentReportController.js でres.json/sendが使用されていません",
+    "settingsController.js でres.json/sendが使用されていません",
+    "重要なコントローラーが不足している可能性があります: report",
+    "重要なミドルウェアが不足している可能性があります: error"
+  ],
+  "recommendations": [
+    "必要なルートファイルを追加して、すべての機能にアクセスできるようにしてください",
+    "必要なコントローラーファイルを追加してください",
+    "必要なミドルウェアファイル（特にエラーハンドリング）を追加してください"
+  ]
+}

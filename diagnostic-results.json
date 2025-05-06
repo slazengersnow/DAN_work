@@ -69,29 +69,9 @@
     },
     "backend": null
   },
-  "errors": [
-    {
-      "type": "JSON期待エラー",
-      "message": "エンドポイント /api/nonexistent へのリクエストがJSONの代わりにHTMLを返しました",
-      "statusCode": 404,
-      "contentType": "text/html; charset=utf-8",
-      "data": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<..."
-    },
-    {
-      "type": "HTML 404エラー",
-      "message": "存在しないAPIパスに対してHTMLレスポンスが返されています",
-      "statusCode": 404,
-      "contentType": "text/html; charset=utf-8"
-    }
-  ],
+  "errors": [],
   "recommendations": [
     "開発環境では、.envファイルのREACT_APP_API_URLを空にするか、プロキシと一致させてください。",
-    "バックエンドとフロントエンドでAPIプレフィックスが一致していない可能性があります。確認してください。",
-    "バックエンドのExpressエラーハンドリングを修正し、API以外のルートへのリクエストが発生した場合でもJSONレスポンスを返すようにしてください。",
-    "app.use((req, res, next) => { res.status(404).json({ error: \"Not found\" }); }); のようなミドルウェアを追加することをお勧めします。",
-    "API以外のパスへのリクエストでHTMLエラーページが返されています:",
-    "1. Expressのエラーハンドリングミドルウェアを追加する",
-    "2. 404エラーの場合でもJSONレスポンスを返すようにする",
-    "3. app.use((req, res) => { res.status(404).json({ error: \"Not found\" }); });"
+    "バックエンドとフロントエンドでAPIプレフィックスが一致していない可能性があります。確認してください。"
   ]
 }

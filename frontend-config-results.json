@@ -1,0 +1,61 @@
+{
+  "packageJson": {
+    "name": "disability-employment-system",
+    "version": "1.0.0",
+    "description": "障害者雇用管理システム",
+    "proxy": "http://localhost:5001",
+    "scripts": {
+      "start": "PORT=3001 react-scripts start",
+      "build": "react-scripts build",
+      "test": "react-scripts test",
+      "eject": "react-scripts eject",
+      "start:frontend": "cd frontend && REACT_APP_USE_MOCK=true npm start"
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+      "concurrently": "^8.2.0"
+    },
+    "dependencies": {
+      "@testing-library/jest-dom": "^6.6.3",
+      "@testing-library/react": "^16.2.0",
+      "@testing-library/user-event": "^14.6.1",
+      "@types/jest": "^29.5.14",
+      "@types/papaparse": "^5.3.15",
+      "@types/react": "^19.0.12",
+      "@types/react-dom": "^19.0.4",
+      "@types/styled-components": "^5.1.34",
+      "axios": "^1.8.4",
+      "papaparse": "^5.5.2",
+      "react": "^18.2.0",
+      "react-dom": "^18.2.0",
+      "react-query": "^3.39.3",
+      "react-router-dom": "^7.4.0",
+      "react-scripts": "^5.0.1",
+      "styled-components": "^6.1.16",
+      "typescript": "^4.9.5",
+      "web-vitals": "^4.2.4"
+    }
+  },
+  "envFiles": [
+    {
+      "name": ".env",
+      "path": "/Users/gotouhiroaki/Programming/DAN_work/disability-employment-system/frontend/.env",
+      "vars": {
+        "PORT": "3001",
+        "REACT_APP_API_URL": "http://localhost:5001/api",
+        "REACT_APP_USE_MOCK": "true"
+      }
+    }
+  ],
+  "apiClient": null,
+  "issues": [
+    "APIクライアントでbaseURL設定が見つかりません",
+    "JSONパースエラーを明示的に処理していない可能性があります",
+    "index.tsxにQueryClientProviderが見つかりません"
+  ],
+  "recommendations": [
+    "レスポンスインターセプターでJSONパースエラー (SyntaxError) を処理するコードを追加してください",
+    "React Queryを使用する場合、QueryClientProviderを設定することを推奨します"
+  ]
+}
