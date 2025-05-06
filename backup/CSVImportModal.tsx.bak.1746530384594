@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import axios, { AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import Papa, { ParseResult } from 'papaparse';
 import './CSVImportModal.css';
 import { generateCSVTemplate, downloadCSV, convertTemplateDataToApiFormat, MonthlyCSVData } from './utils';
@@ -14,7 +14,7 @@ interface CSVImportModalProps {
 }
 
 /**
- * 拡張されたCSVインポートモーダルコンポーネント - エラーハンドリング強化版
+ * CSVインポートモーダルコンポーネント - 完全に修正
  */
 const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImportSuccess, fiscalYear }) => {
   // 状態管理
@@ -42,10 +42,6 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
   
   // 変換後のAPIデータキャッシュ
   const [convertedApiData, setConvertedApiData] = useState<MonthlyCSVData[] | null>(null);
-
-  // リトライ機能のためのカウンター
-  const [retryCount, setRetryCount] = useState<number>(0);
-  const MAX_RETRIES = 3;
   
   // ステータスメッセージ
   const statusMessage = useMemo(() => {
@@ -93,7 +89,6 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
       setProcessedMonths([]);
       setImportSummary('');
       setConvertedApiData(null);
-      setRetryCount(0);
     }
   }, [isOpen]);
 
@@ -226,95 +221,6 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
     reader.readAsText(file);
   };
 
-  // 休止する関数（リトライ時の待機用）
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-  // APIリクエストを送信する関数（リトライ機能付き）
-  const sendApiRequest = async (method: string, url: string, data?: any): Promise<AxiosResponse> => {
-    let lastError: Error | null = null;
-    // リトライロジック
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        // 初回以外は待機時間を設ける（指数バックオフ）
-        if (attempt > 0) {
-          const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000);
-          await sleep(waitTime);
-          console.log(`リトライ #${attempt} (${url})...`);
-        }
-        
-        let response;
-        if (method.toUpperCase() === 'GET') {
-          response = await axios.get(url, { timeout: 5000 });
-        } else if (method.toUpperCase() === 'POST') {
-          response = await axios.post(url, data, { timeout: 5000 });
-        } else if (method.toUpperCase() === 'PUT') {
-          response = await axios.put(url, data, { timeout: 5000 });
-        } else {
-          throw new Error(`未対応のHTTPメソッド: ${method}`);
-        }
-        
-        return response;
-      } catch (error) {
-        lastError = error as Error;
-        
-        // APIエンドポイントが存在しない場合
-        if (error instanceof AxiosError && error.response?.status === 404) {
-          // 404エラーの場合は、別のエンドポイントを試す
-          if (url.includes('/monthly-reports/')) {
-            // /monthly-reports/ から /monthly-report/ に変更してリトライ
-            url = url.replace('/monthly-reports/', '/monthly-report/');
-            console.log(`エンドポイント変更: ${url}`);
-            
-            // リトライカウントをリセット（新しいURLなので）
-            attempt = -1; // 次のループで0になる
-            continue;
-          }
-        }
-        
-        // 最大リトライ回数に達した場合、またはキャンセルされた場合は例外をスロー
-        if (attempt === MAX_RETRIES) {
-          console.error(`リクエスト失敗 (${MAX_RETRIES}回リトライ後): ${url}`, error);
-          throw error;
-        }
-      }
-    }
-    
-    // 実行されることはないはずだが、TypeScriptのエラーを回避するために必要
-    throw lastError;
-  };  
-
-  // 既存データチェック - 非同期関数として実装
-  const checkExistingData = async (fiscalYear: number, month: number): Promise<boolean> => {
-    try {
-      const response = await sendApiRequest(
-        'GET',
-        `${API_BASE_URL}/monthly-reports/${fiscalYear}/${month}`
-      );
-      return !!(response && response.data && response.data.success);
-    } catch (error) {
-      console.log(`${fiscalYear}年${month}月のデータは存在しません`);
-      return false;
-    }
-  };
-  
-  // インポート結果サマリーの生成
-  const generateImportSummary = (statusList: { month: number, status: string }[]): string => {
-    const counts = {
-      新規: 0,
-      更新: 0,
-      エラー: 0,
-      合計: statusList.length
-    };
-    
-    statusList.forEach(item => {
-      if (item.status === '新規') counts.新規++;
-      else if (item.status === '更新') counts.更新++;
-      else if (item.status === 'エラー') counts.エラー++;
-    });
-    
-    return `合計: ${counts.合計}件（新規: ${counts.新規}件、更新: ${counts.更新}件${counts.エラー > 0 ? `、エラー: ${counts.エラー}件` : ''}）`;
-  };
-
   // CSVデータのAPIへのインポート - 完全に再設計
   const importCSVData = async (data: MonthlyCSVData[]) => {
     try {
@@ -366,58 +272,21 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
           for (const monthData of batch) {
             try {
               // まず対象データの存在をチェック
+              const checkUrl = `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`;
               const existingData = await checkExistingData(monthData.fiscal_year, monthData.month);
               
               let response;
               if (existingData) {
                 // 既存データの更新
                 console.log(`${monthData.fiscal_year}年度${monthData.month}月のデータを更新します`);
-                try {
-                  response = await sendApiRequest(
-                    'PUT',
-                    `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`,
-                    monthData
-                  );
-                  processedMonthsArray.push(`${monthData.month}月(更新)`);
-                  statusList.push({ month: monthData.month, status: '更新' });
-                } catch (error) {
-                  // 更新に失敗した場合はPOSTを試みる
-                  console.log(`PUT要求失敗、POST要求を試みます`);
-                  response = await sendApiRequest(
-                    'POST',
-                    `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`,
-                    monthData
-                  );
-                  processedMonthsArray.push(`${monthData.month}月(POST更新)`);
-                  statusList.push({ month: monthData.month, status: '更新' });
-                }
+                response = await axios.put(checkUrl, monthData, { timeout: 5000 });
+                processedMonthsArray.push(`${monthData.month}月(更新)`);
+                statusList.push({ month: monthData.month, status: '更新' });
               } else {
-                // 新規データの作成（2つのエンドポイントを試す）
+                // 新規データの作成
                 console.log(`${monthData.fiscal_year}年度${monthData.month}月のデータを新規作成します`);
-                try {
-                  // エンドポイント1: /monthly-reports
-                  response = await sendApiRequest(
-                    'POST',
-                    `${API_BASE_URL}/monthly-reports`,
-                    monthData
-                  );
-                } catch (error) {
-                  // エンドポイント1が失敗した場合、エンドポイント2を試す
-                  console.log(`エンドポイント1失敗、エンドポイント2を試みます`);
-                  try {
-                    // エンドポイント2: /monthly-reports/:year/:month
-                    response = await sendApiRequest(
-                      'POST',
-                      `${API_BASE_URL}/monthly-reports/${monthData.fiscal_year}/${monthData.month}`,
-                      monthData
-                    );
-                  } catch (innerError) {
-                    // 両方のエンドポイントが失敗した場合
-                    console.error(`両方のエンドポイントが失敗しました: ${innerError}`);
-                    throw innerError; // 外側のcatchブロックに委譲
-                  }
-                }
-                
+                const createUrl = `${API_BASE_URL}/monthly-reports`;
+                response = await axios.post(createUrl, monthData, { timeout: 5000 });
                 processedMonthsArray.push(`${monthData.month}月(新規)`);
                 statusList.push({ month: monthData.month, status: '新規' });
               }
@@ -478,6 +347,38 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({ isOpen, onClose, onImpo
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // 既存データチェック - 非同期関数として実装
+  const checkExistingData = async (fiscalYear: number, month: number): Promise<boolean> => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/monthly-reports/${fiscalYear}/${month}`,
+        { timeout: 3000 }
+      );
+      return !!(response && response.data && response.data.success);
+    } catch (error) {
+      // 404エラーなど - データが存在しない
+      return false;
+    }
+  };
+  
+  // インポート結果サマリーの生成
+  const generateImportSummary = (statusList: { month: number, status: string }[]): string => {
+    const counts = {
+      新規: 0,
+      更新: 0,
+      エラー: 0,
+      合計: statusList.length
+    };
+    
+    statusList.forEach(item => {
+      if (item.status === '新規') counts.新規++;
+      else if (item.status === '更新') counts.更新++;
+      else if (item.status === 'エラー') counts.エラー++;
+    });
+    
+    return `合計: ${counts.合計}件（新規: ${counts.新規}件、更新: ${counts.更新}件${counts.エラー > 0 ? `、エラー: ${counts.エラー}件` : ''}）`;
   };
 
   // インポート実行

@@ -1,7 +1,7 @@
-// MonthlyTab.tsx
+// src/pages/MonthlyReport/MonthlyTab.tsx
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MonthlyDetailData, MonthlyTotal } from './frontend/src/pages/MonthlyReport/types';
+import { MonthlyDetailData, MonthlyTotal } from './types';
 
 interface MonthlyTabProps {
   monthlyDetailData: MonthlyDetailData;
@@ -22,51 +22,51 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
   
   const inputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
 
-  // �������L	�U�_�����������
+  // モンスリーデータが変更されたら、ローカルデータを更新
   useEffect(() => {
     setLocalData(monthlyDetailData);
   }, [monthlyDetailData]);
 
-  // e��g(�p
+  // 入力参照用関数
   const setInputRef = useCallback((element: HTMLInputElement | null, key: string) => {
     if (element) {
       inputRefs.current[key] = element;
     }
   }, []);
 
-  // ��L�KiFK���ï
+  // セルが計算済みかどうかをチェック
   const isCalculatedField = (rowId: number): boolean => {
-    // ���գ���nID4: ����m�p, 9: �LD, 10: ��(�, 12: ՚�(p, 13: �N�*T	
+    // 自動計算フィールドのID（4: トータル従業員数, 9: 障がい者合計, 10: 実雇用率, 12: 法定雇用者数, 13: 超過・未達）
     const calculatedFieldIds = [4, 9, 10, 12, 13];
     return calculatedFieldIds.includes(rowId);
   };
 
-  // ՚�(�գ���KiFK��ï
+  // 法定雇用率フィールドかどうかチェック
   const isLegalRateField = (rowId: number): boolean => {
-    return rowId === 11; // ՚�(�nID
+    return rowId === 11; // 法定雇用率のID
   };
 
-  // ��(�գ���KiFK��ï
+  // 実雇用率フィールドかどうかチェック
   const isActualRateField = (rowId: number): boolean => {
-    return rowId === 10; // ��(�nID
+    return rowId === 10; // 実雇用率のID
   };
 
-  // ����m�pnLID�y�
+  // トータル従業員数の行IDを特定
   const getTotalEmployeesRowId = (): number => {
-    return 4; // ����m�pnLID
+    return 4; // トータル従業員数の行ID
   };
 
-  // ����LDpnLID�y�
+  // トータル障がい者数の行IDを特定
   const getTotalDisabledRowId = (): number => {
-    return 9; // ����LDpnLID
+    return 9; // トータル障がい者数の行ID
   };
 
-  // ՚�(�nLID�y�
+  // 法定雇用率の行IDを特定
   const getLegalRateRowId = (): number => {
-    return 11; // ՚�(�nLID
+    return 11; // 法定雇用率の行ID
   };
 
-  // ����LF - ��7H
+  // 自動計算を行う - 精度強化版
   const recalculateData = (updatedData: MonthlyDetailData): MonthlyDetailData => {
     const newData = {...updatedData};
     const totalEmployeesRowIndex = newData.data.findIndex(row => row.id === getTotalEmployeesRowId());
@@ -81,35 +81,34 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
     const level1And2PartTimeRowIndex = newData.data.findIndex(row => row.id === 7);
     const otherPartTimeRowIndex = newData.data.findIndex(row => row.id === 8);
     
-    // Ln�cWO�
+    // 各行の合計を正しく計算
     for (let rowIndex = 0; rowIndex < newData.data.length; rowIndex++) {
       const row = newData.data[rowIndex];
-      // Ln��ahj��,�KiFK
+      // 合計行の計算対象となる基本項目かどうか
       const isBasicRow = [1, 2, 3, 5, 6, 7, 8].includes(row.id);
       
       if (isBasicRow) {
-        // ���ï�12	n$��
+        // 合計欄（インデックス12）の値を計算
         row.values[12] = row.values.slice(0, 12).reduce((sum, value) => {
-          // p��n����Y�_���k8�jD
+          // 小数点以下の精度を保持するため、計算後に丸めない
           return sum + value;
         }, 0);
       }
     }
     
-    // ����m�pn�
+    // トータル従業員数の計算
     if (fullTimeEmployeesRowIndex !== -1 && partTimeEmployeesRowIndex !== -1 && totalEmployeesRowIndex !== -1) {
       const fullTimeValues = newData.data[fullTimeEmployeesRowIndex].values;
       const partTimeValues = newData.data[partTimeEmployeesRowIndex].values;
       
       for (let i = 0; i < 13; i++) {
-        // ��ȿ���m�o0.5g����
+        // パートタイム従業員は0.5でカウント
         newData.data[totalEmployeesRowIndex].values[i] = 
           fullTimeValues[i] + (partTimeValues[i] * 0.5);
       }
     }
     
-    // �LDn� - ��
-
+    // 障がい者合計の計算 - 精度向上
     if (level1And2RowIndex !== -1 && otherRowIndex !== -1 && 
         level1And2PartTimeRowIndex !== -1 && otherPartTimeRowIndex !== -1 && 
         totalDisabledRowIndex !== -1) {
@@ -120,13 +119,12 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
       const otherPartTimeValues = newData.data[otherPartTimeRowIndex].values;
       
       for (let i = 0; i < 13; i++) {
-        // ͦ��n���Ⱦ�
-
+        // 重度障害者のカウント精度向上
         newData.data[totalDisabledRowIndex].values[i] = 
-          level1And2Values[i] * 2 + // ͦ��o��뫦��
-          otherValues[i] + // ]n֜�o8����
-          level1And2PartTimeValues[i] * 2 * 0.5 + // ͦ����ȿ��o��뫦�Ȍk0.5
-          otherPartTimeValues[i] * 0.5; // ]n֜���ȿ��o0.5����
+          level1And2Values[i] * 2 + // 重度障害者はダブルカウント
+          otherValues[i] + // その他障害者は通常カウント
+          level1And2PartTimeValues[i] * 2 * 0.5 + // 重度障害パートタイムはダブルカウント後に0.5
+          otherPartTimeValues[i] * 0.5; // その他障害パートタイムは0.5カウント
       }
     }
     
@@ -135,22 +133,21 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
       const totalDisabledValues = newData.data[totalDisabledRowIndex].values;
       const legalRateValues = newData.data[legalRateRowIndex].values;
       
-      // ��(�n� (����LDp / ����m�p) - ��
-
+      // 実雇用率の計算 (トータル障がい者数 / トータル従業員数) - 精度向上
       const actualRateRowIndex = newData.data.findIndex(row => row.id === 10);
       if (actualRateRowIndex !== -1) {
-        for (let i = 0; i < 12; i++) { // 0-11o8n
+        for (let i = 0; i < 12; i++) { // 0-11は通常の月
           if (totalEmployeeValues[i] > 0) {
-            // ��(�n��c�kLDh:np�,2Mg8��
+            // 実雇用率の計算を正確に行い、表示のみ小数点第2位で丸める
             const rawRate = (totalDisabledValues[i] / totalEmployeeValues[i]) * 100;
-            // ��ko�����W8�oh:BkLF
+            // 内部的には計算精度を保持し、丸めは表示時に行う
             newData.data[actualRateRowIndex].values[i] = rawRate;
           } else {
             newData.data[actualRateRowIndex].values[i] = 0;
           }
         }
         
-        // n��(���k����
+        // 合計欄の実雇用率も同様に精度を保持
         if (totalEmployeeValues[12] > 0) {
           const totalRawRate = (totalDisabledValues[12] / totalEmployeeValues[12]) * 100;
           newData.data[actualRateRowIndex].values[12] = totalRawRate;
@@ -159,34 +156,32 @@ const MonthlyTab: React.FC<MonthlyTabProps> = ({
         }
       }
       
-      // ՚�(pn� (՚�(� * ����m�p / 100) - p���
-R
+      // 法定雇用者数の計算 (法定雇用率 * トータル従業員数 / 100) - 小数点以下切り上げ
       const legalCountRowIndex = newData.data.findIndex(row => row.id === 12);
       if (legalCountRowIndex !== -1) {
-        for (let i = 0; i < 12; i++) { // 0-11o8n
-          // ՚�(p�c�k�p���
-R	
+        for (let i = 0; i < 12; i++) { // 0-11は通常の月
+          // 法定雇用者数を正確に計算（小数点以下切り上げ）
           newData.data[legalCountRowIndex].values[i] = 
             Math.ceil((legalRateValues[i] * totalEmployeeValues[i]) / 100);
         }
         
-        // n՚�(p��k�
+        // 合計欄の法定雇用者数も同様に計算
         newData.data[legalCountRowIndex].values[12] = 
           Math.ceil((legalRateValues[12] * totalEmployeeValues[12]) / 100);
       }
       
-      // �N�*Tn� (����LDp - ՚�(p)
+      // 超過・未達の計算 (トータル障がい者数 - 法定雇用者数)
       const overUnderRowIndex = newData.data.findIndex(row => row.id === 13);
       if (overUnderRowIndex !== -1 && legalCountRowIndex !== -1) {
         const legalCountValues = newData.data[legalCountRowIndex].values;
         
-        // 0-114K�3~g	n����%k�
+        // 0-11（4月から3月まで）のデータを個別に計算
         for (let i = 0; i < 12; i++) {
           newData.data[overUnderRowIndex].values[i] = 
             totalDisabledValues[i] - legalCountValues[i];
         }
         
-        // 12	on��p - n՚�(p
+        // 合計欄（12）は、合計の障害者数 - 合計の法定雇用者数
         newData.data[overUnderRowIndex].values[12] = 
           totalDisabledValues[12] - legalCountValues[12];
       }
@@ -195,51 +190,51 @@ R
     return newData;
   };
 
-  // ��n$�	�Y������
+  // セルの値を変更するハンドラー
   const handleLocalCellChange = (rowId: number, colIndex: number, value: string) => {
-    // ՚�(�գ���(ne�$�
+    // 法定雇用率フィールド専用の入力判定
     const isLegalRate = isLegalRateField(rowId);
     
-    // zne��0~_o0.0hWfqF
+    // 空の入力を0または0.0として扱う
     if (value === '') {
       value = isLegalRate ? '0.0' : '0';
     }
     
-    // e�ѿ����ï
+    // 入力パターンチェック
     const validateInput = (): boolean => {
       if (isLegalRate) {
-        // ՚�(�գ���(nѿ�� - p��1�
+        // 法定雇用率フィールド用のパターン - 小数点を許可
         return /^([0-9]*\.?[0-9]*)?$/.test(value);
       } else {
-        // ]n�գ���(nѿ�� - tpn
+        // その他フィールド用のパターン - 整数のみ
         return /^[0-9]*$/.test(value);
       }
     };
     
-    // e�<
+    // 入力検証
     if (!validateInput()) {
       return;
     }
     
-    // $n�
+    // 値の処理
     let numValue: number;
     
-    // ՚�(�ny%�
+    // 法定雇用率の特別処理
     if (isLegalRate) {
-      // p�nne�
+      // 小数点のみの入力
       if (value === '.') {
         numValue = 0;
       } 
-      // +>Lp�np$
+      // 末尾が小数点の数値
       else if (value.endsWith('.')) {
         numValue = parseFloat(value + '0');
       } 
-      // 8np$~_op
+      // 通常の数値または小数
       else {
         numValue = parseFloat(value);
       }
     } else {
-      // 8գ���np$	�
+      // 通常フィールドの数値変換
       numValue = parseInt(value, 10);
       if (isNaN(numValue)) numValue = 0;
     }
@@ -252,22 +247,22 @@ R
         const updatedValues = [...newData.data[rowIndex].values];
         updatedValues[colIndex] = numValue;
         
-        // n��
+        // 合計の再計算
         updatedValues[12] = updatedValues.slice(0, 12).reduce((a, b) => a + b, 0);
         
         newData.data[rowIndex].values = updatedValues;
         
-        // ՚�(�L	�U�_4hfnkX$�-�
+        // 法定雇用率が変更された場合、全ての月に同じ値を設定
         if (isLegalRateField(rowId)) {
           newData.data[rowIndex].values = newData.data[rowIndex].values.map((_, idx) => 
             idx < 12 ? numValue : newData.data[rowIndex].values[idx]
           );
         }
         
-        // ���Ȓzk
+        // 外部イベントを発火
         onDetailCellChange(rowId, colIndex, value);
         
-        // �����L
+        // 自動計算を実行
         return recalculateData(newData);
       }
       
@@ -275,28 +270,28 @@ R
     });
   };
 
-  // ���ïBn�����
+  // セルクリック時のハンドラー
   const handleCellClick = (rowId: number, colIndex: number) => {
-    if (colIndex >= 12) return; // o��ï�
-    if (isCalculatedField(rowId)) return; // �գ���o��ï�
+    if (colIndex >= 12) return; // 合計列はクリック不可
+    if (isCalculatedField(rowId)) return; // 計算フィールドはクリック不可
     
     setActiveCell({row: rowId, col: colIndex});
     handleDetailCellEdit(rowId, colIndex);
   };
 
-  // ���Ƌ������
+  // セル編集開始ハンドラー
   const handleDetailCellEdit = (rowId: number, colIndex: number) => {
-    if (isCalculatedField(rowId)) return; // ���գ���o���
+    if (isCalculatedField(rowId)) return; // 自動計算フィールドは編集不可
     
     setEditingDetailRow(rowId);
     setEditingDetailCol(colIndex);
     
-    // E�Wfթ����-�
+    // 遅延してフォーカスを設定
     setTimeout(() => {
       const inputKey = `input-${rowId}-${colIndex}`;
       if (inputRefs.current[inputKey]) {
         inputRefs.current[inputKey]?.focus();
-        // ����e�n+>kMn
+        // カーソルを入力欄の末尾に配置
         const input = inputRefs.current[inputKey];
         if (input) {
           const len = input.value.length;
@@ -306,16 +301,16 @@ R
     }, 10);
   };
 
-  // ������Ӳ����(n����� - 9oH
+  // キーボードナビゲーション用のハンドラー - 改良版
   const handleKeyDown = (e: React.KeyboardEvent, rowId: number, colIndex: number) => {
-    if (isCalculatedField(rowId)) return; // ���գ���o��n1�
+    if (isCalculatedField(rowId)) return; // 自動計算フィールドは移動のみ許可
     
-    // Enter ����W_4o�ƒ�XWfnLx
+    // Enter キーを押した場合は編集を保存して下の行へ
     if (e.key === 'Enter') {
       e.preventDefault();
       handleDetailCellSave();
       
-      // !n����j�뒢Wf��
+      // 次の編集可能なセルを探して移動
       const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
       let nextRowId: number | null = null;
       
@@ -330,17 +325,17 @@ R
         handleDetailCellEdit(nextRowId, colIndex);
       }
     }
-    // Tab ����W_4o!n��x
+    // Tab キーを押した場合は次のセルへ
     else if (e.key === 'Tab') {
       e.preventDefault();
       handleDetailCellSave();
       
       if (e.shiftKey) {
-        // Shift+Tab g�x��
+        // Shift+Tab で左へ移動
         if (colIndex > 0) {
           handleDetailCellEdit(rowId, colIndex - 1);
         } else {
-          // MnLn �nx
+          // 前の行の最後の列へ
           const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
           if (currentRowIndex > 0) {
             let prevRowId: number | null = null;
@@ -351,16 +346,16 @@ R
               }
             }
             if (prevRowId !== null) {
-              handleDetailCellEdit(prevRowId, 11); //  �n (12j�n��)
+              handleDetailCellEdit(prevRowId, 11); // 最後の月 (12番目のセル)
             }
           }
         }
       } else {
-        // Tab g�x��
+        // Tab で右へ移動
         if (colIndex < 11) {
           handleDetailCellEdit(rowId, colIndex + 1);
         } else {
-          // !nLn nx
+          // 次の行の最初の列へ
           const currentRowIndex = localData.data.findIndex(row => row.id === rowId);
           if (currentRowIndex < localData.data.length - 1) {
             let nextRowId: number | null = null;
@@ -371,13 +366,13 @@ R
               }
             }
             if (nextRowId !== null) {
-              handleDetailCellEdit(nextRowId, 0); //  n
+              handleDetailCellEdit(nextRowId, 0); // 最初の月
             }
           }
         }
       }
     }
-    // �p��gn��
+    // 矢印キーでの移動
     else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault();
       handleDetailCellSave();
@@ -415,7 +410,7 @@ R
         handleDetailCellEdit(rowId, colIndex + 1);
       }
     }
-    // Escape��gn�ƭ���
+    // Escapeキーでの編集キャンセル
     else if (e.key === 'Escape') {
       e.preventDefault();
       handleDetailCellSave();
@@ -423,47 +418,47 @@ R
     }
   };
 
-  // ����n�X
+  // セル編集の保存
   const handleDetailCellSave = () => {
     setEditingDetailRow(null);
     setEditingDetailCol(null);
   };
 
-  // �Xܿ�n�����
+  // 保存ボタンのハンドラー
   const handleSave = () => {
-    console.log('!s0�����X');
+    console.log('月次詳細データを保存');
   };
 
-  // s0h:�����
+  // 詳細表示ハンドラー
   const handleViewDetail = () => {
-    // s0���k��ID���n4	
+    // 詳細ページに移動（IDベースの場合）
     navigate(`/monthly-report/${summaryData.fiscal_year}-${summaryData.month}`);
   };
 
-  // $nթ���ȒLF�p - 9oH
+  // 値のフォーマットを行う関数 - 改良版
   const formatValue = (value: number, rowId: number): string => {
-    // ՚�(�h��(�op�2A��h:
+    // 法定雇用率と実雇用率は小数点2桁固定表示
     if (rowId === 10 || rowId === 11) {
       return value.toFixed(2);
     }
     
-    // �m�ph��pop�1Agh:��ȿ��n	
+    // 合計従業員数と障害者数は小数点1桁で表示（パートタイム考慮）
     if ((rowId === 4 || rowId === 9) && !Number.isInteger(value)) {
       return value.toFixed(1);
     }
     
-    // ]��n$otpKp�1Agh:
+    // それ以外の値は整数か小数点1桁で表示
     return Number.isInteger(value) ? value.toString() : value.toFixed(1);
   };
   
-  // $nCSSr�z�Y��p
+  // 値のCSS色を決定する関数
   const getValueColor = (value: number, rowId: number): string => {
-    // �n$odrgh:�N�*TpLޤʹn4	
+    // 負の値は赤色で表示（超過・未達数がマイナスの場合）
     if (value < 0 && rowId === 13) {
       return '#dc3545';
     }
     
-    // ��(�L՚�(�*�n4odrgfJ
+    // 実雇用率が法定雇用率未満の場合は赤色で警告
     if (rowId === 10) {
       const legalRateRowIndex = localData.data.findIndex(row => row.id === 11);
       if (legalRateRowIndex !== -1) {
@@ -480,10 +475,10 @@ R
 
   return (
     <div className="monthly-tab">
-      <h3>!s0</h3>
+      <h3>月次詳細</h3>
       
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        {/* �Xܿ� */}
+        {/* 保存ボタン */}
         <button 
           onClick={handleSave}
           style={{
@@ -495,10 +490,10 @@ R
             cursor: 'pointer'
           }}
         >
-          �X
+          保存
         </button>
 
-        {/* s0h:ܿ� */}
+        {/* 詳細表示ボタン */}
         <button
           onClick={handleViewDetail}
           style={{ 
@@ -510,11 +505,11 @@ R
             cursor: 'pointer'
           }}
         >
-          s0h:
+          詳細表示
         </button>
       </div>
 
-      {/* !s0���� */}
+      {/* 月次詳細テーブル */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
           <thead>
@@ -543,7 +538,7 @@ R
           </thead>
           <tbody>
             {localData.data.map((row) => {
-              // y�nLnMk�����L���
+              // 特定の行の前にスペーサー行を追加
               const needsSpacerBefore = row.id === 5 || row.id === 10;
               const isHeaderRow = row.id === 5;
               const isRatioRow = row.id === 10;
@@ -562,7 +557,7 @@ R
                         padding: '6px',
                         backgroundColor: '#e9f2ff',
                         fontSize: '12px'
-                      }}>�LD</th>
+                      }}>障がい者</th>
                     </tr>
                   )}
                   {isRatioRow && (
@@ -572,7 +567,7 @@ R
                         padding: '6px',
                         backgroundColor: '#e9f2ff',
                         fontSize: '12px'
-                      }}>�(�</th>
+                      }}>雇用率</th>
                     </tr>
                   )}
                   <tr style={{ 
@@ -591,7 +586,7 @@ R
                       {row.suffix && <span style={{ fontSize: '10px', color: '#666' }}> ({row.suffix})</span>}
                     </td>
                     {row.values.map((value, colIndex) => {
-                      // �빿��-�
+                      // セルスタイルを設定
                       let cellStyle: React.CSSProperties = {
                         textAlign: 'center', 
                         padding: '2px 4px', 
@@ -601,7 +596,7 @@ R
                         height: '24px'
                       };
                       
-                      // ��ƣֻ�n����
+                      // アクティブセルのスタイル
                       if (activeCell.row === row.id && activeCell.col === colIndex) {
                         cellStyle.backgroundColor = '#e9f2ff';
                         cellStyle.outline = '1px solid #3a66d4';
@@ -610,9 +605,9 @@ R
                       const isLegalRate = row.id === 11;
                       const isActualRate = row.id === 10;
                       const isEditingThisCell = editingDetailRow === row.id && editingDetailCol === colIndex;
-                      const canEdit = !isCalculatedField(row.id) && summaryData.status !== '��';
+                      const canEdit = !isCalculatedField(row.id) && summaryData.status !== '確定済';
                       
-                      // $nթ����
+                      // 値のフォーマット
                       const displayValue = formatValue(value, row.id);
                       
                       return (

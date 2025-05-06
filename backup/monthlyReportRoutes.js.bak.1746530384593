@@ -17,9 +17,6 @@ router.get('/:year/:month', monthlyReportController.getMonthlyReport);
 // 月次レポート保存・更新
 router.post('/:year/:month', monthlyReportController.saveMonthlyReport);
 
-// 月次レポート更新（PUT）
-router.put('/:year/:month', monthlyReportController.saveMonthlyReport);
-
 // 月次レポート削除
 router.delete('/:year/:month', monthlyReportController.deleteMonthlyReport);
 
