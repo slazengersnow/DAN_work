@@ -25,6 +25,7 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
   
   // 年度をステート管理（CSVからの読み込み用）
   const [detectedFiscalYear, setDetectedFiscalYear] = useState<number | null>(null);
+  const [detectedYear, setDetectedYear] = useState<number | null>(null);
   
   // 処理段階の状態管理
   const [processStage, setProcessStage] = useState<'initial' | 'parsing' | 'ready' | 'completed' | 'error'>('initial');
@@ -34,6 +35,15 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
   
   // 変換後の従業員データキャッシュ
   const [convertedEmployeeData, setConvertedEmployeeData] = useState<any[] | null>(null);
+  const [importData, setImportData] = useState<any[] | null>(null);
+  
+  // エラー設定関数
+  const setError = (message: string | null) => {
+    setErrorMessage(message);
+    if (message) {
+      setProcessStage('error');
+    }
+  };
   
   // ステータスメッセージ
   const statusMessage = useMemo(() => {
@@ -67,19 +77,66 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
       setErrorMessage(null);
       setSuccessMessage(null);
       setDetectedFiscalYear(null);
+      setDetectedYear(null);
       setFile(null);
       setProcessStage('initial');
       setParsedDataCache(null);
       setConvertedEmployeeData(null);
+      setImportData(null);
     }
   }, [isOpen]);
 
   // CSVテンプレートのダウンロード
-  const handleDownloadTemplate = useCallback(() => {
-    console.log(`従業員データテンプレートをダウンロード: ${fiscalYear}年度`);
-    const csvContent = generateEmployeeCSVTemplate(fiscalYear);
-    downloadCSV(csvContent, `従業員データ_テンプレート_${fiscalYear}年度.csv`);
-  }, [fiscalYear]);
+  const handleDownloadTemplate = () => {
+    try {
+      console.log("従業員データテンプレートをダウンロード:", fiscalYear + "年度");
+      
+      // テンプレートヘッダーを改善（年度行を含む）
+      const headers = [
+        "年度," + fiscalYear + ",,,,,,,,,,,,,,,,,,,",
+        "社員ID,氏名,障害区分,障害,等級,採用日,状態,WH,HC,4月,5月,6月,7月,8月,9月,10月,11月,12月,1月,2月,3月"
+      ];
+      
+      // サンプルデータ
+      const sampleData = [
+        "1001,山田 太郎,身体障害,視覚,1級,2010/4/1,在籍,正社員,2,2,2,2,2,2,2,2,2,2,2,2,2",
+        "2222,山田 花子,身体障害,聴覚,4級,2020/4/10,在籍,短時間労働者,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5",
+        "3333,山田 一郎,知的障害,,B1,2020/10/1,在籍,正社員,1,1,1,1,1,1,1,1,1,1,1,1,1"
+      ];
+      
+      // 注釈行を追加
+      const notes = [
+        ",,,,,,,,,,,,,,,,,,,,,",
+        "注意事項:,,,,,,,,,,,,,,,,,,,,,",
+        ",障害区分:,身体障害、知的障害、精神障害、発達障害のいずれかをご入力ください,,,,,,,,,,,,,,,,,,,",
+        ",等級:,身体障害は1級～7級、知的障害はA・Bのいずれかをご入力ください,,,,,,,,,,,,,,,,,,,",
+        ",採用日:,YYYY/MM/DDの形式でご入力ください（例: 2000/04/01）,,,,,,,,,,,,,,,,,,,",
+        ",状態:,在籍、休職、退職のいずれかをご入力ください,,,,,,,,,,,,,,,,,,,",
+        ",WH:,正社員、短時間労働者、特定短時間労働者のいずれかをご入力ください,,,,,,,,,,,,,,,,,,,",
+        ",HC:,HC(障がい者のカウント)は2、1、0.5のいずれかをご入力ください,,,,,,,,,,,,,,,,,,,",
+      ];
+      
+      // CSVコンテンツの作成
+      let csvContent = '\uFEFF'; // BOMを追加して文字化けを防止
+      csvContent += [...headers, ...sampleData, ...notes].join("\n");
+      
+      // Blobの作成とダウンロード
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `従業員データテンプレート_${fiscalYear}年度.csv`);
+      link.style.visibility = "hidden";
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("テンプレートのダウンロードに失敗しました:", error);
+      setError("テンプレートのダウンロードに失敗しました");
+    }
+  };
 
   // ファイル選択ハンドラ
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,250 +161,392 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
     fileInputRef.current?.click();
   };
 
-  // CSVファイル解析 - 年度行の特別処理を追加
-  const parseCSVFile = (file: File) => {
-    // FileReaderでファイルをテキストとして読み込む
-    const reader = new FileReader();
+  // 年度行を検出するための事前処理
+  const checkForYearRow = (csvContent: string) => {
+    try {
+      // 最初の数行だけを取得して年度行をチェック
+      const lines = csvContent.split('\n').slice(0, 3);
+      const firstLine = lines[0].trim();
+      
+      // 「年度,YYYY」パターンを検出
+      const yearRowMatch = firstLine.match(/^年度[,\t]\s*(\d{4})\s*$/);
+      
+      if (yearRowMatch) {
+        const yearValue = parseInt(yearRowMatch[1], 10);
+        console.log(`年度行を検出しました: ${yearValue}`);
+        
+        // 年度行を削除し、残りの内容を返す
+        const modifiedCsv = csvContent.substring(csvContent.indexOf('\n') + 1);
+        return { hasYearRow: true, yearRowValue: yearValue, modifiedCsv };
+      }
+      
+      // 複数列を持つ行で最初の列が「年度」の場合も検出
+      if (firstLine.startsWith('年度,') || firstLine.startsWith('年度\t')) {
+        const parts = firstLine.split(/[,\t]/);
+        if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
+          const yearValue = parseInt(parts[1], 10);
+          console.log(`複数列の年度行を検出しました: ${yearValue}`);
+          
+          // 年度行を削除し、残りの内容を返す
+          const modifiedCsv = csvContent.substring(csvContent.indexOf('\n') + 1);
+          return { hasYearRow: true, yearRowValue: yearValue, modifiedCsv };
+        }
+      }
+    } catch (error) {
+      console.error("年度行チェック中にエラーが発生しました:", error);
+    }
     
-    reader.onload = (e) => {
-      const csvText = e.target?.result as string;
-      if (!csvText) {
-        setErrorMessage('ファイルの読み込みに失敗しました');
-        setProcessStage('error');
+    console.log("年度行は検出されませんでした");
+    return { hasYearRow: false, yearRowValue: null, modifiedCsv: null };
+  };
+
+  // CSVファイル解析
+  const parseCSVFile = (file: File) => {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log("ファイル選択ボタンがクリックされました");
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+          const csvContent = event.target?.result as string;
+          console.log(`CSVの最初の部分: ${csvContent.substring(0, 200)}`);
+          
+          // 年度行をチェック
+          const yearRowResult = checkForYearRow(csvContent);
+          console.log("年度行チェック結果:", yearRowResult);
+          
+          // 年度行が検出された場合、修正されたCSVを使用
+          const contentToProcess = yearRowResult.hasYearRow ? yearRowResult.modifiedCsv : csvContent;
+          
+          if (yearRowResult.hasYearRow) {
+            console.log("年度行を含むCSVを処理します（年度: " + yearRowResult.yearRowValue + "）");
+            setDetectedYear(yearRowResult.yearRowValue);
+          } else {
+            console.log("通常のCSVパース処理を実行します（年度行なし）");
+            setDetectedYear(null);
+          }
+          
+          console.log("CSVの最初のチャンク:", contentToProcess?.substring(0, 200));
+          
+          if (!contentToProcess) {
+            setError('CSVコンテンツの処理に失敗しました');
+            reject(new Error('CSVコンテンツの処理に失敗しました'));
+            return;
+          }
+          
+          // PapaParse設定を改善
+          Papa.parse(contentToProcess, {
+            header: true,
+            skipEmptyLines: true,
+            dynamicTyping: true,
+            complete: (results) => {
+              try {
+                // デバッグ情報の追加
+                console.log("CSV解析結果の詳細:", {
+                  dataRows: results.data.length,
+                  errors: results.errors,
+                  meta: results.meta,
+                  headers: results.meta.fields
+                });
+                
+                if (results.data.length > 0) {
+                  console.log("最初の行のデータ:", results.data[0]);
+                  console.log("利用可能なフィールド名:", results.meta.fields);
+                }
+                
+                // 自動生成フィールド名を検出
+                const autoGeneratedFields = results.meta.fields.filter(field => field.startsWith('_empty_'));
+                if (autoGeneratedFields.length > 0) {
+                  console.log("自動生成された空フィールド名:", autoGeneratedFields);
+                }
+                
+                // パース完了処理
+                handleParseComplete(results, yearRowResult.yearRowValue);
+                resolve(results);
+              } catch (error) {
+                console.error("CSVパース完了処理中にエラーが発生しました:", error);
+                setError(`CSVデータの処理中にエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+                reject(error);
+              }
+            },
+            error: (error) => {
+              console.error("CSVパース中にエラーが発生しました:", error);
+              setError(`CSVファイルの解析に失敗しました: ${error.message || '不明なエラー'}`);
+              reject(error);
+            }
+          });
+        };
+        
+        reader.onerror = (error) => {
+          console.error("ファイル読み込み中にエラーが発生しました:", error);
+          setError("ファイルの読み込みに失敗しました");
+          reject(error);
+        };
+        
+        // ファイル読み込み開始 - UTF-8エンコーディングを明示
+        try {
+          // まずはUTF-8で試す
+          reader.readAsText(file, 'UTF-8');
+        } catch (error) {
+          console.error('UTF-8でのファイル読み込みエラー:', error);
+          try {
+            // UTF-8で失敗したらShift-JISで試す
+            reader.readAsText(file, 'Shift_JIS');
+          } catch (error2) {
+            console.error('Shift_JISでのファイル読み込みエラー:', error2);
+            // 最後の手段としてエンコーディング指定なしで読み込み
+            reader.readAsText(file);
+          }
+        }
+      } catch (error) {
+        console.error("ファイル処理中に予期しないエラーが発生しました:", error);
+        setError(`予期しないエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        reject(error);
+      }
+    });
+  };
+
+  // getCurrentFiscalYear - 現在の年度を取得する補助関数
+  const getCurrentFiscalYear = (): number => {
+    return fiscalYear;
+  };
+  
+  // CSVデータをAPI形式に変換する関数
+  const convertCSVData = (csvData: any[], detectedFiscalYear = null) => {
+    console.log("CSVデータをAPI形式に変換開始", csvData.length, csvData);
+    
+    // 年度の検出
+    let fiscalYearToUse = detectedFiscalYear;
+    if (!fiscalYearToUse) {
+      // 年度列からの検出を試みる
+      fiscalYearToUse = getCurrentFiscalYear();
+      
+      try {
+        if (csvData && csvData.length > 0 && csvData[0].hasOwnProperty('年度')) {
+          const yearFromData = parseInt(csvData[0]['年度'], 10);
+          if (!isNaN(yearFromData) && yearFromData > 2000 && yearFromData < 2100) {
+            fiscalYearToUse = yearFromData;
+            console.log("検出された年度:", fiscalYearToUse);
+          }
+        }
+      } catch (error) {
+        console.error("年度検出中にエラー:", error);
+      }
+    }
+    
+    // 使用する年度を決定
+    console.log("使用する年度:", fiscalYearToUse);
+    
+    // フィールドのマッピングを改善
+    const convertedData: any[] = [];
+    
+    // CSVデータのフィールド名を取得
+    const availableFields = csvData.length > 0 ? Object.keys(csvData[0]) : [];
+    console.log("CSVデータの使用可能なフィールド名:", availableFields);
+    
+    // 自動生成フィールドと通常フィールドを分離
+    const autoGenFields = availableFields.filter(f => f.startsWith('_empty_'));
+    const regularFields = availableFields.filter(f => !f.startsWith('_empty_'));
+    console.log("自動生成フィールド:", autoGenFields);
+    console.log("通常フィールド:", regularFields);
+    
+    // 自動生成フィールドがあれば位置ベースのマッピングを使用
+    const usePositionalMapping = autoGenFields.length > 0;
+    if (usePositionalMapping) {
+      console.log("自動生成フィールドがあります。データの位置から推測してマッピングを拡張します。");
+    }
+    
+    // 想定されるフィールド順序（ヘッダー行の典型的な順序）
+    const expectedFieldOrder = [
+      "社員ID", "氏名", "障害区分", "障害", "等級", "採用日", "状態", "WH", "HC", 
+      "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月"
+    ];
+    
+    // 位置ベースの拡張マッピング
+    const extendedMapping: {[key: string]: string} = {};
+    if (usePositionalMapping) {
+      autoGenFields.forEach((field, index) => {
+        if (index < expectedFieldOrder.length) {
+          extendedMapping[field] = expectedFieldOrder[index];
+          console.log(`自動生成フィールド ${field} は ${expectedFieldOrder[index]} に相当すると推測`);
+        }
+      });
+    }
+    
+    // 各行のデータを変換
+    csvData.forEach((row, rowIndex) => {
+      try {
+        console.log(`行 ${rowIndex + 1} の処理開始:`, row);
+        
+        // フィールドの取得（通常か拡張マッピングを使用）
+        const getField = (fieldName: string) => {
+          if (row.hasOwnProperty(fieldName)) {
+            return row[fieldName];
+          }
+          
+          // 拡張マッピングのチェック
+          for (const [autoField, mappedField] of Object.entries(extendedMapping)) {
+            if (mappedField === fieldName && row.hasOwnProperty(autoField)) {
+              return row[autoField];
+            }
+          }
+          
+          // 状態/状況フィールドの特別処理
+          if (fieldName === '状態') {
+            // '状況'フィールドも試す
+            if (row.hasOwnProperty('状況')) {
+              return row['状況'];
+            }
+            
+            // 拡張マッピングでの「状況」を検索
+            for (const [autoField, mappedField] of Object.entries(extendedMapping)) {
+              if (mappedField === '状況' && row.hasOwnProperty(autoField)) {
+                return row[autoField];
+              }
+            }
+          }
+          
+          return null;
+        };
+        
+        // 主要フィールドの取得
+        const employeeId = getField('社員ID');
+        console.log(`行 ${rowIndex + 1} の社員ID: ${employeeId}`);
+        
+        const name = getField('氏名');
+        console.log(`行 ${rowIndex + 1} の氏名: ${name}`);
+        
+        // 社員IDまたは氏名が空の場合はスキップ（ヘッダー行など）
+        if (!employeeId || !name) {
+          console.log(`行 ${rowIndex + 1} は社員IDまたは氏名がないためスキップします。`);
+          return;
+        }
+        
+        console.log(`行 ${rowIndex + 1} は有効なデータ行です`);
+        
+        // 採用日を解析
+        const hireDateStr = getField('採用日');
+        let hireDate = null;
+        
+        try {
+          if (hireDateStr) {
+            // 様々な日付形式に対応
+            const dateStr = String(hireDateStr).trim();
+            
+            // YYYY/MM/DD, YYYY-MM-DD, YYYY/M/D, etc.
+            const dateRegex = /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/;
+            const dateMatch = dateStr.match(dateRegex);
+            
+            if (dateMatch) {
+              const [_, year, month, day] = dateMatch;
+              hireDate = `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+            } else {
+              hireDate = dateStr;
+            }
+          }
+        } catch (error) {
+          console.error(`行 ${rowIndex + 1} の採用日解析中にエラー:`, error);
+        }
+        
+        // 月次データの処理
+        const monthlyData: {[key: string]: number | string} = {};
+        
+        ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'].forEach((month) => {
+          let monthValue = getField(month);
+          console.log(`行 ${rowIndex + 1} の${month}データ: ${monthValue}`);
+          
+          if (monthValue === null || monthValue === undefined || monthValue === '') {
+            monthlyData[month] = '';
+          } else {
+            // 数値に変換を試みる
+            const numValue = parseFloat(String(monthValue));
+            if (!isNaN(numValue)) {
+              monthlyData[month] = numValue;
+            } else {
+              // 数値変換に失敗した場合はHC値を使用
+              const hcValue = getField('HC');
+              monthlyData[month] = hcValue || '';
+            }
+          }
+        });
+        
+        // 変換後のデータを作成
+        const convertedRow = {
+          fiscal_year: fiscalYearToUse,
+          employee_id: employeeId,
+          name: name,
+          disability_type: getField('障害区分') || '',
+          disability: getField('障害') || '',
+          disability_grade: getField('等級') || '',
+          hire_date: hireDate || '',
+          status: getField('状態') || '',
+          employment_type: getField('WH') || '',
+          hc_value: parseFloat(String(getField('HC'))) || 0,
+          monthly_status: monthlyData
+        };
+        
+        console.log(`行 ${rowIndex + 1} の従業員データ変換完了:`, convertedRow);
+        convertedData.push(convertedRow);
+      } catch (error) {
+        console.error(`行 ${rowIndex + 1} の処理中にエラーが発生しました:`, error);
+      }
+    });
+    
+    console.log("従業員データに変換:", convertedData.length + "名", convertedData);
+    return convertedData;
+  };
+  
+  // パース完了時のハンドラ
+  const handleParseComplete = (results: ParseResult<any>, detectedYear = null) => {
+    try {
+      console.log("パース完了。データ行数:", results.data.length);
+      
+      // エラーチェック
+      if (results.errors && results.errors.length > 0) {
+        console.error("CSVパースエラー:", results.errors);
+        setError(`CSVパースエラー: ${results.errors[0].message || '不明なエラー'}`);
         return;
       }
       
-      // 年度行を検出するための事前処理
-      const checkFirstRowForFiscalYear = (csvContent: string): { 
-        hasYearRow: boolean, 
-        yearRowValue: number | null, 
-        modifiedCsv: string | null 
-      } => {
-        const lines = csvContent.split(/\r?\n/);
-        if (lines.length < 2) return { hasYearRow: false, yearRowValue: null, modifiedCsv: null };
-        
-        const firstLine = lines[0].trim();
-        // 「年度,XXXX」形式の行を検出
-        const yearRowMatch = firstLine.match(/^年度[,\t](\d{4})$/);
-        
-        if (yearRowMatch) {
-          const yearValue = parseInt(yearRowMatch[1], 10);
-          console.log('CSVの1行目から年度を検出:', yearValue);
-          
-          // 年度を設定
-          setDetectedFiscalYear(yearValue);
-          
-          // 2行目がヘッダー行
-          return { 
-            hasYearRow: true, 
-            yearRowValue: yearValue,
-            modifiedCsv: null  // 実際のファイルは変更しない
-          };
-        }
-        
-        return { hasYearRow: false, yearRowValue: null, modifiedCsv: null };
-      };
-      
-      // CSVの最初の部分をログ出力してデバッグ
-      console.log('CSVの最初の部分:', csvText.substring(0, 200));
-      
-      // 年度行のチェック
-      const yearRowCheck = checkFirstRowForFiscalYear(csvText);
-      console.log('年度行チェック結果:', yearRowCheck);
-      
-      // 正常終了時のコールバック
-      const handleParseComplete = (results: ParseResult<any>) => {
-        try {
-          // CSV解析結果の詳細出力
-          console.log("CSV解析結果の詳細:", {
-            dataRows: results.data?.length || 0,
-            errors: results.errors,
-            meta: results.meta,
-            headers: results.meta?.fields || []
-          });
-          
-          // PapaParseのエラーチェック
-          if (results.errors && results.errors.length > 0) {
-            console.error("CSVパースエラー:", results.errors);
-            
-            // エラーが「Too many fields」で、区切り文字の問題の可能性がある場合
-            const tooManyFieldsError = results.errors.some(e => 
-              e.message && e.message.includes('Too many fields'));
-            
-            if (tooManyFieldsError) {
-              setErrorMessage(`CSVファイルの区切り文字が正しく認識できませんでした。カンマ区切り(,)のCSVファイルを使用してください。`);
-            } else {
-              setErrorMessage(`CSVパースエラー: ${results.errors[0].message}`);
-            }
-            
-            setProcessStage('error');
-            return;
-          }
-          
-          // データの有無チェック
-          if (!results.data || results.data.length === 0) {
-            setErrorMessage("CSVデータが空です");
-            setProcessStage('error');
-            return;
-          }
-          
-          // 利用可能なフィールド名を確認
-          if (results.data.length > 0) {
-            const firstRow = results.data[0];
-            console.log('最初の行のデータ:', firstRow);
-            console.log('利用可能なフィールド名:', Object.keys(firstRow));
-            
-            // _empty_xxxフィールドがある場合は警告
-            const emptyFields = Object.keys(firstRow).filter(key => key.startsWith('_empty_'));
-            if (emptyFields.length > 0) {
-              console.warn('自動生成された空フィールド名:', emptyFields);
-            }
-          }
-          
-          // 有効なデータを抽出 (空行を除外)
-          const validData = results.data.filter((row: any) => 
-            Object.keys(row).length > 0 && 
-            Object.values(row).some(v => v !== null && v !== undefined && v !== '')
-          );
-          
-          console.log('パース完了。データ行数:', validData.length);
-          
-          // 年度を検出し、データを変換
-          try {
-            // 年度行から検出した年度を優先的に使用
-            const yearToUse = yearRowCheck.yearRowValue || fiscalYear;
-            const convertedData = convertEmployeeTemplateDataToApiFormat(validData, yearToUse);
-            
-            // データが変換できた場合
-            if (convertedData && convertedData.length > 0) {
-              // 検出された年度を設定
-              if (convertedData[0]?.fiscal_year) {
-                setDetectedFiscalYear(convertedData[0].fiscal_year);
-              }
-              
-              // 変換済みデータをキャッシュ
-              setConvertedEmployeeData(convertedData);
-              
-              // パース済みデータをキャッシュに保存
-              setParsedDataCache(validData);
-              setProcessStage('ready');
-            } else {
-              console.warn('変換されたデータがありません');
-              throw new Error('有効な従業員データが変換できませんでした。CSVファイルの形式を確認してください。');
-            }
-          } catch (conversionError) {
-            console.error('データ変換エラー:', conversionError);
-            setErrorMessage(`データの変換に失敗しました: ${conversionError instanceof Error ? conversionError.message : String(conversionError)}`);
-            setProcessStage('error');
-          }
-        } catch (err) {
-          console.error('データ処理エラー:', err);
-          setErrorMessage(`CSVデータの処理中にエラーが発生しました: ${err instanceof Error ? err.message : String(err)}`);
-          setProcessStage('error');
-        }
-      };
-      
-      try {
-        // 年度行を検出した場合は特別処理
-        if (yearRowCheck.hasYearRow) {
-          console.log('年度行を検出: 2行目をヘッダーとして処理する特別な処理を実行します');
-          
-          // CSVの行を分割
-          const lines = csvText.split(/\r?\n/);
-          
-          if (lines.length >= 2) {
-            console.log('取得された最初の2行:', {
-              '1行目(年度行)': lines[0],
-              '2行目(ヘッダー行)': lines[1]
-            });
-            
-            // 年度行(1行目)を保持しつつ、2行目をヘッダーとして処理するCSVを作成
-            // 1. 年度行を一時的に保存
-            const yearRow = lines[0];
-            const yearMatch = yearRow.match(/年度,(\d{4})/);
-            if (yearMatch) {
-              const detectedYear = parseInt(yearMatch[1], 10);
-              setDetectedFiscalYear(detectedYear);
-              console.log(`年度行から年度を検出: ${detectedYear}`);
-            }
-            
-            // 2. 2行目以降のみを使用して新しいCSVテキストを作成
-            const modifiedCsvText = lines.slice(1).join('\n');
-            
-            // 3. 2行目からのデータでパースを実行
-            Papa.parse(modifiedCsvText, {
-              header: true,
-              skipEmptyLines: true,
-              dynamicTyping: true,
-              delimiter: ',',
-              encoding: 'UTF-8',
-              delimitersToGuess: [',', ';', '\t', '|'],
-              comments: '#',
-              transformHeader: (header) => {
-                const trimmedHeader = header.trim();
-                return trimmedHeader || `_empty_${Math.random().toString(36).substring(2, 7)}`;
-              },
-              error: function(error) {
-                console.error('CSVパース処理中のエラー:', error);
-              },
-              complete: handleParseComplete,
-            });
-            
-            return; // 特別処理を実行したので、通常のパース処理は行わない
-          }
-        }
-        
-        // 通常のパース処理（年度行を検出していない場合）
-        console.log('通常のCSVパース処理を実行します（年度行なし）');
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          dynamicTyping: true,
-          delimiter: ',', // カンマを明示的に指定
-          encoding: 'UTF-8', // エンコーディングを明示
-          delimitersToGuess: [',', ';', '\t', '|'], // 区切り文字の自動検出
-          comments: '#', // コメント行をスキップ
-          transformHeader: (header) => {
-            // ヘッダー変換 - 空の場合は一意のIDを生成
-            const trimmedHeader = header.trim();
-            return trimmedHeader || `_empty_${Math.random().toString(36).substring(2, 7)}`;
-          },
-          error: function(error) {
-            console.error('CSVパース処理中のエラー:', error);
-          },
-          beforeFirstChunk: function(chunk) {
-            // CSVファイルの最初の部分をデバッグ出力
-            console.log('CSVの最初のチャンク:', chunk.substring(0, 100));
-            return chunk;
-          },
-          complete: handleParseComplete,
-        });
-      } catch (err) {
-        console.error('Papaparse実行エラー:', err);
-        setErrorMessage('CSVファイルの処理中にエラーが発生しました');
-        setProcessStage('error');
+      // 空データチェック
+      if (!results.data || results.data.length === 0) {
+        setError("CSVデータが空です");
+        return;
       }
-    };
-    
-    reader.onerror = () => {
-      setErrorMessage('ファイルの読み込み中にエラーが発生しました');
-      setProcessStage('error');
-    };
-    
-    // ファイル読み込み開始 - UTF-8エンコーディングを明示
-    try {
-      // まずはUTF-8で試す
-      reader.readAsText(file, 'UTF-8');
+      
+      // 変換済みデータを使用してインポートします
+      let convertedData;
+      try {
+        convertedData = convertCSVData(results.data, detectedYear);
+        if (!convertedData || convertedData.length === 0) {
+          setError("有効なデータ行が見つかりませんでした。CSVファイルの形式を確認してください。");
+          return;
+        }
+      } catch (error) {
+        console.error("データの変換に失敗しました:", error);
+        setError(`データの変換に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        return;
+      }
+      
+      // 変換済みデータをキャッシュ
+      setConvertedEmployeeData(convertedData);
+      
+      // デバッグ情報 - 障がい者データが正しく変換されているか確認
+      console.log('変換されたAPIデータ:', convertedData);
+      
+      // 検出された年度を設定
+      if (convertedData[0]?.fiscal_year) {
+        setDetectedFiscalYear(convertedData[0].fiscal_year);
+      }
+      
+      // パース済みデータをキャッシュに保存
+      setParsedDataCache(results.data);
+      setProcessStage('ready');
+      
+      setImportData(convertedData);
     } catch (error) {
-      console.error('UTF-8でのファイル読み込みエラー:', error);
-      try {
-        // UTF-8で失敗したらShift-JISで試す
-        reader.readAsText(file, 'Shift_JIS');
-      } catch (error2) {
-        console.error('Shift_JISでのファイル読み込みエラー:', error2);
-        // 最後の手段としてエンコーディング指定なしで読み込み
-        reader.readAsText(file);
-      }
+      console.error("データ処理エラー:", error);
+      setError(`データの変換に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
     }
   };
 
@@ -371,31 +570,41 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
       } else {
         // 変換済みデータがない場合は再変換
         console.log(`インポートに使用する年度: ${detectedFiscalYear || fiscalYear}`);
-        const apiFormatData = convertEmployeeTemplateDataToApiFormat(
-          parsedDataCache, 
-          detectedFiscalYear || fiscalYear
-        );
-        setConvertedEmployeeData(apiFormatData);
+        try {
+          await parseCSVFile(file);
+        } catch (error) {
+          console.error('パース処理に失敗しました:', error);
+          setError(`CSVの解析中にエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+          return;
+        }
         
-        if (apiFormatData.length === 0) {
-          setErrorMessage('有効なインポートデータが見つかりませんでした。テンプレート形式を確認してください。');
+        if (importData && importData.length > 0) {
+          setConvertedEmployeeData(importData);
+        } else {
+          setError('有効なインポートデータが見つかりませんでした。テンプレート形式を確認してください。');
           setProcessStage('error');
           return;
         }
       }
       
       // デバッグ情報
-      console.log('インポートする従業員データ:', convertedEmployeeData);
+      console.log('インポートする従業員データ:', convertedEmployeeData || importData);
 
       // インポート確認
-      const numEmployees = convertedEmployeeData!.length;
+      const dataToImport = convertedEmployeeData || importData;
+      if (!dataToImport || dataToImport.length === 0) {
+        setError('インポートするデータが見つかりませんでした');
+        return;
+      }
+      
+      const numEmployees = dataToImport.length;
       const detectedYear = detectedFiscalYear || fiscalYear;
       
       if (window.confirm(`${detectedYear}年度の${numEmployees}名の従業員データをインポートします。よろしいですか？`)) {
         setIsLoading(true);
         
         // データをコンポーネントに渡す
-        onImportSuccess(convertedEmployeeData!);
+        onImportSuccess(dataToImport);
         
         setSuccessMessage(`${detectedYear}年度の従業員データ (${numEmployees}名) をインポートしました。`);
         setProcessStage('completed');
@@ -532,329 +741,6 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
       </div>
     </div>
   );
-};
-
-// CSVテンプレートの生成 - 改良版
-const generateEmployeeCSVTemplate = (fiscalYear: number): string => {
-  // CSVデータ作成
-  let csvContent = '\uFEFF'; // BOMを追加して文字化けを防止
-  
-  // 年度行を追加
-  csvContent += `年度,${fiscalYear}\n`;
-  
-  // ヘッダー行を追加
-  csvContent += '社員ID,氏名,障害区分,障害,等級,採用日,状態,WH,HC,4月,5月,6月,7月,8月,9月,10月,11月,12月,1月,2月,3月\n';
-  
-  // サンプルデータを追加
-  const sampleData = [
-    ['1001', '山田 太郎', '身体障害', '視覚', '1級', '2010/04/01', '在籍', '正社員', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2', '2'],
-    ['2222', '山田 花子', '身体障害', '聴覚', '4級', '2020/04/10', '在籍', '短時間労働者', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5', '0.5'],
-    ['3333', '山田 一郎', '知的障害', '', 'B', '2020/10/01', '退職', '正社員', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1'],
-    ['4444', '山田 二郎', '精神障害', 'ADHD', '3級', '2024/05/01', '在籍', '正社員', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1'],
-    ['5555', '高橋 花', '精神障害', 'うつ病', '2級', '2024/05/04', '休職', '正社員', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
-  ];
-  
-  // サンプルデータを追加
-  sampleData.forEach(row => {
-    csvContent += row.join(',') + '\n';
-  });
-  
-  // 注意事項を追加（注意：インポート時は削除されます）
-  csvContent += '\n注意事項（インポート時は注意事項全体を削除してデータのみにしてください）\n';
-  csvContent += 'ファイル構造,以下の行順序を維持してください：1行目「年度,XXXX」、2行目「ヘッダー行」、3行目以降「データ行」\n';
-  csvContent += '年度行,必ず1行目に「年度,XXXX」形式の年度指定を記載してください。年度を省略すると選択中の年度が使用されます\n';
-  csvContent += '障害区分,身体障害、知的障害、精神障害、発達障害のいずれかをご入力ください\n';
-  csvContent += '等級,1級や3級、知的障害の場合には、A1, A2, B1, B2のいずれかをご入力ください\n';
-  csvContent += '採用日,YYYY/MM/DDのフォーマットでご入力ください。例えば、2000年4月1日入社の場合には、2000/04/01または2000/4/1\n';
-  csvContent += '状態,在籍、休職、退職からご入力ください\n';
-  csvContent += 'WH,正社員、短時間労働者、特定短時間労働者からご入力ください\n';
-  csvContent += 'HC及び各月,HC(障がい者のカウント)及び各月は、2、1、0.5からご入力ください\n';
-  csvContent += 'ヘッダー行,ヘッダー行（列名）の変更はしないでください。特に月の表記（「9月」と「9 月」の違い）に注意してください\n';
-  csvContent += 'エクセル保存,エクセルで編集した場合は必ず「CSV（カンマ区切り）」形式で保存してください\n';
-  
-  return csvContent;
-};
-
-// CSVファイルのダウンロード
-const downloadCSV = (content: string, filename: string): void => {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-// CSVデータをAPIフォーマットに変換する関数
-// 採用日を処理する関数
-const processHireDate = (dateStr: string): string => {
-  if (!dateStr) return '';
-  
-  dateStr = String(dateStr).trim();
-  
-  // 様々な日付形式に対応
-  const formats = [
-    /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/, // YYYY/MM/DD or YYYY-MM-DD
-    /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/  // MM/DD/YYYY or DD-MM-YYYY
-  ];
-  
-  for (const format of formats) {
-    const match = dateStr.match(format);
-    if (match) {
-      const parts = match.slice(1).map(Number);
-      let year, month, day;
-      
-      if (format === formats[0]) {
-        // YYYY/MM/DD形式
-        [year, month, day] = parts;
-      } else {
-        // MM/DD/YYYY形式
-        [month, day, year] = parts;
-      }
-      
-      // 日付が有効かどうかチェック
-      const date = new Date(year, month - 1, day);
-      if (!isNaN(date.getTime())) {
-        // フォーマットを統一（YYYY/MM/DD）
-        return `${year}/${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}`;
-      }
-    }
-  }
-  
-  // 元の値をそのまま返す（変換できない場合）
-  return dateStr;
-};
-
-const convertEmployeeTemplateDataToApiFormat = (csvData: any[], defaultFiscalYear: number): any[] => {
-  console.log('CSVデータをAPI形式に変換開始', csvData.length, csvData);
-  
-  // フィールド名のマッピングを追加 - 自動生成フィールド(_empty_xxx)も対応
-  const fieldMappings: {[key: string]: string[]} = {
-    '社員ID': ['社員ID', '社員番号', 'ID', 'employee_id', 'employee-id'],
-    '氏名': ['氏名', '名前', 'フルネーム', 'name'],
-    '障害区分': ['障害区分', '障害種別', '障害タイプ', 'disability_type', 'disability-type'],
-    '障害': ['障害', '障害名', 'disability'],
-    '等級': ['等級', 'グレード', '級', 'grade'],
-    '採用日': ['採用日', '入社日', 'hire_date', 'hire-date'],
-    '退職日': ['退職日', '退社日', 'retirement_date', 'retirement-date'],
-    '状態': ['状態', '状況', 'ステータス', '在籍状況', 'status'],
-    'WH': ['WH', '雇用形態', '勤務形態', 'work_hours', 'work-hours'],
-    'HC': ['HC', 'ヘッドカウント', 'head_count', 'head-count'],
-    // 月のフィールド対応（スペースありなしの両方に対応）
-    '4月': ['4月', '4 月', 'Apr', 'April'],
-    '5月': ['5月', '5 月', 'May'],
-    '6月': ['6月', '6 月', 'Jun', 'June'],
-    '7月': ['7月', '7 月', 'Jul', 'July'],
-    '8月': ['8月', '8 月', 'Aug', 'August'],
-    '9月': ['9月', '9 月', 'Sep', 'September'],
-    '10月': ['10月', '10 月', 'Oct', 'October'],
-    '11月': ['11月', '11 月', 'Nov', 'November'],
-    '12月': ['12月', '12 月', 'Dec', 'December'],
-    '1月': ['1月', '1 月', 'Jan', 'January'],
-    '2月': ['2月', '2 月', 'Feb', 'February'],
-    '3月': ['3月', '3 月', 'Mar', 'March']
-  };
-  
-  // CSVデータの最初の行を調査して、自動生成された列名(empty_xxx)をマッピングに追加
-  if (csvData.length > 0) {
-    const firstRow = csvData[0];
-    const availableFields = Object.keys(firstRow);
-    console.log('CSVデータの使用可能なフィールド名:', availableFields);
-    
-    // 自動生成フィールド名の検出と処理
-    const emptyFields = availableFields.filter(field => field.startsWith('_empty_'));
-    const nonEmptyFields = availableFields.filter(field => !field.startsWith('_empty_'));
-    console.log('自動生成フィールド:', emptyFields);
-    console.log('通常フィールド:', nonEmptyFields);
-    
-    if (emptyFields.length > 0) {
-      // 年度,2025のケースを疑う - 2行目がヘッダー行だった場合
-      console.log('自動生成フィールドがあります。データの位置から推測してマッピングを拡張します。');
-      
-      // 期待される標準列名 (テンプレートの列順)
-      const expectedColumns = [
-        '社員ID', '氏名', '障害区分', '障害', '等級', '採用日', '状態', 'WH', 'HC',
-        '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'
-      ];
-      
-      // 位置ベースのマッピング - 空フィールドの位置から元の列名を推測
-      emptyFields.forEach((emptyField, index) => {
-        const expectedColumn = index < expectedColumns.length ? expectedColumns[index] : null;
-        if (expectedColumn) {
-          console.log(`自動生成フィールド ${emptyField} は ${expectedColumn} に相当すると推測`);
-          fieldMappings[expectedColumn].push(emptyField);
-        }
-      });
-    }
-  }
-  
-  // 柔軟なフィールド取得関数 - 拡張版
-  const getFieldValue = (row: any, fieldNames: string[]): any => {
-    // 通常のフィールド名で検索
-    for (const name of fieldNames) {
-      if (row[name] !== undefined && row[name] !== null) {
-        return row[name];
-      }
-    }
-    
-    // _empty_xxx形式のフィールドにも対応
-    // 各フィールドの配列内の位置を利用してマッピング
-    const allColumns = Object.keys(row);
-    const emptyColumns = allColumns.filter(col => col.startsWith('_empty_'));
-    
-    // 標準的な列順
-    const standardColumns = [
-      '社員ID', '氏名', '障害区分', '障害', '等級', '採用日', '状態', 'WH', 'HC',
-      '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'
-    ];
-    
-    // フィールドの正規化された名前を取得
-    const normalizedName = fieldNames[0]; // 最初の名前を代表として使用
-    const columnIndex = standardColumns.indexOf(normalizedName);
-    
-    // 位置が分かり、かつその位置に対応する_empty_xxxフィールドが存在する場合
-    if (columnIndex >= 0 && columnIndex < emptyColumns.length) {
-      const emptyField = emptyColumns[columnIndex];
-      if (row[emptyField] !== undefined && row[emptyField] !== null) {
-        return row[emptyField];
-      }
-    }
-    
-    return null;
-  };
-  
-  // 年度の取得
-  let fiscalYear = defaultFiscalYear; // デフォルト値
-  
-  // 年度行を検出 - すべての行をチェック
-  for (const row of csvData) {
-    // 年度フィールドを検出
-    const yearValue = getFieldValue(row, ['年度', 'fiscal_year', 'fiscalYear', 'year']);
-    if (yearValue !== null && yearValue !== '') {
-      if (typeof yearValue === 'number') {
-        fiscalYear = yearValue;
-        console.log('検出された年度(数値):', fiscalYear);
-        break;
-      } else if (typeof yearValue === 'string') {
-        const match = yearValue.match(/\d{4}/);
-        if (match) {
-          fiscalYear = parseInt(match[0], 10);
-          console.log('検出された年度(文字列):', fiscalYear);
-          break;
-        }
-      }
-    }
-  }
-  console.log('使用する年度:', fiscalYear);
-  
-  // 従業員データを抽出
-  const employees: any[] = [];
-  
-  // すべての行をチェック (フィルタリングを緩和)
-  for (let index = 0; index < csvData.length; index++) {
-    const row = csvData[index];
-    console.log(`行 ${index + 1} の処理開始:`, row);
-    
-    try {
-      // 社員IDの取得 (必須項目)
-      const employeeId = getFieldValue(row, fieldMappings['社員ID']);
-      console.log(`行 ${index + 1} の社員ID:`, employeeId);
-      
-      // 氏名の取得 (必須項目)
-      const name = getFieldValue(row, fieldMappings['氏名']);
-      console.log(`行 ${index + 1} の氏名:`, name);
-      
-      // 必須項目のチェック
-      if (!employeeId || !name) {
-        // 社員IDまたは氏名がない行はスキップ
-        console.log(`行 ${index + 1} は社員IDまたは氏名がないためスキップします。`);
-        continue;
-      }
-      
-      // この行は処理対象
-      console.log(`行 ${index + 1} は有効なデータ行です`);
-      
-      // データマッピング
-      const employee: any = {
-        fiscal_year: fiscalYear,
-        employee_id: employeeId,
-        name: name,
-        disability_type: getFieldValue(row, fieldMappings['障害区分']) || '',
-        disability: getFieldValue(row, fieldMappings['障害']) || '',
-        grade: getFieldValue(row, fieldMappings['等級']) || '',
-        hire_date: processHireDate(getFieldValue(row, fieldMappings['採用日']) || ''),
-        status: getFieldValue(row, fieldMappings['状態']) || '在籍',
-        wh: getFieldValue(row, fieldMappings['WH']) || '正社員',
-        retirement_date: processHireDate(getFieldValue(row, fieldMappings['退職日']) || ''),
-        monthlyStatus: []
-      };
-      
-      // HC値の処理
-      const hcValue = getFieldValue(row, fieldMappings['HC']);
-      if (hcValue !== null) {
-        try {
-          // 文字列の場合はカンマをピリオドに変換
-          const hcString = typeof hcValue === 'string' ? 
-            hcValue.replace(',', '.') : String(hcValue);
-          
-          const hcNumber = parseFloat(hcString);
-          if (!isNaN(hcNumber)) {
-            employee.hc = hcNumber;
-          } else {
-            console.warn(`行 ${index + 1} のHC値(${hcValue})が数値ではありません。デフォルト値1を使用します。`);
-            employee.hc = 1;
-          }
-        } catch (e) {
-          console.warn(`行 ${index + 1} のHC値変換エラー:`, e);
-          employee.hc = 1;
-        }
-      } else {
-        employee.hc = 1; // デフォルト値
-      }
-      
-      // 月次データの処理
-      const months = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'];
-      
-      // 各月のHC値を抽出
-      employee.monthlyStatus = months.map((month, monthIndex) => {
-        const monthValue = getFieldValue(row, fieldMappings[month]);
-        console.log(`行 ${index + 1} の${month}データ:`, monthValue);
-        
-        // 空、未定義、nullはHC値として処理
-        if (monthValue === null || monthValue === '' || monthValue === undefined) {
-          return employee.hc; // デフォルトはHC値
-        }
-        
-        // 数値変換試行
-        try {
-          // 文字列の場合はカンマをピリオドに変換
-          const strValue = typeof monthValue === 'string' ? 
-            monthValue.replace(',', '.') : String(monthValue);
-          
-          const numValue = parseFloat(strValue);
-          if (isNaN(numValue)) {
-            console.warn(`行 ${index + 1} の${month}の値(${monthValue})が数値ではありません。HC値として処理します。`);
-            return employee.hc;
-          } else {
-            return numValue;
-          }
-        } catch (e) {
-          console.warn(`行 ${index + 1} の${month}の値(${monthValue})の変換エラー:`, e);
-          return employee.hc;
-        }
-      });
-      
-      console.log(`行 ${index + 1} の従業員データ変換完了:`, employee);
-      employees.push(employee);
-    } catch (error) {
-      console.error(`行 ${index + 1} の処理中にエラー発生:`, error);
-    }
-  }
-  
-  console.log(`従業員データに変換: ${employees.length}名`, employees);
-  return employees;
 };
 
 export default EmployeeCSVImportModal;
