@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useYearMonth } from './YearMonthContext';
+import EmployeeCSVImportModal from './EmployeeCSVImportModal';
 
 // WH（雇用形態）の選択肢定義
 const WH_OPTIONS = [
@@ -28,6 +29,7 @@ export interface Employee {
   fiscal_year?: number;  // 年度情報
   inheritedFrom?: number;  // データの引き継ぎ元年度
   _timestamp?: string;  // タイムスタンプ
+  _selected?: boolean;  // UI用の選択状態フラグ（データベースには保存されない）
 }
 
 export interface MonthlyTotal {
@@ -668,6 +670,10 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // 元の従業員データを保持するための状態（編集キャンセル用）
   const [originalEmployees, setOriginalEmployees] = useState<Employee[]>([]);
   
+  // 選択状態の管理
+  const [selectAll, setSelectAll] = useState<boolean>(false);
+  const [selectedCount, setSelectedCount] = useState<number>(0);
+  
   // 新規行追加モード用の状態
   const [isAddingNewRow, setIsAddingNewRow] = useState<boolean>(false);
   const [newRowData, setNewRowData] = useState<Omit<Employee, 'id'>>({...defaultEmployee});
@@ -680,6 +686,9 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   
   // ローディング状態
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // CSVインポートモーダルの状態
+  const [isCSVImportModalOpen, setIsCSVImportModalOpen] = useState<boolean>(false);
 
   // 入力状態管理用のローカルstate
   const [inputValues, setInputValues] = useState<{[key: string]: any}>({});
@@ -1633,6 +1642,229 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   };
   
   // 7. 安全な削除（バックアップ付き）- すでにdeleteEmployeeFromDBに実装済み
+  
+  // 年度データを一括削除する関数
+  // 選択状態を切り替える関数
+  const toggleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    
+    // すべての従業員の選択状態を更新
+    setLocalEmployees(prev => {
+      const updatedEmployees = prev.map(emp => ({
+        ...emp,
+        _selected: newSelectAll
+      }));
+      
+      // 選択数を更新
+      setSelectedCount(newSelectAll ? updatedEmployees.length : 0);
+      
+      return updatedEmployees;
+    });
+  };
+  
+  // 個別の従業員の選択状態を切り替える関数
+  const toggleSelectEmployee = (id: number) => {
+    setLocalEmployees(prev => {
+      const updatedEmployees = prev.map(emp => {
+        if (emp.id === id) {
+          // 選択状態を反転
+          const newSelected = !emp._selected;
+          return {
+            ...emp,
+            _selected: newSelected
+          };
+        }
+        return emp;
+      });
+      
+      // 選択数を再計算
+      const newSelectedCount = updatedEmployees.filter(emp => emp._selected).length;
+      setSelectedCount(newSelectedCount);
+      
+      // 全選択状態を更新
+      setSelectAll(newSelectedCount === updatedEmployees.length && newSelectedCount > 0);
+      
+      return updatedEmployees;
+    });
+  };
+  
+  // 選択した従業員を一括削除する関数
+  const deleteSelectedEmployees = async () => {
+    // 選択された従業員を取得
+    const selectedEmployees = localEmployees.filter(emp => emp._selected);
+    
+    if (selectedEmployees.length === 0) {
+      setErrorMessage('削除する従業員が選択されていません');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    
+    // 削除確認
+    if (!window.confirm(`選択した${selectedEmployees.length}人の従業員データを削除します。\nこの操作は元に戻せません。\n\n実行してもよろしいですか？`)) {
+      console.log('一括削除操作がキャンセルされました');
+      return;
+    }
+    
+    // 削除処理
+    console.log(`${selectedEmployees.length}人の従業員の一括削除を開始します`);
+    setIsLoading(true);
+    
+    try {
+      // 削除するIDのリスト
+      const employeeIds = selectedEmployees.map(emp => emp.id);
+      
+      // 一括削除実行
+      const result = await deleteMultipleEmployees(employeeIds);
+      
+      // 結果集計
+      const successCount = result.filter(r => r.success).length;
+      const failCount = result.length - successCount;
+      
+      // 成功メッセージ
+      setSuccessMessage(`${successCount}人の従業員データを削除しました${failCount > 0 ? `（${failCount}件の失敗）` : ''}`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+      
+      // 選択状態をリセット
+      setSelectAll(false);
+      setSelectedCount(0);
+      
+      // データ更新通知
+      if (onRefreshData) {
+        onRefreshData();
+      }
+    } catch (error) {
+      console.error('一括削除エラー:', error);
+      setErrorMessage(`一括削除処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // CSVからのインポート処理
+  const handleCSVImportSuccess = (importedEmployees: any[]) => {
+    console.log(`CSVから${importedEmployees.length}名の従業員データをインポートします`);
+    
+    try {
+      // 現在の従業員一覧に新しいデータを追加（または更新）
+      setLocalEmployees(prev => {
+        // 新しい従業員データ配列
+        const newEmployees = [...prev];
+        
+        // インポートされた各従業員について処理
+        importedEmployees.forEach(importedEmp => {
+          // 既存の従業員かどうかをemployee_idで確認
+          const existingIndex = newEmployees.findIndex(
+            emp => emp.employee_id === importedEmp.employee_id
+          );
+          
+          if (existingIndex >= 0) {
+            // 既存の従業員の場合は更新
+            newEmployees[existingIndex] = {
+              ...newEmployees[existingIndex],
+              ...importedEmp,
+              id: newEmployees[existingIndex].id // IDは保持
+            };
+          } else {
+            // 新規従業員の場合
+            // 新しいIDの生成
+            const newId = Math.max(0, ...newEmployees.map(e => e.id)) + 1;
+            
+            // 新しい従業員オブジェクトの作成
+            const newEmployee: Employee = {
+              ...importedEmp,
+              id: newId,
+              no: newEmployees.length + 1,
+              fiscal_year: fiscalYear
+            };
+            
+            // 配列に追加
+            newEmployees.push(newEmployee);
+          }
+        });
+        
+        return newEmployees;
+      });
+      
+      // ローカルストレージを更新
+      handleSave(); // 既存の保存関数を利用
+      
+      // 成功メッセージ
+      setSuccessMessage(`CSVから${importedEmployees.length}名の従業員データをインポートしました`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+      
+    } catch (error) {
+      console.error('CSVインポート処理エラー:', error);
+      setErrorMessage(`インポート処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+  
+  const clearCurrentYearData = async () => {
+    console.log(`${fiscalYear}年度のデータ一括削除処理を開始します`);
+    
+    try {
+      // ステップ1: 現在の年度データをバックアップ
+      const storageKey = `EMPLOYEE_DATA_${fiscalYear}`;
+      const currentData = localStorage.getItem(storageKey);
+      
+      if (!currentData) {
+        setErrorMessage(`${fiscalYear}年度のデータが見つかりません`);
+        setTimeout(() => setErrorMessage(null), 3000);
+        return;
+      }
+      
+      // バックアップの作成
+      const timestamp = new Date().getTime();
+      const backupKey = `EMPLOYEE_DATA_${fiscalYear}_BACKUP_${timestamp}`;
+      localStorage.setItem(backupKey, currentData);
+      console.log(`${fiscalYear}年度のデータをバックアップしました: ${backupKey}`);
+      
+      // ステップ2: データの解析
+      let employeeCount = 0;
+      try {
+        // データ形式に応じた処理
+        const isObject = currentData.trim().startsWith('{');
+        if (isObject) {
+          const data = JSON.parse(currentData);
+          employeeCount = Object.keys(data).length;
+        } else {
+          const data = JSON.parse(currentData);
+          employeeCount = data.length;
+        }
+      } catch (e) {
+        console.error('データ解析エラー:', e);
+      }
+      
+      // ステップ3: 年度データの削除
+      localStorage.removeItem(storageKey);
+      console.log(`${fiscalYear}年度のデータを削除しました (${employeeCount}件)`);
+      
+      // ステップ4: UIの更新
+      setLocalEmployees([]);
+      setOriginalEmployees([]);
+      
+      // 成功メッセージの表示
+      setSuccessMessage(`${fiscalYear}年度のデータを削除しました (${employeeCount}件)。\nバックアップ: ${backupKey}`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+      
+      return {
+        success: true,
+        message: `${fiscalYear}年度のデータを削除しました (${employeeCount}件)`,
+        backupKey
+      };
+    } catch (error) {
+      console.error(`${fiscalYear}年度のデータ削除中にエラーが発生しました:`, error);
+      setErrorMessage(`データ削除中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
+      setTimeout(() => setErrorMessage(null), 5000);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  };
   
   // 8. フロントエンドでの削除処理デバッグ用
   const debugDeleteFromUI = () => {
@@ -3574,50 +3806,26 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                     データ引き継ぎ
                   </button>
                   
-                  {/* データ分析ボタン */}
+                  {/* データ分析・削除テストボタンは削除 */}
+                  
+                  {/* 選択従業員削除ボタン */}
                   <button
                     type="button"
-                    onClick={() => {
-                      // データ構造分析の実行
-                      analyzeLocalStorageData();
-                      window.alert('データ構造分析がコンソールに出力されました。F12キーを押してコンソールを確認してください。');
-                    }}
+                    onClick={deleteSelectedEmployees}
                     style={{
                       padding: '6px 12px',
-                      backgroundColor: '#6c757d',
+                      backgroundColor: '#dc3545',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
                       fontSize: '0.85rem'
                     }}
-                    title="データ構造分析"
+                    title="選択した従業員データを削除"
+                    disabled={selectedCount === 0}
                   >
-                    データ分析
+                    選択削除{selectedCount > 0 ? ` (${selectedCount})` : ''}
                   </button>
-                  
-                  {/* 削除機能テストボタン - 開発環境のみ表示 */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // 従業員削除機能のデバッグテスト
-                        debugDeleteFromUI();
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem'
-                      }}
-                      title="削除機能のテスト（開発環境のみ）"
-                    >
-                      削除テスト
-                    </button>
-                  )}
                 </>
               )}
               
@@ -3636,6 +3844,26 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   disabled={isLoading}
                 >
                   編集
+                </button>
+              )}
+              
+              {/* CSVインポートボタン */}
+              {!isAddingNewRow && (
+                <button 
+                  type="button"
+                  onClick={() => setIsCSVImportModalOpen(true)}
+                  style={{ 
+                    padding: '8px 16px',
+                    backgroundColor: '#10b981', // 緑色
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginRight: '8px'
+                  }}
+                  disabled={isLoading}
+                >
+                  CSVインポート
                 </button>
               )}
               
@@ -3718,6 +3946,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #dee2e6' }}>
+                <th style={{ padding: '8px', textAlign: 'center', width: '30px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectAll} 
+                    onChange={toggleSelectAll}
+                    title="すべての行を選択/解除"
+                  />
+                </th>
                 <th style={{ padding: '8px', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>社員ID</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>氏名</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>障害区分</th>
@@ -3731,13 +3967,21 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   <th key={`month-${index}`} style={{ padding: '8px', textAlign: 'center' }}>{month}</th>
                 ))}
                 <th style={{ padding: '8px', textAlign: 'left' }}>備考</th>
-                <th style={{ padding: '8px', textAlign: 'left' }}>操作</th>
+                <th style={{ padding: '8px', textAlign: 'left', width: '80px' }}>削除</th>
               </tr>
             </thead>
             <tbody>
               {/* 既存の従業員データ行 */}
               {localEmployees.map((employee, index) => (
                 <tr key={employee.id || index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '8px', textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={employee._selected || false}
+                      onChange={() => toggleSelectEmployee(employee.id)}
+                      title={`従業員 ${employee.name} を選択/解除`}
+                    />
+                  </td>
                   <td style={{ padding: '8px', position: 'sticky', left: 0, backgroundColor: 'white', zIndex: 1 }}>
                     {actualIsEditing ? (
                       <input 
@@ -4430,6 +4674,14 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* CSVインポートモーダル */}
+      <EmployeeCSVImportModal
+        isOpen={isCSVImportModalOpen}
+        onClose={() => setIsCSVImportModalOpen(false)}
+        onImportSuccess={handleCSVImportSuccess}
+        fiscalYear={fiscalYear}
+      />
     </div>
   );
 };
