@@ -162,7 +162,11 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
   };
 
   // 年度行を検出するための事前処理
-  const checkForYearRow = (csvContent: string) => {
+  const checkForYearRow = (csvContent: string): { 
+    hasYearRow: boolean, 
+    yearRowValue: number | undefined, 
+    modifiedCsv: string | undefined 
+  } => {
     try {
       // 最初の数行だけを取得して年度行をチェック
       const lines = csvContent.split('\n').slice(0, 3);
@@ -197,7 +201,7 @@ const EmployeeCSVImportModal: React.FC<EmployeeCSVImportModalProps> = ({
     }
     
     console.log("年度行は検出されませんでした");
-    return { hasYearRow: false, yearRowValue: null, modifiedCsv: null };
+    return { hasYearRow: false, yearRowValue: undefined, modifiedCsv: undefined };
   };
 
   // CSVファイル解析
