@@ -1743,56 +1743,218 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   };
   
   // CSVからのインポート処理
+  // CSVファイルから検出された障害区分を正規化する関数
+  const normalizeDisabilityType = (disabilityType: string): string => {
+    if (!disabilityType) return '';
+    
+    // 小文字変換して空白を削除
+    const normalized = disabilityType.toLowerCase().trim();
+    
+    // 障害区分の正規化マッピング
+    if (normalized.includes('身体') || normalized.includes('physical')) {
+      return '身体障害';
+    } else if (normalized.includes('知的') || normalized.includes('intellectual')) {
+      return '知的障害';
+    } else if (normalized.includes('精神') || normalized.includes('mental')) {
+      return '精神障害';
+    } else if (normalized.includes('発達') || normalized.includes('developmental')) {
+      return '発達障害';
+    }
+    
+    // マッチしない場合は元の値を返す
+    return disabilityType;
+  };
+  
+  // 月次データのデフォルト状態を生成
+  const generateDefaultMonthlyStatus = (hcValue: number | string): Record<string, number> => {
+    const hc = typeof hcValue === 'string' ? parseFloat(hcValue) || 1 : hcValue || 1;
+    
+    return {
+      '4月': hc,
+      '5月': hc,
+      '6月': hc,
+      '7月': hc,
+      '8月': hc,
+      '9月': hc,
+      '10月': hc,
+      '11月': hc,
+      '12月': hc,
+      '1月': hc,
+      '2月': hc,
+      '3月': hc
+    };
+  };
+  
+  // 指定年度の従業員データをローカルストレージから取得
+  const getStoredEmployeeData = (year: number): Record<string, Employee> => {
+    try {
+      // 年度に紐づいた従業員データのキー
+      const storageKey = `EMPLOYEE_DATA_${year}`;
+      const storedData = localStorage.getItem(storageKey);
+      
+      // 保存データが存在する場合はJSONとしてパース
+      if (storedData) {
+        return JSON.parse(storedData);
+      }
+      
+      // データがない場合は空のオブジェクトを返す
+      return {};
+    } catch (error) {
+      console.error(`${year}年度の従業員データ取得エラー:`, error);
+      return {};
+    }
+  };
+  
+  // 従業員データをローカルストレージに保存
+  const saveEmployeeDataToLocalStorage = (data: Record<string, Employee>, year: number): void => {
+    try {
+      // 年度に紐づいた従業員データのキー
+      const storageKey = `EMPLOYEE_DATA_${year}`;
+      localStorage.setItem(storageKey, JSON.stringify(data));
+      console.log(`${year}年度の従業員データを保存しました (${Object.keys(data).length}件)`);
+    } catch (error) {
+      console.error(`${year}年度の従業員データ保存エラー:`, error);
+      setErrorMessage('データの保存中にエラーが発生しました。ブラウザのストレージ容量を確認してください。');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+  
+  // データのバックアップを作成
+  const createBackup = (year: number): void => {
+    try {
+      // 現在のデータを取得
+      const storageKey = `EMPLOYEE_DATA_${year}`;
+      const currentData = localStorage.getItem(storageKey);
+      
+      if (!currentData) {
+        console.log(`${year}年度のデータが存在しないため、バックアップは作成しません`);
+        return;
+      }
+      
+      // バックアップキーを生成（タイムスタンプ付き）
+      const timestamp = new Date().getTime();
+      const backupKey = `EMPLOYEE_DATA_${year}_BACKUP_${timestamp}`;
+      
+      // バックアップを保存
+      localStorage.setItem(backupKey, currentData);
+      console.log(`${year}年度の従業員データのバックアップを作成しました: ${backupKey}`);
+      
+      // 古いバックアップの削除（最新5件のみ保持）
+      cleanupOldBackups(year);
+    } catch (error) {
+      console.error(`${year}年度のバックアップ作成エラー:`, error);
+    }
+  };
+  
+  // 古いバックアップの削除（最新5件のみ保持）
+  const cleanupOldBackups = (year: number): void => {
+    try {
+      const backupPrefix = `EMPLOYEE_DATA_${year}_BACKUP_`;
+      const backupKeys: string[] = [];
+      
+      // すべてのバックアップキーを収集
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(backupPrefix)) {
+          backupKeys.push(key);
+        }
+      }
+      
+      // タイムスタンプの新しい順にソート
+      backupKeys.sort().reverse();
+      
+      // 5件以上ある場合、古いものを削除
+      if (backupKeys.length > 5) {
+        const keysToRemove = backupKeys.slice(5);
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log(`古いバックアップを削除しました: ${key}`);
+        });
+      }
+    } catch (error) {
+      console.error('バックアップクリーンアップエラー:', error);
+    }
+  };
+
+  // CSVインポート成功時のハンドラ - 改善版
   const handleCSVImportSuccess = (importedEmployees: any[]) => {
-    console.log(`CSVから${importedEmployees.length}名の従業員データをインポートします`);
+    // 年度の取得（CSVから検出された年度を優先）
+    const targetYear = importedEmployees.length > 0 && importedEmployees[0].fiscal_year ? 
+      importedEmployees[0].fiscal_year : fiscalYear;
+    
+    console.log(`CSVから${importedEmployees.length}名の従業員データをインポートします (${targetYear}年度)`);
     
     try {
-      // 現在の従業員一覧に新しいデータを追加（または更新）
-      setLocalEmployees(prev => {
-        // 新しい従業員データ配列
-        const newEmployees = [...prev];
+      // インポートするデータのバックアップを作成
+      createBackup(targetYear);
+      
+      // 既存データの取得（対象年度のデータを取得）
+      const existingData = getStoredEmployeeData(targetYear);
+      const merged: Record<string, Employee> = { ...existingData };
+      
+      // データの変換と統合
+      let changedCount = 0;
+      const changes: Record<string, Employee> = {};
+      
+      importedEmployees.forEach(employee => {
+        // employeeIdを確実に文字列として扱う
+        const employeeId = String(employee.employee_id);
+        // 障害区分の正規化
+        const disabilityType = normalizeDisabilityType(employee.disability_type);
         
-        // インポートされた各従業員について処理
-        importedEmployees.forEach(importedEmp => {
-          // 既存の従業員かどうかをemployee_idで確認
-          const existingIndex = newEmployees.findIndex(
-            emp => emp.employee_id === importedEmp.employee_id
-          );
-          
-          if (existingIndex >= 0) {
-            // 既存の従業員の場合は更新
-            newEmployees[existingIndex] = {
-              ...newEmployees[existingIndex],
-              ...importedEmp,
-              id: newEmployees[existingIndex].id // IDは保持
-            };
-          } else {
-            // 新規従業員の場合
-            // 新しいIDの生成
-            const newId = Math.max(0, ...newEmployees.map(e => e.id)) + 1;
-            
-            // 新しい従業員オブジェクトの作成
-            const newEmployee: Employee = {
-              ...importedEmp,
-              id: newId,
-              no: newEmployees.length + 1,
-              fiscal_year: fiscalYear
-            };
-            
-            // 配列に追加
-            newEmployees.push(newEmployee);
-          }
-        });
+        // 新しい従業員データオブジェクトを作成
+        const newEmployeeData: Employee = {
+          id: merged[employeeId]?.id || Math.max(0, ...Object.values(merged).map(e => e.id || 0)) + 1,
+          no: merged[employeeId]?.no || Object.keys(merged).length + 1,
+          employee_id: employeeId,
+          name: employee.name,
+          disability_type: disabilityType,
+          disability: employee.disability || '',
+          grade: employee.grade || '',
+          hire_date: employee.hire_date || '',
+          status: employee.status || '在籍',
+          wh: employee.employment_type || employee.wh || '正社員',
+          hc: parseFloat(String(employee.hc_value || employee.hc)) || 1,
+          retirement_date: employee.retirement_date || null,
+          monthlyStatus: employee.monthly_status || generateDefaultMonthlyStatus(employee.hc_value || employee.hc || 1),
+          fiscal_year: targetYear
+        };
         
-        return newEmployees;
+        // 既存データとの差分チェック
+        if (!merged[employeeId] || JSON.stringify(merged[employeeId]) !== JSON.stringify(newEmployeeData)) {
+          merged[employeeId] = newEmployeeData;
+          changes[employeeId] = newEmployeeData;
+          changedCount++;
+        }
       });
       
-      // ローカルストレージを更新
-      handleSave(); // 既存の保存関数を利用
+      console.log(`検出された変更: ${changedCount}件`, changes);
       
-      // 成功メッセージ
-      setSuccessMessage(`CSVから${importedEmployees.length}名の従業員データをインポートしました`);
-      setTimeout(() => setSuccessMessage(null), 5000);
+      // 変更が存在する場合
+      if (changedCount > 0) {
+        // データを保存
+        saveEmployeeDataToLocalStorage(merged, targetYear);
+        
+        // UIに反映するためにローカル状態を更新
+        const updatedEmployees = Object.values(merged);
+        setLocalEmployees(updatedEmployees);
+        
+        // 年度が現在表示中の年度と異なる場合は、年度を切り替える確認
+        if (targetYear !== fiscalYear) {
+          const message = `インポートされた年度(${targetYear})が現在の表示年度(${fiscalYear})と異なります。\n年度を切り替えますか？`;
+          if (window.confirm(message)) {
+            console.log(`年度を切り替えます: ${fiscalYear} → ${targetYear}`);
+            setFiscalYear(targetYear);
+          }
+        }
+        
+        // 成功メッセージ（変更内容の概要を含める）
+        setSuccessMessage(`CSVから${importedEmployees.length}名の従業員データをインポートしました。(新規/更新: ${changedCount}件)`);
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        setSuccessMessage('インポートされたデータに変更はありませんでした。');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
       
     } catch (error) {
       console.error('CSVインポート処理エラー:', error);
