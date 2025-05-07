@@ -73,7 +73,6 @@ exports.getMonthlyReport = async (req, res) => {
             hire_date, 
             status, 
             NULL as monthly_status, 
-            NULL as memo, 
             count 
           FROM employees 
           WHERE fiscal_year = $1 OR fiscal_year IS NULL

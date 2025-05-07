@@ -53,6 +53,8 @@ app.use((req, res, next) => {
 app.use('/api/payment-reports', paymentReportRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/monthly-reports', monthlyReportRoutes);
+// 月次レポートの互換性ルート - 単数形も対応
+app.use('/api/monthly-report', monthlyReportRoutes);
 // 以下の行は重複ルートの原因になるため削除
 // app.use('/api', monthlyReportRoutes);
 app.use('/api/settings', settingsRoutes);
