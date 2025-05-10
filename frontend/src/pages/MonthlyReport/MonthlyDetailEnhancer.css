@@ -1,0 +1,34 @@
+/* 
+ * 月次詳細画面の強化用CSS
+ * 年度セレクタの表示/非表示を制御します
+ */
+
+/* 月次レポート画面のトップパネルの年度セレクタを非表示 */
+.monthly-report-container .monthly-tab select[value],
+.monthly-report-container > div > div > div:first-child select[value] {
+  display: none !important;
+}
+
+/* 月次レポート画面のトップパネルを非表示 */
+.monthly-report-container > div > div:nth-child(3) {
+  display: none !important;
+}
+
+/* 月次詳細タブの年度セレクタは表示する - 詳細な指定で上書き */
+.monthly-report-detail select#fiscal-year-select {
+  display: inline-block !important;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 767px) {
+  /* モバイル向けのスタイル調整 */
+  .monthly-report-container .monthly-tab select[value],
+  .monthly-report-container > div > div > div:first-child select[value] {
+    display: none !important;
+  }
+  
+  /* 月次詳細タブの年度セレクタは表示する - モバイル対応 */
+  .monthly-report-detail select#fiscal-year-select {
+    display: inline-block !important;
+  }
+}

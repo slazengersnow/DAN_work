@@ -1,0 +1,4 @@
+/* 年度/月セレクタを非表示にするCSS */
+body > div > div > div:nth-child(2) > main > div > div:nth-child(1) {
+  display: none !important;
+}

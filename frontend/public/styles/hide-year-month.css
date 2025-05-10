@@ -1,0 +1,40 @@
+/* 月次報告の年度/月選択部分を非表示にする */
+
+/* 指定されたXPathセレクタに対応するCSS */
+body > div > div > div:nth-child(2) > main > div > div:nth-child(1) {
+  display: none !important;
+}
+
+/* クラス名が含まれる可能性のあるセレクタ */
+.filterSection, 
+.yearMonthSelector, 
+.dateFilter, 
+[class*="filter"], 
+[class*="selector"],
+[class*="year"],
+[class*="month"] {
+  display: none !important;
+}
+
+/* id属性を使ったセレクタ */
+#yearSelector,
+#monthSelector,
+#dateFilter,
+[id*="filter"],
+[id*="selector"],
+[id*="year"],
+[id*="month"] {
+  display: none !important;
+}
+
+/* 見出しの直後の要素も対象にする */
+h1 + div, 
+.title + div {
+  display: none !important;
+}
+
+/* 年度/月が含まれるテキストを持つ要素 */
+div:has(label:contains("年度")),
+div:has(label:contains("月")) {
+  display: none !important;
+}

@@ -9,10 +9,17 @@
       name="description"
       content="障害者雇用管理システム"
     />
+    <style>
+      body > div > div > div:nth-child(2) > main > div > div:nth-child(1) {
+        display: none !important;
+      }
+    </style>
+    <link rel="stylesheet" href="%PUBLIC_URL%/styles/hide-year-month.css">
     <title>障害者雇用管理システム</title>
   </head>
   <body>
     <noscript>このアプリケーションを実行するにはJavaScriptを有効にしてください。</noscript>
     <div id="root"></div>
+    <script src="%PUBLIC_URL%/hide-year-month.js"></script>
   </body>
 </html>
