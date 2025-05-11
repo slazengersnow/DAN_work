@@ -1,0 +1,23 @@
+/* タブ表示を最優先で強制するスタイル - 直接HTMLに挿入する */
+.monthly-report-tabs-container,
+.monthly-tabs-area,
+#secure-tabs-area,
+[data-tab-container="true"],
+[data-role="monthly-tabs"],
+[data-tab-content],
+.ant-tabs,
+.ant-tabs-content,
+.ant-tabs-nav,
+.ant-tabs-tab,
+.ant-tabs-tabpane {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  width: auto !important;
+  overflow: visible !important;
+  position: relative !important;
+  max-height: none !important;
+  max-width: none !important;
+  pointer-events: auto !important;
+}

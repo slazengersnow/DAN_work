@@ -4,13 +4,15 @@ import { EditOutlined } from '@ant-design/icons';
 import styles from '../MonthlyReport.module.css';
 
 interface EmployeeDetailsProps {
+  loading: boolean;
+  data: any[];
   year: number;
   month: number;
-  loading?: boolean;
-  data?: any[];
 }
 
-const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ loading = false, data, year, month }) => {
+const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ loading, data, year, month }) => {
+  // 年度と月の選択フィールドは削除
+  
   const columns = [
     { title: 'No.', dataIndex: 'index', key: 'index' },
     { title: '社員ID', dataIndex: 'id', key: 'id' },
@@ -29,10 +31,9 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ loading = false, data
         </Tag>
       )
     },
-    // 月ごとの列
+    // 月ごとの列は動的に生成する実装も可能
     { title: '4月', dataIndex: 'april', key: 'april' },
     { title: '5月', dataIndex: 'may', key: 'may' },
-    { title: '6月', dataIndex: 'june', key: 'june' },
     { title: '備考', dataIndex: 'remarks', key: 'remarks' },
     { 
       title: '操作', 
@@ -47,36 +48,12 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({ loading = false, data
     return <div className={styles.loadingContainer}><Spin size="large" /></div>;
   }
   
-  // サンプルデータを使用
-  const employeeData = data || [
-    { 
-      id: 1111, 
-      name: '伊藤 健一', 
-      disabilityType: '精神障害', 
-      grade: '3級', 
-      employmentDate: '2023/04/01', 
-      status: '在籍',
-      april: '○',
-      may: '○',
-      june: '○',
-      remarks: '特になし'
-    },
-    { 
-      id: 2222, 
-      name: '今井 智', 
-      disabilityType: '精神障害', 
-      grade: '2級', 
-      employmentDate: '2023/05/15', 
-      status: '在籍',
-      april: '-',
-      may: '○',
-      june: '○',
-      remarks: '勤務時間短縮中'
-    }
-  ];
+  if (!data || data.length === 0) {
+    return <Empty description="従業員データがありません" />;
+  }
   
   // インデックスを追加したデータ
-  const dataWithIndex = employeeData.map((item, index) => ({
+  const dataWithIndex = data.map((item, index) => ({
     ...item,
     index: index + 1,
     key: item.id,

@@ -1,0 +1,69 @@
+// 月次報告画面の年度/月選択部分を非表示にするスクリプト
+// このファイルは現在無効化されています
+(function() {
+  // DOMの読み込みが完了した時に実行
+  function hideYearMonthSelector() {
+    // 指定されたセレクタで要素を取得
+    const element = document.querySelector('body > div > div > div:nth-child(2) > main > div > div:nth-child(1)');
+    if (element) {
+      element.style.display = 'none';
+      console.log('年度/月選択部分を非表示にしました');
+      return;
+    }
+    
+    // タイトル要素を取得
+    const titleElement = document.querySelector('h1');
+    if (titleElement && titleElement.textContent.includes('月次報告')) {
+      // タイトルの次の要素を非表示
+      const nextElement = titleElement.nextElementSibling;
+      if (nextElement) {
+        nextElement.style.display = 'none';
+        console.log('月次報告タイトルの次の要素を非表示にしました');
+        return;
+      }
+    }
+    
+    // 年度と月のラベルを含む要素を検索
+    const yearLabels = Array.from(document.querySelectorAll('label')).filter(label => 
+      label.textContent.includes('年度')
+    );
+    
+    const monthLabels = Array.from(document.querySelectorAll('label')).filter(label => 
+      label.textContent.includes('月')
+    );
+    
+    // ラベルの親要素を非表示
+    [...yearLabels, ...monthLabels].forEach(label => {
+      let parent = label.parentElement;
+      while (parent && !parent.classList.contains('container') && parent.tagName !== 'BODY') {
+        if (parent.childElementCount > 1) {
+          parent.style.display = 'none';
+          console.log('年度/月ラベルを含む要素を非表示にしました');
+          return;
+        }
+        parent = parent.parentElement;
+      }
+    });
+    
+    console.log('年度/月選択部分を見つけられませんでした');
+  }
+
+  // 初回読み込み時に実行
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideYearMonthSelector);
+  } else {
+    hideYearMonthSelector();
+  }
+  
+  // 画面変更時にも実行（SPAの場合）
+  const observer = new MutationObserver(function(mutations) {
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+        hideYearMonthSelector();
+      }
+    }
+  });
+  
+  // ページ全体の変更を監視
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
