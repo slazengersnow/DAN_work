@@ -1,43 +1,293 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>年度・月表示非表示化デモ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .demo-section {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin-bottom: 20px;
+      background-color: #f9f9f9;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .tab.active {
+      border: 1px solid #ccc;
+      border-bottom-color: white;
+      background-color: white;
+      margin-bottom: -1px;
+    }
+    .tab-content {
+      display: none;
+      padding: 15px;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-top: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .yearMonthSection {
+      padding: 10px;
+      margin: 15px 0;
+      background-color: #eaeaea;
+      border: 1px solid #ddd;
+    }
+    button {
+      padding: 6px 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    select {
+      padding: 5px;
+      margin: 5px;
+    }
+    .code-block {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 15px;
+      overflow-x: auto;
+      margin: 15px 0;
+    }
+    .install-section {
+      margin: 30px 0;
+    }
+    .bookmarklet-link {
+      display: inline-block;
+      padding: 8px 15px;
+      background-color: #2196F3;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    
+    /* 年度・月表示非表示化用のCSS */
+    .yearMonthDisplay,
+    .yearMonthSection,
+    .filterSection,
+    .year-month-selector,
+    .year-selector,
+    .month-selector,
+    [class*="yearMonth"],
+    [class*="YearMonth"],
+    [class*="Year-Month"],
+    [class*="year-month"],
+    [class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"]),
+    #yearSelector,
+    #monthSelector,
+    #dateFilter,
+    [id*="filter"]:not([id*="tab"]),
+    [id*="selector"]:not([id*="tab"]),
+    [id*="year"]:not([id*="tab"]),
+    [id*="month"]:not([id*="tab"]) {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      opacity: 0 !important;
+    }
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
+    /* 見出しの直後の要素を非表示（年度/月選択部分である可能性が高い） */
+    h1.title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),
+    h2.title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),
+    .page-title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]) {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+    }
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+    /* タブは確実に表示するためのCSS */
+    .monthly-tabs-area,
+    .monthly-tab,
+    .tabsContainer,
+    .tabs-container,
+    .nav.nav-tabs,
+    .ant-tabs,
+    .ant-tabs-content,
+    .ant-tabs-nav,
+    .ant-tabs-tab,
+    .ant-tabs-tabpane,
+    [data-tab-container="true"],
+    [data-role="monthly-tabs"],
+    [data-tab-content],
+    [role="tablist"],
+    [role="tab"],
+    [role="tabpanel"],
+    .tab-content,
+    .tab-pane,
+    #monthly-report-tabs,
+    #secure-tabs-area {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      height: auto !important;
+      overflow: visible !important;
+      margin: initial !important;
+      padding: initial !important;
+    }
 
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
-  </body>
+    /* 特定のタブスタイルを修正 */
+    .nav.nav-tabs,
+    [role="tablist"] {
+      display: flex !important;
+    }
+
+    [role="tab"],
+    .ant-tabs-tab {
+      display: inline-block !important;
+    }
+
+    /* アクティブなタブパネルの表示 */
+    .tab-pane.active,
+    .ant-tabs-tabpane-active,
+    [role="tabpanel"][aria-hidden="false"] {
+      display: block !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>年度・月表示非表示化デモ</h1>
+  
+  <div class="demo-section">
+    <h2 class="title">月次報告</h2>
+    
+    <!-- 年度・月表示部分 (これが非表示になる) -->
+    <div class="yearMonthSection">
+      <label for="year">年度:</label>
+      <select id="year">
+        <option>2023年度</option>
+        <option>2024年度</option>
+        <option>2025年度</option>
+      </select>
+      
+      <label for="month">月:</label>
+      <select id="month">
+        <option>1月</option>
+        <option>2月</option>
+        <option>3月</option>
+        <option>4月</option>
+        <option>5月</option>
+        <option>6月</option>
+      </select>
+      
+      <button>表示更新</button>
+    </div>
+    
+    <!-- タブ部分 (これは表示されたまま) -->
+    <div class="tabsContainer">
+      <div class="tabs" role="tablist">
+        <div class="tab active" role="tab" aria-selected="true">社員一覧</div>
+        <div class="tab" role="tab" aria-selected="false">月次サマリー</div>
+        <div class="tab" role="tab" aria-selected="false">詳細情報</div>
+      </div>
+      
+      <div class="tab-content active" role="tabpanel">
+        <p>社員一覧タブの内容がここに表示されます。この部分は表示されます。</p>
+        <p>年度・月表示が非表示になり、タブだけが表示されている状態です。</p>
+      </div>
+      <div class="tab-content" role="tabpanel">
+        <p>月次サマリータブの内容がここに表示されます。この部分は表示されます。</p>
+        <p>年度・月表示が非表示になり、タブだけが表示されている状態です。</p>
+      </div>
+      <div class="tab-content" role="tabpanel">
+        <p>詳細情報タブの内容がここに表示されます。この部分は表示されます。</p>
+        <p>年度・月表示が非表示になり、タブだけが表示されている状態です。</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="install-section">
+    <h2>実装方法の説明</h2>
+    
+    <div class="code-block">
+      <h3>1. HTMLにCSSを追加する</h3>
+      <pre><code>&lt;style&gt;
+/* 年度・月表示非表示化用のCSS */
+.yearMonthDisplay,
+.yearMonthSection,
+.filterSection,
+/* 他のセレクタ... */
+{
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* タブは確実に表示するためのCSS */
+.tabsContainer,
+.monthly-tab,
+/* 他のタブセレクタ... */
+{
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+&lt;/style&gt;</code></pre>
+    </div>
+    
+    <div class="code-block">
+      <h3>2. JavaScriptスクリプトを追加する</h3>
+      <pre><code>&lt;script&gt;
+// 月次報告画面の年度・月表示を強制的に非表示にするスクリプト
+(function() {
+  console.log('年度・月表示の非表示化スクリプトを実行開始');
+  
+  // メイン処理...
+  function forceHideYearMonth() {
+    // 年度・月表示を非表示にする処理
+    // タブは表示を維持する処理
+  }
+  
+  // 実行...
+  forceHideYearMonth();
+  
+  // MutationObserverでDOM変更を監視...
+})();
+&lt;/script&gt;</code></pre>
+    </div>
+    
+    <h3>動作確認</h3>
+    <p>このデモページでは、CSSにより年度・月選択部分が非表示になっています。</p>
+    <p>実際のアプリケーションでは、より複雑なDOM構造に対応するため、JavaScriptによる検出と非表示化が重要です。</p>
+    <p>詳細な実装については、「year-month-hider-generator.js」スクリプトによって生成される各ファイルを参照してください。</p>
+  </div>
+  
+  <script>
+    // タブ機能の実装
+    document.querySelectorAll('.tab').forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        // 現在のアクティブタブを非アクティブに
+        document.querySelector('.tab.active').classList.remove('active');
+        document.querySelector('.tab-content.active').classList.remove('active');
+        
+        // クリックされたタブをアクティブに
+        tab.classList.add('active');
+        document.querySelectorAll('.tab-content')[index].classList.add('active');
+      });
+    });
+  </script>
+</body>
 </html>
