@@ -1,0 +1,11 @@
+/*
+ * XPath要素削除ブックマークレット
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピー（javascript:から始まるすべて）
+ * 2. ブックマークバーで新しいブックマークを作成
+ * 3. URLにコピーしたコードを貼り付け
+ * 4. 月次報告ページで実行
+ */
+
+javascript:(function(){const xpath='//*[@id="root"]/div/div[2]/main/div/div[1]';const result=document.evaluate(xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);const element=result.singleNodeValue;if(element){element.parentNode.removeChild(element);alert('成功: XPathで指定した要素を削除しました');}else{const elements=document.querySelectorAll('div');let found=false;for(const el of elements){if(el.textContent.includes('年度:')&&el.textContent.includes('月:')){el.parentNode.removeChild(el);alert('成功: 「年度:」と「月:」を含む要素を削除しました');found=true;break;}}if(!found){alert('指定した要素が見つかりませんでした');}}})();

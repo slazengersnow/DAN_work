@@ -1,0 +1,72 @@
+/* 月次報告の年度/月選択部分を非表示にするCSS（シンプル版） */
+
+/* 年度/月選択部分の非表示 */
+.yearMonthDisplay,
+.yearMonthSection,
+.filterSection,
+.year-month-selector,
+.year-selector,
+.month-selector,
+[class*="yearMonth"],
+[class*="YearMonth"],
+[class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.tab-content),
+#yearSelector,
+#monthSelector,
+#dateFilter {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 見出しの直後の要素を非表示（年度/月選択部分である可能性が高い） */
+h1.title + div:not(.tabsContainer):not(.ant-tabs):not(.tabs):not(.tab-content),
+h2.title + div:not(.tabsContainer):not(.ant-tabs):not(.tabs):not(.tab-content) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+/* タブは確実に表示するためのCSS */
+.monthly-tabs-area,
+.monthly-tab,
+.tabsContainer,
+.tabs-container,
+.nav.nav-tabs,
+.ant-tabs,
+.ant-tabs-content,
+.ant-tabs-nav,
+.ant-tabs-tab,
+.ant-tabs-tabpane,
+[role="tablist"],
+[role="tab"],
+[role="tabpanel"],
+.tab-content,
+.tab-pane,
+#monthly-report-tabs {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  overflow: visible !important;
+  margin: initial !important;
+  padding: initial !important;
+}
+
+/* 特定のタブスタイルを修正 */
+[role="tablist"] {
+  display: flex !important;
+}
+
+[role="tab"] {
+  display: inline-block !important;
+}
+
+/* アクティブなタブパネルの表示 */
+.tab-pane.active,
+.ant-tabs-tabpane-active,
+[role="tabpanel"][aria-hidden="false"] {
+  display: block !important;
+}

@@ -1,0 +1,13 @@
+/*
+ * XPath要素非表示ブックマークレット（関数版）
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピー（javascript:から始まるすべて）
+ * 2. ブックマークバーで新しいブックマークを作成
+ * 3. URLにコピーしたコードを貼り付け
+ * 4. 月次報告ページで実行
+ * 
+ * 1週間前に成功した実績のあるXPathを使用
+ */
+
+javascript:(function(){function removeElementByXPath(xpath){try{const result=document.evaluate(xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);const element=result.singleNodeValue;if(element){element.style.display='none';console.log('成功: XPathで指定した要素を非表示にしました');return true;}else{console.log('指定したXPathの要素が見つかりませんでした');return false;}}catch(error){console.error('XPathによる要素の操作中にエラーが発生しました:',error);return false;}}const xpath='//*[@id="root"]/div/div[2]/main/div/div[1]';const success=removeElementByXPath(xpath);if(!success){console.log('バックアップ方法を試します...');const elements=document.querySelectorAll('div');for(const element of elements){if(element.textContent.includes('年度')&&element.textContent.includes('月')){element.style.display='none';console.log('成功: テキスト内容で要素を見つけて非表示にしました');alert('成功: 年度・月の行を非表示にしました（バックアップ方法）');break;}}}else{alert('成功: 年度・月の行を非表示にしました（XPath）');}})();

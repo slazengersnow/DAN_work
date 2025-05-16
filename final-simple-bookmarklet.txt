@@ -1,0 +1,12 @@
+/*
+ * 月次報告ページ「年度」「月」行非表示 - 極シンプルブックマークレット
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピー（javascript:から始まるすべて）
+ * 2. ブラウザのブックマークバーで右クリック → 新しいブックマーク
+ * 3. 名前を「月次報告修正」に設定
+ * 4. URLにコピーしたコードを貼り付けて保存
+ * 5. 月次報告ページでブックマークをクリック
+ */
+
+javascript:(function(){const yearMonthRow=document.querySelector('div:has(select[value="2024"],select[value="5月"])');if(yearMonthRow){yearMonthRow.style.display='none';alert('成功:年度・月の行を非表示にしました');}else{const divs=document.querySelectorAll('div');let found=false;for(const div of divs){if(div.textContent.includes('年度:')&&div.textContent.includes('月:')){div.style.display='none';found=true;break;}}if(!found){const selects=document.querySelectorAll('select');for(const select of selects){const options=select.querySelectorAll('option');for(const option of options){if(option.textContent==='2024'||option.textContent==='5月'){let parent=select.parentElement;while(parent&&parent.tagName!=='BODY'&&parent.offsetWidth<window.innerWidth*0.8){parent=parent.parentElement;}if(parent&&parent.tagName!=='BODY'){parent.style.display='none';found=true;break;}}}}if(!found){const updateButton=Array.from(document.querySelectorAll('button')).find(btn=>btn.textContent==='更新'||btn.innerHTML.includes('更新'));if(updateButton){let parent=updateButton.parentElement;while(parent&&parent.tagName!=='BODY'&&parent.offsetWidth<window.innerWidth*0.8){parent=parent.parentElement;}if(parent&&parent.tagName!=='BODY'){parent.style.display='none';found=true;}}}}}if(!found)alert('年度・月の行が見つかりませんでした');else alert('成功:年度・月の行を非表示にしました');})();

@@ -1,0 +1,12 @@
+/*
+ * 月次報告ページ年度・月非表示 - 超シンプルブックマークレット
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピー（javascript:から始まるすべて）
+ * 2. ブラウザのブックマークバーで右クリック → 新しいブックマーク
+ * 3. 名前を「月次報告修正」に設定
+ * 4. URLにコピーしたコードを貼り付け
+ * 5. 保存後、月次報告ページで実行
+ */
+
+javascript:(function(){const style=document.createElement('style');style.textContent='#root > div > div:nth-child(2) > main > div > div:first-child{display:none!important;}';document.head.appendChild(style);try{const targetRow=document.querySelector('#root > div > div:nth-child(2) > main > div > div:first-child');if(targetRow){targetRow.style.display='none';alert('年度と月の行を非表示にしました');}else{const yearMonthElements=Array.from(document.querySelectorAll('div')).filter(div=>div.textContent.includes('年度:')&&div.textContent.includes('月:')).sort((a,b)=>a.textContent.length-b.textContent.length);if(yearMonthElements.length>0){const element=yearMonthElements[0];if(element.parentElement){element.parentElement.style.display='none';alert('年度と月の行を非表示にしました');}else{element.style.display='none';alert('年度と月の行を非表示にしました');}}else{alert('年度と月を含む要素が見つかりませんでした');}}}catch(error){alert('エラーが発生しました: '+error);}})();

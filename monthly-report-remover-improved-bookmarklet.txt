@@ -1,0 +1,12 @@
+/**
+ * 月次報告ページ 年度・月行削除ブックマークレット（改善版）
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピーします（javascript:から始まる部分すべて）
+ * 2. ブラウザでブックマークを作成し、URLとして貼り付けます
+ * 3. 月次報告画面でブックマークをクリックすると年度・月の行が削除されます
+ * 
+ * 複数の方法で要素を特定し、確実に削除を実行します
+ */
+
+javascript:(function(){console.log('月次報告ページの年度・月行削除スクリプトを実行します...');function removeByXPath(){const xpath='//*[@id="root"]/div/div[2]/main/div/div[1]';const result=document.evaluate(xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);const element=result.singleNodeValue;if(element){console.log('XPathで要素を特定しました');element.style.display='none';return true}return false}function removeByCssSelector(){const selectors=['#root div main div div:first-child','div[class*="year"], div[class*="month"]','div:has(select[name*="year"], select[name*="month"])','div:has(select option[value="2024"])','div:contains("年度:")','div.year-month-selector','div.filter-row'];for(const selector of selectors){try{const elements=document.querySelectorAll(selector);if(elements&&elements.length>0){console.log(`CSSセレクタ "${selector}" で要素を特定しました`);elements.forEach(el=>el.style.display='none');return true}}catch(e){console.log(`セレクタ "${selector}" は無効または要素が見つかりませんでした`)}}return false}function removeByContent(){const yearMonthTexts=['年度:','月:','2024','5月'];for(const text of yearMonthTexts){const elements=Array.from(document.querySelectorAll('div, span, label')).filter(el=>el.textContent.includes(text));if(elements.length>0){console.log(`"${text}" を含む要素を特定しました`);elements.forEach(el=>{let parent=el;for(let i=0;i<3;i++){parent=parent.parentElement;if(parent&&parent.tagName.toLowerCase()==='div'){parent.style.display='none';console.log('親要素を非表示にしました');break}}});return true}}return false}function removeFormSection(){const forms=document.querySelectorAll('form, div[class*="filter"], div[class*="search"]');if(forms.length>0){console.log('フォーム要素を特定しました');forms.forEach(form=>{if(form.textContent.includes('年度')||form.textContent.includes('月')||form.innerHTML.includes('select')||form.innerHTML.includes('option')){form.style.display='none';return true}})}return false}let success=false;success=removeByXPath();if(success){console.log('XPathによる削除に成功しました')}else{success=removeByCssSelector();if(success){console.log('CSSセレクタによる削除に成功しました')}else{success=removeByContent();if(success){console.log('コンテンツによる削除に成功しました')}else{success=removeFormSection();if(success){console.log('フォーム要素による削除に成功しました')}else{console.error('すべての方法で要素の特定に失敗しました。');alert('月次報告の年度・月の行を削除できませんでした。ページ構造が想定と異なる可能性があります。')}}}}if(success){console.log('処理が完了しました！')}})();

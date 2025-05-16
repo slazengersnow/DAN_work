@@ -1,0 +1,13 @@
+/*
+ * 月次報告ページ年度・月非表示 - 複数方法ブックマークレット
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピー（javascript:から始まるすべて）
+ * 2. ブックマークバーで新しいブックマークを作成
+ * 3. URLにコピーしたコードを貼り付け
+ * 4. 月次報告ページで実行
+ * 
+ * 7つの異なる方法を順番に試します
+ */
+
+javascript:(function(){function a(){try{var b="//*[@id='root']/div/div[2]/main/div/div[1]",c=document.evaluate(b,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null).singleNodeValue;if(c)return c.style.display="none",!0}catch(a){}return!1}function b(){var a=["#root > div > div:nth-child(2) > main > div > div:first-child",".container > .row:first-child",".year-month-selector",".date-filter-row",".filter-row"];for(const b of a)try{var c=document.querySelector(b);if(c)return c.style.display="none",!0}catch(a){}return!1}function c(){var a=["yearMonthSelector","filterRow","dateFilter","reportFilter","yearMonthRow"];for(const b of a){var c=document.getElementById(b);if(c)return c.style.display="none",!0}return!1}function d(){var a=document.querySelectorAll("div");for(const b of a)if(b.textContent.includes("年度:")&&b.textContent.includes("月:"))return b.style.display="none",!0;return!1}function e(){var a=document.querySelectorAll("select");for(const b of a){var c=Array.from(b.options).some(a=>"2024"===a.value||"2024"===a.textContent),d=Array.from(b.options).some(a=>"5"===a.value||a.textContent.includes("5月"));if(c||d){let a=b.parentElement;for(;a&&"BODY"!==a.tagName;){if(a.offsetWidth>500)return a.style.display="none",!0;a=a.parentElement}if(b.parentElement)return b.parentElement.style.display="none",!0}}return!1}function f(){var a=document.querySelectorAll("button");for(const b of a)if("更新"===b.textContent||"更新"===b.innerText){let a=b.parentElement;for(;a&&"BODY"!==a.tagName;){if(a.offsetWidth>500)return a.style.display="none",!0;a=a.parentElement}}return!1}function g(){var a=document.createElement("style");return a.textContent='#root > div > div:nth-child(2) > main > div > div:first-child,div:has(select:has(option[value="2024"])),div:has(select:has(option[value="5"])),div.year-month-selector,div.filter-row,div.date-filter,div:has(> label:contains("年度")),div:has(> label:contains("月")){display: none !important;}',document.head.appendChild(a),!1}var h=a()||b()||c()||d()||e()||f()||g();h?alert("年度・月の行の非表示に成功しました！"):alert("複数の方法を試しました。画面を確認してください。")})();

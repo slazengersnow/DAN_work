@@ -1,0 +1,510 @@
+disability-employment-system
+├── backend
+│   ├── config
+│   │   ├── auth.js
+│   │   ├── database.js
+│   │   └── db.js
+│   ├── controllers
+│   │   ├── authController.js
+│   │   ├── employeeController.js
+│   │   ├── monthlyReportController.backup.js
+│   │   ├── monthlyReportController.js
+│   │   ├── monthlyReportController.js.bak
+│   │   ├── monthlyReportControllerPatch.js
+│   │   ├── paymentReportController.js
+│   │   └── settingsController.js
+│   ├── db
+│   │   └── init.sql
+│   ├── middleware
+│   │   ├── apiCompatibility.js
+│   │   ├── auth.js
+│   │   ├── methodOverride.js
+│   │   ├── routeDebug.js
+│   │   ├── validation.js
+│   │   └── yearMonthSelector.js
+│   ├── models
+│   │   ├── Employee.js
+│   │   ├── MonthlyReport.js
+│   │   ├── Setting.js
+│   │   ├── employeeModel.js
+│   │   ├── monthlyReportModel.js
+│   │   ├── paymentReportModel.js
+│   │   └── settingsModel.js
+│   ├── routes
+│   │   ├── auth.js
+│   │   ├── employee.js
+│   │   ├── employeeRoutes.js
+│   │   ├── monthlyReportRoutes.js
+│   │   ├── paymentReportRoutes.js
+│   │   ├── report.js
+│   │   ├── settings.js
+│   │   └── settingsRoutes.js
+│   ├── utils
+│   │   ├── calculationUtils.js
+│   │   ├── csvExporter.js
+│   │   └── errorHandler.js
+│   ├── .DS_Store
+│   ├── .env
+│   ├── add-notes-column-migration.js
+│   ├── nodemon.json
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── server.compatibilityPatch.js
+│   ├── server.debug.js
+│   └── server.js
+├── backup
+│   ├── frontend
+│   │   └── src
+│   │       └── pages
+│   │           └── MonthlyReport
+│   │               └── MonthlyReportDetail.tsx
+│   ├── public
+│   │   ├── favicon.ico
+│   │   ├── index.html
+│   │   ├── logo192.png
+│   │   ├── logo512.png
+│   │   ├── manifest.json
+│   │   └── robots.txt
+│   ├── src
+│   │   ├── api
+│   │   │   ├── client.ts
+│   │   │   ├── employeeApi.ts
+│   │   │   ├── reportApi.ts
+│   │   │   └── settingsApi.ts
+│   │   ├── components
+│   │   │   ├── employee-tabs
+│   │   │   │   ├── BasicInfo.tsx
+│   │   │   │   ├── DisabilityInfo.tsx
+│   │   │   │   ├── EmploymentInfo.tsx
+│   │   │   │   └── MonthlyInfo.tsx
+│   │   │   ├── tabs
+│   │   │   │   ├── .DS_Store
+│   │   │   │   ├── EmployeeDetail.tsx
+│   │   │   │   ├── MonthlyDetail.tsx
+│   │   │   │   └── Summary.tsx
+│   │   │   ├── .DS_Store
+│   │   │   ├── EmployeeDetail.tsx
+│   │   │   ├── EmployeeDetailComponent.jsx
+│   │   │   ├── EmployeeList.tsx
+│   │   │   ├── Header.tsx
+│   │   │   ├── ImportEmployees.tsx
+│   │   │   ├── Layout.tsx
+│   │   │   ├── MonthlyDetailComponent.jsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── SummaryComponent.jsx
+│   │   │   └── TabContainer.jsx
+│   │   ├── data
+│   │   │   └── mockData.ts
+│   │   ├── pages
+│   │   │   ├── .DS_Store
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── EmployeeList.tsx
+│   │   │   ├── Login.tsx
+│   │   │   ├── MonthlyReport.tsx
+│   │   │   ├── PaymentReport.tsx
+│   │   │   └── Settings.tsx
+│   │   ├── styles
+│   │   │   └── employee-management.css
+│   │   ├── types
+│   │   │   └── Employee.ts
+│   │   ├── utils
+│   │   │   ├── dateUtils.ts
+│   │   │   └── storage.ts
+│   │   ├── .DS_Store
+│   │   ├── App.css
+│   │   ├── App.test.tsx
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── index.tsx
+│   │   ├── logo.svg
+│   │   ├── react-app-env.d.ts
+│   │   ├── reportWebVitals.ts
+│   │   └── setupTests.ts
+│   ├── .DS_Store
+│   ├── CSVImportModal.tsx.bak.1746527463038
+│   ├── CSVImportModal.tsx.bak.1746530384594
+│   ├── EmployeeCSVImportModal.tsx.bak.1746527463039
+│   ├── monthlyReportRoutes.js.bak.1746530384593
+│   ├── package.json
+│   ├── server.js.bak.1746530384591
+│   ├── server.js.bak.1746532014203
+│   └── tsconfig.json
+├── frontend
+│   ├── backend
+│   │   ├── db
+│   │   │   └── init.sql
+│   │   ├── src
+│   │   │   ├── config
+│   │   │   ├── controllers
+│   │   │   ├── middleware
+│   │   │   ├── models
+│   │   │   ├── routes
+│   │   │   ├── utils
+│   │   │   ├── .DS_Store
+│   │   │   └── server.js
+│   │   ├── .DS_Store
+│   │   ├── package-lock.json
+│   │   └── package.json
+│   ├── build
+│   │   ├── static
+│   │   │   ├── css
+│   │   │   │   ├── main.d20003b7.css
+│   │   │   │   └── main.d20003b7.css.map
+│   │   │   └── js
+│   │   │       ├── 488.08ec407e.chunk.js
+│   │   │       ├── 488.08ec407e.chunk.js.map
+│   │   │       ├── main.40bc5491.js
+│   │   │       ├── main.40bc5491.js.LICENSE.txt
+│   │   │       └── main.40bc5491.js.map
+│   │   ├── .DS_Store
+│   │   ├── asset-manifest.json
+│   │   ├── favicon.ico
+│   │   ├── index.html
+│   │   ├── logo192.png
+│   │   ├── logo512.png
+│   │   ├── manifest.json
+│   │   └── robots.txt
+│   ├── frontend
+│   │   ├── package-lock.json
+│   │   └── package.json
+│   ├── public
+│   │   ├── fixes
+│   │   │   ├── README-direct-html-annihilator.md
+│   │   │   ├── README-fixed-ui-script.md
+│   │   │   ├── README-ultimate-annihilator.md
+│   │   │   ├── README.md
+│   │   │   ├── bookmarklet.js
+│   │   │   ├── content-script-error-handler.js
+│   │   │   ├── csv-fix-bookmarklet.js
+│   │   │   ├── csv-fix-installer.js
+│   │   │   ├── csv-import-fix-installer.js
+│   │   │   ├── csv-import-year-fix.js
+│   │   │   ├── data-completeness-validator.js
+│   │   │   ├── direct-html-annihilator.js
+│   │   │   ├── dom-detector.js
+│   │   │   ├── dropdown-menu-remover.js
+│   │   │   ├── employee-detail-enhancer-fix.js
+│   │   │   ├── employee-detail-enhancer.js
+│   │   │   ├── enhanced-csv-fix-installer.js
+│   │   │   ├── enhanced-csv-fix.js
+│   │   │   ├── enhanced-dom-detector.js
+│   │   │   ├── enhanced-fixes-installer.js
+│   │   │   ├── enhanced-network-monitor.js
+│   │   │   ├── enhanced-year-state-manager.js
+│   │   │   ├── extreme-monthly-control-nuker.js
+│   │   │   ├── final-monthly-control-destroyer.js
+│   │   │   ├── final-monthly-control-remover.js
+│   │   │   ├── fixed-ui-script.js
+│   │   │   ├── install-csv-fixes.js
+│   │   │   ├── integrated-csv-fix.js
+│   │   │   ├── minimal-csv-handler.js
+│   │   │   ├── minimal-installer.js
+│   │   │   ├── minimal-year-fix.js
+│   │   │   ├── monthly-control-hider.js
+│   │   │   ├── monthly-control-remover.js
+│   │   │   ├── notification-helper.js
+│   │   │   ├── simple-fix-bookmarklet.js
+│   │   │   ├── simple-year-fix.js
+│   │   │   ├── simplified-csv-fix.js
+│   │   │   ├── ultimate-monthly-control-annihilator.js
+│   │   │   └── visual-feedback-enhancer.js
+│   │   ├── js
+│   │   │   ├── force-hide-year-month.js
+│   │   │   ├── force-tab-display.js
+│   │   │   ├── selective-hide.js
+│   │   │   └── year-month-hider.js
+│   │   ├── styles
+│   │   │   ├── hide-selector.css
+│   │   │   ├── hide-year-month.css
+│   │   │   └── year-month-hider.css
+│   │   ├── .DS_Store
+│   │   ├── favicon.ico
+│   │   ├── hide-selector.js
+│   │   ├── hide-year-month.js
+│   │   ├── hide-year-month.js.disabled
+│   │   ├── index.html
+│   │   ├── logo192.png
+│   │   ├── logo512.png
+│   │   ├── manifest.json
+│   │   └── robots.txt
+│   ├── src
+│   │   ├── api
+│   │   │   ├── authApi.ts
+│   │   │   ├── client.ts
+│   │   │   ├── employeeApi.ts
+│   │   │   ├── enhancedClient.js
+│   │   │   ├── paymentReportApi.ts
+│   │   │   ├── reportApi.ts
+│   │   │   ├── safeClient.ts
+│   │   │   ├── settingsApi.ts
+│   │   │   ├── yearMonthControls.css
+│   │   │   ├── yearMonthControlsHandler.js
+│   │   │   └── yearMonthControlsHandler.ts
+│   │   ├── components
+│   │   │   ├── PaymentReport
+│   │   │   │   ├── HistoryTab.tsx
+│   │   │   │   ├── MonthlyDataTab.tsx
+│   │   │   │   ├── PaymentCalculation.tsx
+│   │   │   │   ├── PaymentInfoForm.tsx
+│   │   │   │   ├── PaymentInfoTab.tsx
+│   │   │   │   ├── PaymentMonthlyData.tsx
+│   │   │   │   └── PaymentReport.tsx
+│   │   │   ├── common
+│   │   │   │   ├── ErrorMessage.tsx
+│   │   │   │   └── Spinner.tsx
+│   │   │   ├── employee-tabs
+│   │   │   │   ├── BasicInfo.tsx
+│   │   │   │   ├── DisabilityInfo.tsx
+│   │   │   │   ├── EmploymentInfo.tsx
+│   │   │   │   ├── MonthlyInfo.css
+│   │   │   │   └── MonthlyInfo.tsx
+│   │   │   ├── .DS_Store
+│   │   │   ├── Breadcrumbs.tsx
+│   │   │   ├── EmployeeDetail.css
+│   │   │   ├── EmployeeDetail.tsx
+│   │   │   ├── EmployeeDetailComponent.jsx
+│   │   │   ├── EmployeeList.tsx
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   ├── Header.tsx
+│   │   │   ├── ImportEmployees.tsx
+│   │   │   ├── Layout.tsx
+│   │   │   ├── MonthlyDetailComponent.jsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── SummaryComponent.jsx
+│   │   │   └── TabContainer.jsx
+│   │   ├── data
+│   │   │   └── mockData.ts
+│   │   ├── docs
+│   │   │   └── yearMonthControlImplementation.md
+│   │   ├── pages
+│   │   │   ├── EmployeeDetail
+│   │   │   │   ├── EmployeeYearDisplayFix.js
+│   │   │   │   └── EmployeeYearSelector.js
+│   │   │   ├── MonthlyReport
+│   │   │   │   ├── .DS_Store
+│   │   │   │   ├── CSV-IMPORT-README.md
+│   │   │   │   ├── CSVImportAnalyzer.js
+│   │   │   │   ├── CSVImportFix.js
+│   │   │   │   ├── CSVImportModal.css
+│   │   │   │   ├── CSVImportModal.enhanced.tsx
+│   │   │   │   ├── CSVImportModal.tsx
+│   │   │   │   ├── CSVImportModal.tsx.backup
+│   │   │   │   ├── CSVImportStateSync.jsx
+│   │   │   │   ├── CSVImportTester.js
+│   │   │   │   ├── DebugLogger.ts
+│   │   │   │   ├── DetailViewEnhancer.js
+│   │   │   │   ├── DetailViewEnhancerFix.js
+│   │   │   │   ├── EmployeeCSVImportModal.tsx
+│   │   │   │   ├── EmployeesTab.tsx
+│   │   │   │   ├── ErrorDiagnosticTool.js
+│   │   │   │   ├── ImportNotification.tsx
+│   │   │   │   ├── ImportNotificationEnhancer.css
+│   │   │   │   ├── ImportNotificationEnhancer.js
+│   │   │   │   ├── MONTHLY-DETAIL-FIX-README.md
+│   │   │   │   ├── MonthlyDetailEnhancer.css
+│   │   │   │   ├── MonthlyDetailEnhancer.js
+│   │   │   │   ├── MonthlyReportDetail.tsx
+│   │   │   │   ├── MonthlyReportDetail.tsx.backup
+│   │   │   │   ├── MonthlyTab.tsx
+│   │   │   │   ├── MonthlyTab_backup.tsx
+│   │   │   │   ├── SETUP-GUIDE.md
+│   │   │   │   ├── SimplifiedYearStateManager.js
+│   │   │   │   ├── SummaryTab.tsx
+│   │   │   │   ├── YearMonthContext.tsx
+│   │   │   │   ├── YearMonthVisibilityTest.tsx
+│   │   │   │   ├── YearSelectorHider.js
+│   │   │   │   ├── YearStateManager.js
+│   │   │   │   ├── index.tsx
+│   │   │   │   ├── inject-fix-scripts.js
+│   │   │   │   ├── types.ts
+│   │   │   │   └── utils.ts
+│   │   │   ├── Old
+│   │   │   │   ├── .DS_Store
+│   │   │   │   ├── MonthlyReportDetail_old.tsx
+│   │   │   │   └── MonthlyReport_old.tsx
+│   │   │   ├── Settings
+│   │   │   │   ├── BasicSettings.css
+│   │   │   │   ├── BasicSettings.tsx
+│   │   │   │   ├── CompanyInfo.css
+│   │   │   │   ├── CompanyInfo.tsx
+│   │   │   │   ├── EmploymentGoals.css
+│   │   │   │   ├── EmploymentGoals.tsx
+│   │   │   │   ├── JobAnalysis.css
+│   │   │   │   ├── JobAnalysis.tsx
+│   │   │   │   ├── Settings.css
+│   │   │   │   └── Settings.tsx
+│   │   │   ├── monthly-report
+│   │   │   │   ├── components
+│   │   │   │   │   ├── EmployeeDetails.tsx
+│   │   │   │   │   ├── EmployeeDetails.tsx.bak
+│   │   │   │   │   ├── EmployeesTab.tsx
+│   │   │   │   │   ├── MonthlyDetails.tsx
+│   │   │   │   │   └── Summary.tsx
+│   │   │   │   ├── MonthlyReport.module.css
+│   │   │   │   ├── TabsOverride.css
+│   │   │   │   ├── index.tsx
+│   │   │   │   └── target-element-to-remove.html
+│   │   │   ├── .DS_Store
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── EmployeeDetailPage.tsx
+│   │   │   ├── EmployeeList.tsx
+│   │   │   ├── FixedUIScript.js
+│   │   │   ├── Login.tsx
+│   │   │   ├── ScreenRestorer.js
+│   │   │   ├── Settings.tsx
+│   │   │   ├── UIFixer.js
+│   │   │   └── Unauthorized.tsx
+│   │   ├── services
+│   │   │   ├── employeeService.ts
+│   │   │   └── paymentReportService.ts
+│   │   ├── styles
+│   │   │   ├── custom.css
+│   │   │   ├── employee-management.css
+│   │   │   └── hide-year-month.css
+│   │   ├── types
+│   │   │   ├── Employee.ts
+│   │   │   ├── MonthlyData.ts
+│   │   │   └── jspdf-autotable.d.ts
+│   │   ├── utils
+│   │   │   ├── apiConfig.ts
+│   │   │   ├── databaseValidator.js
+│   │   │   ├── dateUtils.ts
+│   │   │   ├── fiscalYearManager.js
+│   │   │   ├── storage.ts
+│   │   │   └── storageManager.js
+│   │   ├── .DS_Store
+│   │   ├── App.css
+│   │   ├── App.test.tsx
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── index.tsx
+│   │   ├── logo.svg
+│   │   ├── react-app-env.d.ts
+│   │   ├── reportWebVitals.ts
+│   │   └── setupTests.ts
+│   ├── .DS_Store
+│   ├── .env
+│   ├── .eslintrc.json
+│   ├── README.md
+│   ├── package-lock.json
+│   ├── package.json
+│   └── tsconfig.json
+├── migrations
+│   ├── 20250424_update_monthly_reports.sql
+│   └── 20250507_add_notes_column.sql
+├── src
+│   ├── components
+│   │   └── JobAnalysis
+│   │       ├── JobAnalysis.css
+│   │       ├── JobAnalysis.tsx
+│   │       ├── JobAnalysisExample.tsx
+│   │       ├── README.md
+│   │       └── index.ts
+│   └── .DS_Store
+├── .DS_Store
+├── .env
+├── .gitignore
+├── CLAUDE.md
+├── JSON_PARSE_ERROR_SOLUTIONS.md
+├── MonthlyReportDetail.tsx
+├── MonthlyTab.tsx
+├── README-CSV-IMPORT-FIX.md
+├── README-MONTHLY-CONTROL-FIXES.md
+├── README-SOLUTION.md
+├── README-YEAR-MONTH-HIDER.md
+├── README-api-compatibility.md
+├── README-csvimport-fix.md
+├── README-employee-year-display-fix.md
+├── README-employee-year-selector.md
+├── README-enhancer-bugfix.md
+├── README-final-simple-solution.md
+├── README-fix-monthly-endpoints.md
+├── README-fixed-ui-script.md
+├── README-improved-monthly-report-remover.md
+├── README-monthly-detail-enhancements.md
+├── README-monthly-report-fix.md
+├── README-monthly-report-xpath-bookmarklet.md
+├── README-monthlyreport-fix.md
+├── README-multi-method.md
+├── README-one-line.md
+├── README-screen-restoration.md
+├── README-simple-monthly-hide.md
+├── README-ultimate-simple.md
+├── README-ultra-simple-solution.md
+├── README-unified-ui-fixer.md
+├── README-xpath-delete.md
+├── README-xpath-hide-function.md
+├── README-year-selector-enhancement.md
+├── README-year-selector-improvements.md
+├── ULTIMATE-SOLUTION-GUIDE.md
+├── YEAR-MONTH-HIDER-INTEGRATION-GUIDE.md
+├── add-notes-column-migration.js
+├── api-tests-install.sh
+├── api-tests.sh
+├── backend-config-results.json
+├── check-backend-config.js
+├── check-frontend-config.js
+├── check-monthly-report.js
+├── check_api_error_handling.js
+├── comprehensive-monthly-report-fix.js
+├── create_tree.py
+├── database_backup_20250424.sql
+├── diagnostic-results.json
+├── diagnostic-tool-ultra-simple.js
+├── diagnostic-tool.js
+├── diagnostics.js
+├── final-simple-bookmarklet.txt
+├── final-simple-solution.js
+├── fix-csvimport-endpoints.js
+├── fix-csvimport.js
+├── fix-json-parse-error.js
+├── fix-monthly-api-complete.js
+├── fix-monthly-endpoints.js
+├── fix-monthly-report-detail.js
+├── fix-monthly-report-endpoints.js
+├── fix-monthly-routes-explicit.js
+├── frontend-config-results.json
+├── global-object-hide.js
+├── monthly-report-dom-observer-bookmarklet.txt
+├── monthly-report-dom-observer.js
+├── monthly-report-fixes.js
+├── monthly-report-remover-improved-bookmarklet.txt
+├── monthly-report-remover-improved.js
+├── monthly-report-tampermonkey.js
+├── monthly-report-xpah-bookmarklet.js
+├── monthly-report-xpath-bookmarklet.txt
+├── multi-method-bookmarklet.txt
+├── multi-method-hide.js
+├── one-line-bookmarklet.txt
+├── one-line-solution.js
+├── one-line-with-error-handling.js
+├── package-lock.json
+├── package.json
+├── patch_controller.js
+├── project_tree.txt
+├── restart.sh
+├── run-csv-tests.sh
+├── simple-hide-bookmarklet.txt
+├── simple-monthly-report-hide.js
+├── start.sh
+├── stylus-style.css
+├── tampermonkey-script.js
+├── test-json-404.js
+├── test-monthly-api.js
+├── ultimate-simple-bookmarklet.txt
+├── ultimate-simple-hide.js
+├── ultra-simple-bookmarklet.txt
+├── ultra-simple-monthly-hide.js
+├── xpath-delete-bookmarklet.txt
+├── xpath-delete-solution.js
+├── xpath-hide-function-bookmarklet.txt
+├── xpath-hide-function.js
+├── year-month-hider-bookmarklet.js
+├── year-month-hider-bookmarklet.txt
+├── year-month-hider-console-ready.js
+├── year-month-hider-demo.html
+├── year-month-hider-generator-enhanced.js
+├── year-month-hider-generator.js
+└── year-month-hider.js

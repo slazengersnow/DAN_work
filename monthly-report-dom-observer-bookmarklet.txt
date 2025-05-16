@@ -1,0 +1,11 @@
+/**
+ * DOM Observer版ブックマークレット
+ * 動的に生成される要素にも対応
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピーします（javascript:から始まる部分すべて）
+ * 2. ブラウザでブックマークを作成し、URLとして貼り付けます
+ * 3. 月次報告画面でブックマークをクリックすると自動監視が開始されます
+ */
+
+javascript:(function(){const observer=new MutationObserver(function(mutations){mutations.forEach(function(mutation){if(mutation.addedNodes&&mutation.addedNodes.length>0){const yearMonthRow=document.querySelector('#root div main div div:first-child, div:has(select[name*="year"], select[name*="month"])');if(yearMonthRow){yearMonthRow.style.display='none';console.log('年度・月の行を非表示にしました');observer.disconnect()}}})});observer.observe(document.body,{childList:true,subtree:true});console.log('DOM監視を開始しました');setTimeout(()=>{observer.disconnect();console.log('DOM監視を終了しました')},5000)})();

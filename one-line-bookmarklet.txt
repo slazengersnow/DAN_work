@@ -1,0 +1,9 @@
+/*
+ * 月次報告年度・月非表示 - ワンライナー版
+ * 
+ * 使用方法:
+ * 1. 下記コードをコピー
+ * 2. ブックマークのURLに貼り付け
+ */
+
+javascript:(function(){document.querySelector('div:has(div:contains("年度:"))').style.display='none';})();

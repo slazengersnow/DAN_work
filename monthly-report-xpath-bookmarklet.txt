@@ -1,0 +1,10 @@
+/* 
+ * 月次報告ページの年度・月行削除ブックマークレット 
+ * 
+ * 使用方法:
+ * 1. 下記コード全体をコピーします（javascript:から始まる部分すべて）
+ * 2. ブラウザでブックマークを作成し、URLとして貼り付けます
+ * 3. 月次報告画面でブックマークをクリックすると年度・月の行が削除されます
+ */
+
+javascript:(function(){function removeYearMonthRow(){const xpath='//*[@id="root"]/div/div[2]/main/div/div[1]';const result=document.evaluate(xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);const targetElement=result.singleNodeValue;if(targetElement){console.log('年度と月の行を削除します...');targetElement.remove();console.log('完了: 年度と月の行を削除しました');return true}else{console.error('指定されたXPathの要素が見つかりませんでした: '+xpath);return false}}function main(){console.log('月次報告ページの修正を開始します...');if(window.location.href.includes('月次報告')||document.title.includes('月次報告')){const success=removeYearMonthRow();if(success){console.log('月次報告ページの修正が完了しました')}else{console.error('月次報告ページの修正に失敗しました')}}else{console.log('現在のページは月次報告ページではありません。処理をスキップします。')}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',main)}else{main()}})();

@@ -1,0 +1,19 @@
+/* ==UserStyle==
+@name           月次報告ページカスタマイズ
+@namespace      github.com/your-username
+@version        1.0.0
+@description    月次報告ページの年度・月の行を非表示
+@author         Your Name
+==/UserStyle== */
+
+@-moz-document domain("your-company-domain.com") {
+    /* 年度・月の選択行を非表示 */
+    #root > div > div:nth-child(2) > main > div > div:first-child,
+    div:has(> select[id*="year"], > select[id*="month"]),
+    div:has(label:contains("年度"), label:contains("月")),
+    div.year-month-selector,
+    div.filter-row,
+    div.date-filter {
+        display: none !important;
+    }
+}
