@@ -1,7 +1,63 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  ElementDetector, 
+  DOMManipulator, 
+  diagnosePageStructure 
+} from '../utils/common';
+
+// 型定義を追加
+interface Employee {
+  no: number;
+  id: number;
+  name: string;
+  type: string;
+  disability: string;
+  grade: string;
+  hireDate: string;
+  status: string;
+  count: number;
+  monthlyStatus: number[];
+  memo: string;
+}
+
+interface MonthlyDetailData {
+  months: string[];
+  data: {
+    id: number;
+    item: string;
+    values: number[];
+    suffix?: string;
+    isRatio?: boolean;
+    isCalculated?: boolean;
+    isNegative?: boolean;
+    isDisability?: boolean;
+  }[];
+}
+
+interface HistoryRecord {
+  yearMonth: string;
+  totalEmployees: number;
+  disabledCount: number;
+  physical: number;
+  intellectual: number;
+  mental: number;
+  employmentCount: number;
+  actualRate: number;
+  status: string;
+}
+
+interface SummaryData {
+  year: number;
+  month: number;
+  totalEmployees: number;
+  disabledEmployees: number;
+  employmentCount: number;
+  actualRate: number;
+  legalRate: number;
+}
 
 // モックデータ
-const mockSummary = {
+const mockSummary: SummaryData = {
   year: 2024,
   month: 11,
   totalEmployees: 525,
@@ -11,7 +67,7 @@ const mockSummary = {
   legalRate: 2.3,
 };
 
-const mockEmployees = [
+const mockEmployees: Employee[] = [
   { no: 1, id: 1001, name: '山田 太郎', type: '身体障害', disability: '視覚', grade: '1級', hireDate: '2020/04/01', status: '在籍', 
     count: 2.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '特記事項なし' },
   { no: 2, id: 2222, name: '鈴木 花子', type: '身体障害', disability: '聴覚', grade: '4級', hireDate: '2020/04/01', status: '在籍', 
@@ -24,14 +80,14 @@ const mockEmployees = [
     count: 1.0, monthlyStatus: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], memo: '短時間勤務' },
 ];
 
-const mockHistory = [
+const mockHistory: HistoryRecord[] = [
   { yearMonth: '2024/11', totalEmployees: 525, disabledCount: 5, physical: 2, intellectual: 1, mental: 2, employmentCount: 12.75, actualRate: 2.43, status: '確定済' },
   { yearMonth: '2024/10', totalEmployees: 525, disabledCount: 5, physical: 2, intellectual: 1, mental: 2, employmentCount: 12.5, actualRate: 2.38, status: '確定済' },
   { yearMonth: '2024/09', totalEmployees: 520, disabledCount: 5, physical: 2, intellectual: 1, mental: 2, employmentCount: 12.0, actualRate: 2.31, status: '確定済' },
 ];
 
 // 月次詳細データ
-const initialMonthlyDetailData = {
+const initialMonthlyDetailData: MonthlyDetailData = {
   months: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '合計'],
   data: [
     { id: 1, item: '従業員数', values: [600, 604, 633, 640, 650, 650, 660, 670, 665, 670, 680, 700, 7822] },
@@ -54,8 +110,8 @@ const MonthlyReport: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(2024);
   const [selectedMonth, setSelectedMonth] = useState<number>(11);
   const [activeTab, setActiveTab] = useState<string>('summary');
-  const [employees, setEmployees] = useState([...mockEmployees]);
-  const [monthlyDetailData, setMonthlyDetailData] = useState({...initialMonthlyDetailData});
+  const [employees, setEmployees] = useState<Employee[]>([...mockEmployees]);
+  const [monthlyDetailData, setMonthlyDetailData] = useState<MonthlyDetailData>({...initialMonthlyDetailData});
   const [editingDetailRow, setEditingDetailRow] = useState<number | null>(null);
   const [editingDetailCol, setEditingDetailCol] = useState<number | null>(null);
   const [activeCell, setActiveCell] = useState<{row: number | null, col: number | null}>({row: null, col: null});
@@ -74,6 +130,7 @@ const MonthlyReport: React.FC = () => {
   const handleEmployeeDataChange = (id: number, field: string, value: string) => {
     setEmployees(employees.map(emp => {
       if (emp.id === id) {
+        // 修正1: 型安全に変更を処理
         const updatedEmp = { ...emp, [field]: value };
         
         // 身体障害で1級または2級の場合、自動的にカウントを2にする
@@ -91,10 +148,14 @@ const MonthlyReport: React.FC = () => {
 
   // 従業員の月次ステータス更新ハンドラー
   const handleMonthlyStatusChange = (id: number, monthIndex: number, value: string) => {
+    // 修正2: 数値変換を明示的に行う
+    const numValue = Number(value);
+    if (isNaN(numValue)) return;
+    
     setEmployees(employees.map(emp => {
       if (emp.id === id) {
         const newMonthlyStatus = [...emp.monthlyStatus];
-        newMonthlyStatus[monthIndex] = Number(value);
+        newMonthlyStatus[monthIndex] = numValue;
         return { ...emp, monthlyStatus: newMonthlyStatus };
       }
       return emp;
@@ -150,7 +211,7 @@ const MonthlyReport: React.FC = () => {
   };
 
   // 計算の依存関係を考慮した全ての値の再計算
-  const recalculateValues = (data: typeof monthlyDetailData) => {
+  const recalculateValues = (data: MonthlyDetailData): MonthlyDetailData => {
     const newData = {...data, data: [...data.data]};
     
     // インデックスで各行を取得
@@ -363,6 +424,44 @@ const MonthlyReport: React.FC = () => {
       })
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 年月表示を隠す処理を追加
+  useEffect(() => {
+    const setupPage = async () => {
+      try {
+        // 修正3: ElementDetectorの使用方法を修正
+        // 年月セレクタ要素を検出
+        const yearMonthSelectors = ElementDetector.findFormElements(['.year-month-selector', '.filter-select']);
+        
+        // 要素が見つかったら隠す
+        if (yearMonthSelectors && yearMonthSelectors.elements && yearMonthSelectors.elements.length > 0) {
+          Array.from(yearMonthSelectors.elements).forEach((element: Element) => {
+            DOMManipulator.hide(element);
+          });
+        }
+      } catch (error) {
+        console.error('Error hiding year/month selectors:', error);
+      }
+    };
+    
+    setupPage();
+    
+    // クリーンアップ関数
+    return () => {
+      try {
+        // 修正4: クリーンアップ処理を修正
+        const yearMonthSelectors = ElementDetector.findFormElements(['.year-month-selector', '.filter-select']);
+        
+        if (yearMonthSelectors && yearMonthSelectors.elements && yearMonthSelectors.elements.length > 0) {
+          Array.from(yearMonthSelectors.elements).forEach((element: Element) => {
+            DOMManipulator.show(element);
+          });
+        }
+      } catch (error) {
+        console.error('Error showing year/month selectors:', error);
+      }
+    };
   }, []);
 
   // 入力参照用関数

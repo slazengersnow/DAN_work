@@ -1,0 +1,575 @@
+// トラブルシューティング用診断ツール
+
+function diagnosePageStructure() {
+  console.clear();
+  console.log('=== 月次報告ページ構造診断 ===');
+  
+  // 「年度:」「月:」を含む要素をすべて探して表示
+  const yearMonthElements = Array.from(document.querySelectorAll('*'))
+    .filter(el => el.textContent.includes('年度:') && el.textContent.includes('月:'));
+  
+  console.log(`「年度:」「月:」を含む要素数: ${yearMonthElements.length}`);
+  
+  yearMonthElements.forEach((el, index) => {
+    console.log(`要素 ${index + 1}:`);
+    console.log('- テキスト内容:', el.textContent.trim());
+    console.log('- タグ名:', el.tagName);
+    console.log('- クラス:', el.className);
+    console.log('- ID:', el.id);
+    
+    // セレクタを生成
+    let selector = el.tagName.toLowerCase();
+    if (el.id) selector += `#${el.id}`;
+    if (el.className) selector += `.${el.className.replace(/\s+/g, '.')}`;
+    
+    console.log('- セレクタ:', selector);
+    console.log('- HTML:', el.outerHTML.substring(0, 100) + '...');
+    console.log('---');
+  });
+  
+  // #root 要素の構造を調査
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    console.log('#root 要素の構造:');
+    console.log('- 子要素数:', rootElement.children.length);
+    
+    // 最初の数階層を表示
+    let structure = '#root';
+    let currentEl = rootElement;
+    
+    for (let i = 0; i < 5; i++) {
+      if (currentEl.children.length === 0) break;
+      currentEl = currentEl.children[0];
+      structure += ` > ${currentEl.tagName.toLowerCase()}`;
+      if (currentEl.className) structure += `.${currentEl.className.replace(/\s+/g, '.')}`;
+    }
+    
+    console.log('- DOM構造:', structure + ' > ...');
+  } else {
+    console.log('#root 要素が見つかりません');
+  }
+  
+  console.log('=== 診断完了 ===');
+}
+
+// 実行
+diagnosePageStructure();// 月次報告ページ診断ツール
+(function() {
+  console.clear();
+  console.log('%c月次報告ページ診断ツール', 'font-size:16px; font-weight:bold; color:blue;');
+  
+  // 1. ページ情報収集
+  console.log('%cページ情報:', 'font-weight:bold;');
+  console.log('URL:', window.location.href);
+  console.log('タイトル:', document.title);
+  console.log('フレームワーク検出:');
+  
+  // フレームワーク検出
+  const frameworks = {
+    'React': !!window.React || !!document.querySelector('[data-reactroot], [data-reactid]'),
+    'Angular': !!window.angular || !!document.querySelector('[ng-app], [ng-controller], [ng-model]'),
+    'Vue': !!window.Vue || !!document.querySelector('[v-app], [v-model], [v-if]'),
+    'jQuery': typeof jQuery !== 'undefined'
+  };
+  
+  Object.entries(frameworks).forEach(([name, detected]) => {
+    console.log(`- ${name}: ${detected ? '検出' : '未検出'}`);
+  });
+  
+  // 2. 年度・月行の要素検出
+  console.log('%c年度・月行の検出:', 'font-weight:bold;');
+  
+  // 検出方法の配列
+  const detectionMethods = [
+    {
+      name: 'XPath (指定されたパス)',
+      code: () => {
+        const xpath = '//*[@id="root"]/div/div[2]/main/div/div[1]';
+        const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+        const element = result.singleNodeValue;
+        return { found: !!element, element };
+      }
+    },
+    {
+      name: 'セレクタ (年度/月を含む)',
+      code: () => {
+        const elements = document.querySelectorAll('div:has(select), div:has(input[type="month"])');
+        return { found: elements.length > 0, elements: Array.from(elements) };
+      }
+    },
+    {
+      name: 'テキスト検索 (年度/月)',
+      code: () => {
+        const textNodes = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node;
+        while (node = walker.nextNode()) {
+          if (node.textContent.includes('年度') || node.textContent.includes('月:')) {
+            textNodes.push(node.parentElement);
+          }
+        }
+        return { found: textNodes.length > 0, elements: textNodes };
+      }
+    },
+    {
+      name: 'フォーム要素',
+      code: () => {
+        const forms = document.querySelectorAll('form');
+        const relevantForms = Array.from(forms).filter(form => {
+          return form.innerHTML.includes('年度') || form.innerHTML.includes('月');
+        });
+        return { found: relevantForms.length > 0, elements: relevantForms };
+      }
+    },
+    {
+      name: 'Shadow DOM 検索',
+      code: () => {
+        const hostElements = document.querySelectorAll('*');
+        const shadowRoots = [];
+        hostElements.forEach(host => {
+          if (host.shadowRoot) {
+            shadowRoots.push(host.shadowRoot);
+          }
+        });
+        return { found: shadowRoots.length > 0, elements: shadowRoots };
+      }
+    }
+  ];
+  
+  // 各検出方法を実行
+  detectionMethods.forEach(method => {
+    try {
+      console.log(`検出方法: ${method.name}`);
+      const result = method.code();
+      console.log(`- 結果: ${result.found ? '要素を発見' : '要素なし'}`);
+      if (result.found) {
+        if (Array.isArray(result.elements)) {
+          console.log(`- ${result.elements.length}個の要素が見つかりました`);
+          result.elements.forEach((el, i) => {
+            if (i < 3) { // 最初の3つだけ表示
+              console.log(`  要素${i+1}:`, el);
+              console.log(`  HTML: ${el.outerHTML?.substring(0, 100)}...`);
+            }
+          });
+          if (result.elements.length > 3) {
+            console.log(`  ...(他${result.elements.length - 3}個)`);
+          }
+        } else {
+          console.log('- 要素:', result.element);
+          console.log(`- HTML: ${result.element.outerHTML?.substring(0, 100)}...`);
+        }
+      }
+    } catch (e) {
+      console.error(`- エラー: ${e.message}`);
+    }
+  });
+  
+  // 3. CSP (Content Security Policy) の検出
+  console.log('%cセキュリティポリシー:', 'font-weight:bold;');
+  const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+  if (cspMeta) {
+    console.log('CSP Meta タグ:', cspMeta.content);
+  } else {
+    console.log('CSP Meta タグ: 未検出');
+  }
+  
+  // 4. インラインスクリプト実行テスト
+  console.log('%cインラインスクリプト実行テスト:', 'font-weight:bold;');
+  try {
+    const testDiv = document.createElement('div');
+    testDiv.id = 'csp-test';
+    testDiv.style.display = 'none';
+    document.body.appendChild(testDiv);
+    
+    const script = document.createElement('script');
+    script.textContent = 'document.getElementById("csp-test").setAttribute("data-test", "passed");';
+    document.body.appendChild(script);
+    
+    setTimeout(() => {
+      const result = document.getElementById('csp-test').getAttribute('data-test') === 'passed';
+      console.log('インラインスクリプト実行:', result ? '成功' : '失敗');
+      document.body.removeChild(testDiv);
+      document.body.removeChild(script);
+    }, 100);
+  } catch (e) {
+    console.error('インラインスクリプト実行エラー:', e.message);
+  }
+  
+  // 5. 解決策の提案
+  console.log('%c解決策の提案:', 'font-weight:bold; color:green;');
+  console.log('1. 直接コンソールで実行できる修正コード');
+  console.log('2. ブラウザ拡張機能を使用した解決策');
+  console.log('3. 開発者に問い合わせ');
+  
+  console.log('%c診断完了', 'font-size:16px; font-weight:bold; color:blue;');
+})();// 月次報告ページの「年度」「月」行を削除する極シンプルなコード
+
+/**
+ * 画像を見る限り、対象となる要素は以下の構造になっていると思われます：
+ * 
+ * 年度: [2024▼] 月: [5月▼] [更新]
+ * 
+ * この行をシンプルに非表示にするコードです。
+ */
+
+// 以下のコードをクロードコードにコピー＆ペーストして実行するだけです
+
+// 方法1: スクリーンショットから見た要素に直接アクセス
+const yearMonthRow = document.querySelector('div:has(select[value="2024"], select[value="5月"])');
+if (yearMonthRow) {
+  yearMonthRow.style.display = 'none';
+  console.log('成功: 年度・月の行を非表示にしました (方法1)');
+} else {
+  // 方法2: テキスト「年度:」と「月:」を含む要素を検索
+  const divs = document.querySelectorAll('div');
+  for (const div of divs) {
+    if (div.textContent.includes('年度:') && div.textContent.includes('月:')) {
+      div.style.display = 'none';
+      console.log('成功: 年度・月の行を非表示にしました (方法2)');
+      break;
+    }
+  }
+  
+  // 方法3: セレクトボックスから見つける
+  const selects = document.querySelectorAll('select');
+  for (const select of selects) {
+    const options = select.querySelectorAll('option');
+    for (const option of options) {
+      if (option.textContent === '2024' || option.textContent === '5月') {
+        // セレクトの親要素（おそらく行全体）を非表示
+        let parent = select.parentElement;
+        while (parent && parent.tagName !== 'BODY' && parent.offsetWidth < window.innerWidth * 0.8) {
+          parent = parent.parentElement;
+        }
+        if (parent && parent.tagName !== 'BODY') {
+          parent.style.display = 'none';
+          console.log('成功: 年度・月の行を非表示にしました (方法3)');
+          break;
+        }
+      }
+    }
+  }
+  
+  // 方法4: 更新ボタンから遡って見つける
+  const updateButton = Array.from(document.querySelectorAll('button')).find(btn => 
+    btn.textContent === '更新' || btn.innerHTML.includes('更新')
+  );
+  
+  if (updateButton) {
+    // 更新ボタンの親要素（おそらく行全体）を非表示
+    let parent = updateButton.parentElement;
+    while (parent && parent.tagName !== 'BODY' && parent.offsetWidth < window.innerWidth * 0.8) {
+      parent = parent.parentElement;
+    }
+    if (parent && parent.tagName !== 'BODY') {
+      parent.style.display = 'none';
+      console.log('成功: 年度・月の行を非表示にしました (方法4)');
+    }
+  }
+}// JavaScriptでオブジェクトの中のプロパティを一括除去するコード例
+// 月次報告システムがオブジェクトベースでデータを管理している場合に有効な可能性があります
+javascript:(function() {
+  // グローバルスコープから月次報告に関連するオブジェクトを探す
+  const globalObjects = Object.keys(window).filter(key => {
+    return key.includes('report') || key.includes('月次') || key.includes('Report');
+  });
+  
+  // 見つかったオブジェクトから年度・月のプロパティを取得して表示制御を変更
+  globalObjects.forEach(objName => {
+    try {
+      const obj = window[objName];
+      if (obj && typeof obj === 'object') {
+        // 表示/非表示に関するプロパティを探して変更
+        if (obj.hasOwnProperty('showYearMonthSelector')) {
+          obj.showYearMonthSelector = false;
+          console.log(`${objName}.showYearMonthSelector を false に設定しました`);
+        }
+        
+        // 年度・月のセレクタ部分を探して非表示に
+        if (obj.hasOwnProperty('yearMonthSelector')) {
+          obj.yearMonthSelector.visible = false;
+          console.log(`${objName}.yearMonthSelector.visible を false に設定しました`);
+        }
+      }
+    } catch (e) {
+      // エラーは無視
+    }
+  });
+})();// 月次報告ページの年度・月の行を非表示にする - ワンライナー
+document.querySelector('div:has(div:contains("年度:"))').style.display = 'none';// エラーハンドリング付きバージョン
+try {
+  document.querySelector('div:has(div:contains("年度:"))').style.display = 'none';
+  console.log('成功: 年度・月の行を非表示にしました');
+} catch (e) {
+  console.error('エラー: セレクタが見つかりませんでした', e);
+  // 代替方法
+  const divs = document.querySelectorAll('div');
+  for (const div of divs) {
+    if (div.textContent.includes('年度:')) {
+      div.style.display = 'none';
+      console.log('代替方法で成功しました');
+      break;
+    }
+  }
+}// 月次報告ページの年度・月の選択部分を非表示にするシンプルなスクリプト
+
+/**
+ * 月次報告ページの年度・月の選択部分を非表示にするスクリプト
+ * 
+ * 目的: 「月次報告」というタイトルの下にある年度と月を選択する行を非表示にします
+ * 画像から確認できる要素: 年度: 2024 と 月: 5月 がある行
+ */
+
+// シンプルなブックマークレット形式（ブラウザのブックマークに保存して実行可能）
+javascript:(function() {
+  // 1. 画面に表示されている「年度: 2024」「月: 5月」部分を非表示にする
+  const yearMonthRow = document.querySelector('.react-grid-Container .react-grid-Header .header-row');
+  if (yearMonthRow) {
+    yearMonthRow.style.display = 'none';
+    console.log('年度・月の行を非表示にしました（方法1）');
+    return;
+  }
+  
+  // 2. 「年度:」と「月:」のラベルを含む要素を探して非表示にする
+  const elements = Array.from(document.querySelectorAll('div, span, label'));
+  const targetElements = elements.filter(el => 
+    (el.textContent.includes('年度:') && el.textContent.includes('月:')) ||
+    (el.textContent.includes('年度:') && el.parentElement && el.parentElement.textContent.includes('月:'))
+  );
+  
+  if (targetElements.length > 0) {
+    // 見つかった要素の親要素（行全体）を非表示に
+    targetElements.forEach(el => {
+      // 親要素のどれかが行全体を表す
+      let parent = el;
+      for (let i = 0; i < 3; i++) {
+        if (parent.parentElement) {
+          parent = parent.parentElement;
+          // 行っぽい要素（横幅が大きい）を見つけたら非表示に
+          if (parent.offsetWidth > window.innerWidth * 0.7) {
+            parent.style.display = 'none';
+            console.log('年度・月の行を非表示にしました（方法2）');
+            return;
+          }
+        }
+      }
+    });
+    
+    // 親要素が見つからなければ、要素自体を非表示に
+    if (targetElements[0].parentElement) {
+      targetElements[0].parentElement.style.display = 'none';
+      console.log('年度・月の行を非表示にしました（方法3）');
+      return;
+    }
+  }
+  
+  // 3. 年度と月を含むセレクトボックスを探す
+  const selects = document.querySelectorAll('select');
+  const yearMonthSelects = Array.from(selects).filter(select => 
+    select.id.includes('year') || 
+    select.id.includes('month') ||
+    select.name.includes('year') ||
+    select.name.includes('month') ||
+    Array.from(select.options).some(option => option.textContent.includes('2024') || option.textContent.includes('5月'))
+  );
+  
+  if (yearMonthSelects.length > 0) {
+    // セレクトボックスの親要素（行）を非表示に
+    const selectRow = yearMonthSelects[0].closest('div[class*="row"], div[class*="filter"], div.form-group, div.form-row');
+    if (selectRow) {
+      selectRow.style.display = 'none';
+      console.log('年度・月の行を非表示にしました（方法4）');
+      return;
+    }
+  }
+  
+  // 4. 画像から見た要素の配置を考慮した直接的なセレクタ
+  const directSelectors = [
+    '#root > div > div:nth-child(2) > main > div > div:first-child',
+    'div.container > div.row:first-of-type',
+    'div.year-month-selector',
+    'div.filter-row',
+    'form > div:first-child',
+    'div:has(select[name*="year"], select[name*="month"])'
+  ];
+  
+  for (const selector of directSelectors) {
+    try {
+      const element = document.querySelector(selector);
+      if (element) {
+        element.style.display = 'none';
+        console.log(`セレクタ "${selector}" で年度・月の行を非表示にしました（方法5）`);
+        return;
+      }
+    } catch (e) {
+      // 一部のセレクタは古いブラウザで対応していないため、エラー処理
+    }
+  }
+  
+  // 5. 「年度: 2024, 月: 5月」と表示されている部分を特定
+  const yearMonthText = Array.from(document.querySelectorAll('div, span, p'))
+    .find(el => el.textContent.match(/年度\s*[:：]\s*2024/) && el.textContent.match(/月\s*[:：]\s*5月/));
+  
+  if (yearMonthText) {
+    // 見つかった要素またはその親要素を非表示に
+    if (yearMonthText.parentElement) {
+      yearMonthText.parentElement.style.display = 'none';
+    } else {
+      yearMonthText.style.display = 'none';
+    }
+    console.log('年度・月のテキストを非表示にしました（方法6）');
+    return;
+  }
+  
+  // 成功または失敗の通知
+  alert('年度・月の行を非表示にする処理を実行しました。うまくいかない場合は、違う方法を試してください。');
+})();// スタイルシートで非表示にする（最も確実な方法）
+document.head.insertAdjacentHTML('beforeend', 
+  '<style>' +
+  '#root > div > div:nth-child(2) > main > div > div:first-child {display: none !important;}' +
+  'div:has(select), div:has(label:contains("年度")), div:has(label:contains("月")) {display: none !important;}' +
+  '</style>'
+);
+
+// 直接指定（成功率高）
+try {
+  const element = document.querySelector('#root > div > div:nth-child(2) > main > div > div:first-child');
+  if (element) {
+    element.style.display = 'none';
+    console.log('直接指定で成功しました');
+  }
+} catch (e) {
+  console.log('直接指定は失敗しました');
+}
+
+// テキスト検索（シンプルで確実）
+const allDivs = document.querySelectorAll('div');
+for (const div of allDivs) {
+  if (div.textContent.includes('年度:') && div.textContent.includes('月:')) {
+    div.style.display = 'none';
+    console.log('テキスト検索で成功しました');
+    break;
+  }
+}
+
+console.log('月次報告の年度・月の行を非表示にする処理を実行しました。画面を確認してください。');// 月次報告ページの年度・月の行を非表示にする超シンプルスクリプト
+
+/**
+ * 目的: 月次報告ページの年度・月の行を非表示にする
+ * 対象要素: 画像から確認できる「年度: 2024」「月: 5月」が表示されている行
+ * アプローチ: 最もシンプルな実装で目的を達成する
+ */
+
+// このスクリプトをClaude Codeで実行:
+// ======================================
+
+// まず、単純にCSSで非表示にするスタイルを追加
+const style = document.createElement('style');
+style.textContent = `
+  /* 年度と月の行を非表示 */
+  #root > div > div:nth-child(2) > main > div > div:first-child {
+    display: none !important;
+  }
+`;
+document.head.appendChild(style);
+
+// その後、念のため直接指定した要素を非表示に
+try {
+  const targetRow = document.querySelector('#root > div > div:nth-child(2) > main > div > div:first-child');
+  if (targetRow) {
+    targetRow.style.display = 'none';
+    console.log('年度と月の行を非表示にしました');
+  } else {
+    console.log('指定した要素が見つからないため、別のアプローチを試します');
+    
+    // 「年度:」「月:」が表示されている要素を探す
+    const yearMonthElements = Array.from(document.querySelectorAll('div'))
+      .filter(div => div.textContent.includes('年度:') && div.textContent.includes('月:'))
+      .sort((a, b) => a.textContent.length - b.textContent.length);
+    
+    if (yearMonthElements.length > 0) {
+      // 最も内容が短い（年度と月の情報だけを含む可能性が高い）要素を選択
+      const element = yearMonthElements[0];
+      // その要素の親または祖父要素を非表示（行全体をカバーするため）
+      if (element.parentElement) {
+        element.parentElement.style.display = 'none';
+        console.log('親要素を非表示にしました');
+      } else {
+        element.style.display = 'none';
+        console.log('要素自体を非表示にしました');
+      }
+    } else {
+      console.log('年度と月を含む要素が見つかりませんでした');
+    }
+  }
+} catch (error) {
+  console.error('エラーが発生しました:', error);
+}// XPathで指定された要素を削除
+const xpath = '//*[@id="root"]/div/div[2]/main/div/div[1]';
+const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+const element = result.singleNodeValue;
+
+if (element) {
+  // 要素が見つかった場合、親要素から削除
+  element.parentNode.removeChild(element);
+  console.log('成功: XPathで指定した要素を削除しました');
+} else {
+  console.log('指定したXPathの要素が見つかりませんでした。別の方法を試します...');
+  
+  // 代替方法: 「年度:」と「月:」を含む要素を探して削除
+  const elements = document.querySelectorAll('div');
+  let found = false;
+  
+  for (const el of elements) {
+    if (el.textContent.includes('年度:') && el.textContent.includes('月:')) {
+      // 要素を削除
+      el.parentNode.removeChild(el);
+      console.log('成功: 「年度:」と「月:」を含む要素を削除しました');
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found) {
+    console.log('「年度:」と「月:」を含む要素も見つかりませんでした。');
+  }
+}// 指定されたXPathでノードを取得し非表示にする関数
+function removeElementByXPath(xpath) {
+  try {
+    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+    const element = result.singleNodeValue;
+    
+    if (element) {
+      // この要素を非表示にする
+      element.style.display = 'none';
+      console.log('成功: XPathで指定した要素を非表示にしました');
+      return true;
+    } else {
+      console.log('指定したXPathの要素が見つかりませんでした');
+      return false;
+    }
+  } catch (error) {
+    console.error('XPathによる要素の操作中にエラーが発生しました:', error);
+    return false;
+  }
+}
+
+// 実行部分
+// 1週間前に成功したという情報から、以下のXPathを試します
+const xpath = '//*[@id="root"]/div/div[2]/main/div/div[1]';
+const success = removeElementByXPath(xpath);
+
+// 失敗した場合のバックアッププラン
+if (!success) {
+  console.log('バックアップ方法を試します...');
+  
+  // 「年度」と「月」のテキスト内容で検索
+  const elements = document.querySelectorAll('div');
+  for (const element of elements) {
+    if (element.textContent.includes('年度') && element.textContent.includes('月')) {
+      element.style.display = 'none';
+      console.log('成功: テキスト内容で要素を見つけて非表示にしました');
+      break;
+    }
+  }
+}

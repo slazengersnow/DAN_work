@@ -1,4 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+  ElementDetector, 
+  waitForElement,
+  DOMManipulator,
+  diagnosePageStructure 
+} from '../utils/common';
 
 const Dashboard: React.FC = () => {
   const [year, setYear] = useState<string>('2024年度');
@@ -8,6 +14,72 @@ const Dashboard: React.FC = () => {
   const actualRates = [1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.35, 2.38, 2.39, 2.41, 2.41, 2.41];
   const legalRate = 2.5;
   const forecastRates = [2.43, 2.47]; // 3ヶ月後と6ヶ月後
+  
+  useEffect(() => {
+    const setupDashboard = async () => {
+      // ダッシュボードの重要な要素が読み込まれるのを待つ
+      // 修正1: waitForElementの戻り値の型を適切に取り扱う
+      const dashboardContainer = await waitForElement('.dashboard-container', 2000);
+      
+      if (dashboardContainer) {
+        // グラフやチャートのレンダリングが完了するのを待つ
+        setTimeout(() => {
+          // 必要に応じてダッシュボード要素を操作
+          // 修正2: detectElementsメソッドの引数を修正
+          const graphElements = ElementDetector.findFormElements(['.dashboard-chart', '.dashboard-graph']);
+
+          
+          if (graphElements && graphElements.elements && graphElements.elements.length > 0) {
+              Array.from(graphElements.elements).forEach((element: Element) => {
+              DOMManipulator.applyStyles(element, {
+                transition: 'all 0.3s ease',
+                borderRadius: '4px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              });
+            });
+          }
+        }, 500);
+      }
+    };
+    
+    setupDashboard();
+    
+    // 診断機能をデバッグモードでのみ有効化
+    if (process.env.NODE_ENV === 'development') {
+      // window objectにデバッグ用関数を追加
+      (window as any).runDashboardDiagnostics = async () => {
+        // 修正4: diagnosePageStructureの引数を追加（必要な場合）
+        const report = await diagnosePageStructure({
+          includeStyles: true,
+          maxDepth: 3
+        });
+        console.log('Dashboard診断レポート:', report);
+      };
+    }
+    
+    // 修正5: キーボードイベントハンドラー関数定義
+    const handleKeyboardDiagnostics = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        if (typeof (window as any).runDashboardDiagnostics === 'function') {
+          (window as any).runDashboardDiagnostics();
+        }
+      }
+    };
+    
+    // デバッグモードの場合のみキーボードショートカットを追加
+    if (process.env.NODE_ENV === 'development') {
+      document.addEventListener('keydown', handleKeyboardDiagnostics);
+    }
+    
+    return () => {
+      // クリーンアップコード
+      if (process.env.NODE_ENV === 'development') {
+        delete (window as any).runDashboardDiagnostics;
+        // 修正6: イベントリスナーの適切な削除
+        document.removeEventListener('keydown', handleKeyboardDiagnostics);
+      }
+    };
+  }, []);
   
   // グラフのサイズと余白
   const svgWidth = 600;

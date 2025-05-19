@@ -1,3 +1,11 @@
+/* ==UserStyle==
+@name           月次報告ページカスタマイズ
+@namespace      github.com/your-username
+@version        1.0.0
+@description    月次報告ページの年度・月の行を非表示
+@author         Your Name
+==/UserStyle== */
+
 /* グローバルリセットCSS */
 /* 縦書きのリセット */
 * {
@@ -31,4 +39,95 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* 年度・月の選択行を非表示 - すべてのページで機能するように修正 */
+#root > div > div:nth-child(2) > main > div > div:first-child,
+div:has(> select[id*="year"], > select[id*="month"]),
+div:has(label:contains("年度"), label:contains("月")),
+.yearMonthDisplay,
+.yearMonthSection,
+.filterSection,
+.year-month-selector,
+.year-selector,
+.month-selector,
+[class*="yearMonth"],
+[class*="YearMonth"],
+[class*="Year-Month"],
+[class*="year-month"],
+[class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"]),
+#yearSelector,
+#monthSelector,
+#dateFilter,
+[id*="filter"]:not([id*="tab"]),
+[id*="selector"]:not([id*="tab"]),
+[id*="year"]:not([id*="tab"]),
+[id*="month"]:not([id*="tab"]),
+div.year-month-selector,
+div.filter-row,
+div.date-filter {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
+}
+
+/* 見出しの直後の要素を非表示（年度/月選択部分である可能性が高い） */
+h1.title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),
+h2.title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),
+.page-title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+}
+
+/* タブは確実に表示するためのCSS */
+.monthly-tabs-area,
+.monthly-tab,
+.tabsContainer,
+.tabs-container,
+.nav.nav-tabs,
+.ant-tabs,
+.ant-tabs-content,
+.ant-tabs-nav,
+.ant-tabs-tab,
+.ant-tabs-tabpane,
+[data-tab-container="true"],
+[data-role="monthly-tabs"],
+[data-tab-content],
+[role="tablist"],
+[role="tab"],
+[role="tabpanel"],
+.tab-content,
+.tab-pane,
+#monthly-report-tabs,
+#secure-tabs-area {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: initial !important;
+    padding: initial !important;
+}
+
+/* 特定のタブスタイルを修正 */
+.nav.nav-tabs,
+[role="tablist"] {
+    display: flex !important;
+}
+
+[role="tab"],
+.ant-tabs-tab {
+    display: inline-block !important;
+}
+
+/* アクティブなタブパネルの表示 */
+.tab-pane.active,
+.ant-tabs-tabpane-active,
+[role="tabpanel"][aria-hidden="false"] {
+    display: block !important;
 }

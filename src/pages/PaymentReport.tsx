@@ -1,4 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  ElementDetector,
+  DOMManipulator,
+  GlobalObjectManipulator 
+} from '../utils/common';
 
 const PaymentReport: React.FC = () => {
   const [fiscalYear, setFiscalYear] = useState<string>('2024年度');
@@ -6,6 +11,161 @@ const PaymentReport: React.FC = () => {
   
   // 法定雇用率
   const LEGAL_EMPLOYMENT_RATE = 2.3; // 2.3%
+  
+  // 納付金計算機能を強化する関数
+  const enhancePaymentCalculation = () => {
+    // 計算ロジックを強化する関数
+    const recalculatePayments = () => {
+      // 入力フィールドを検出
+      const inputFields = ElementDetector.findFormElements(['input', 'select', 'textarea']);
+      
+      if (inputFields && inputFields.elements) {
+        // 数値入力フィールドにバリデーションと自動計算を追加
+        const numberInputs = Array.from(inputFields.elements).filter((input: Element) => 
+          (input as HTMLInputElement).type === 'number' || 
+          input.classList.contains('numeric-input')
+        );
+        
+        if (numberInputs.length > 0) {
+          numberInputs.forEach((input: Element) => {
+            input.addEventListener('input', () => {
+              // 入力値のバリデーション
+              const value = parseFloat((input as HTMLInputElement).value);
+              if (isNaN(value) || value < 0) {
+                (input as HTMLInputElement).value = '0';
+              }
+              
+              // 関連フィールドの自動計算（実際の計算ロジックは既存コードに合わせて調整）
+              triggerCalculation();
+            });
+          });
+        }
+      }
+    };
+    
+    // 既存の計算ロジックを尊重しつつ自動計算をトリガー
+    const triggerCalculation = () => {
+      // グローバルオブジェクトから計算関数を探す
+      const findGlobalFunctionByPattern = (patterns: string[]): string | null => {
+        const globalObj = window as any;
+        for (const key in globalObj) {
+          if (typeof globalObj[key] === 'function') {
+            if (patterns.some(pattern => key.toLowerCase().includes(pattern.toLowerCase()))) {
+              return key;
+            }
+          }
+        }
+        return null;
+      };
+      
+      const calculationFunction = findGlobalFunctionByPattern(['calculate', 'compute', '計算']);
+      
+      if (calculationFunction && typeof (window as any)[calculationFunction] === 'function') {
+        // 既存の計算関数を呼び出す
+        (window as any)[calculationFunction]();
+      } else {
+        // 既存の計算関数が見つからない場合、計算ボタンを探してクリックイベントをトリガー
+        const findButtonsByText = (texts: string[]): HTMLElement[] => {
+          const buttons = Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]'));
+          return buttons.filter(button => {
+            const buttonText = (button as HTMLElement).innerText || (button as HTMLInputElement).value || '';
+            return texts.some(text => buttonText.includes(text));
+          }) as HTMLElement[];
+        };
+        
+        const calculateButtons = findButtonsByText(['計算', '再計算', 'Calculate']);
+        if (calculateButtons.length > 0) {
+          calculateButtons[0].click();
+        }
+      }
+    };
+    
+    return {
+      recalculatePayments,
+      triggerCalculation
+    };
+  };
+  
+  useEffect(() => {
+    // 納付金申告ページのセットアップ
+    const setupPaymentReport = async () => {
+      // フォームが読み込まれるのを待つ
+      const waitForElement = async (selector: string, timeout: number = 2000): Promise<Element | null> => {
+        return new Promise(resolve => {
+          // 要素がすでに存在するか確認
+          const element = document.querySelector(selector);
+          if (element) {
+            resolve(element);
+            return;
+          }
+          
+          // 要素が見つからない場合は、MutationObserverを設定
+          const observer = new MutationObserver(mutations => {
+            const element = document.querySelector(selector);
+            if (element) {
+              observer.disconnect();
+              resolve(element);
+            }
+          });
+          
+          // 監視設定
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          });
+          
+          // タイムアウト設定
+          setTimeout(() => {
+            observer.disconnect();
+            resolve(document.querySelector(selector));
+          }, timeout);
+        });
+      };
+      
+      const paymentForm = await waitForElement('form', 2000);
+      
+      if (paymentForm) {
+        // 納付金計算機能を強化
+        const { recalculatePayments } = enhancePaymentCalculation();
+        recalculatePayments();
+        
+        // 印刷ボタンの検出と機能強化
+        const findButtonsByText = (texts: string[]): HTMLElement[] => {
+          const buttons = Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]'));
+          return buttons.filter(button => {
+            const buttonText = (button as HTMLElement).innerText || (button as HTMLInputElement).value || '';
+            return texts.some(text => buttonText.includes(text));
+          }) as HTMLElement[];
+        };
+        
+        const printButtons = findButtonsByText(['印刷', 'プリント', 'Print']);
+        if (printButtons.length > 0) {
+          printButtons.forEach((button: HTMLElement) => {
+            button.addEventListener('click', (e: Event) => {
+              e.preventDefault();
+              
+              // 印刷前に計算が最新であることを確認
+              const { triggerCalculation } = enhancePaymentCalculation();
+              triggerCalculation();
+              
+              // 少し遅延させてから印刷ダイアログを表示
+              setTimeout(() => {
+                window.print();
+              }, 300);
+            });
+          });
+        }
+      }
+    };
+    
+    setupPaymentReport();
+    
+    // クリーンアップ
+    return () => {
+      // イベントリスナーのクリーンアップなど
+      // 必要に応じてここで実装
+    };
+  }, []);
   
   // 申告履歴データ
   const historyData = [
@@ -294,7 +454,19 @@ const PaymentReport: React.FC = () => {
       
       {activeTab === 'payment' && (
         <div>
-          <p>納付金情報は表示されません。</p>
+          <form className="payment-form">
+            <p>納付金情報フォーム</p>
+            <div className="form-group">
+              <label>常用労働者数：</label>
+              <input type="number" className="numeric-input" defaultValue="520" />
+            </div>
+            <div className="form-group">
+              <label>障害者雇用数：</label>
+              <input type="number" className="numeric-input" defaultValue="13" />
+            </div>
+            <button type="button" className="calculate-btn">計算</button>
+            <button type="button" className="print-btn">印刷</button>
+          </form>
         </div>
       )}
       
@@ -531,5 +703,49 @@ const styles = `
 .data-table td:first-child {
   text-align: left;
   font-weight: 500;
+}
+
+/* 納付金情報フォーム用のスタイル */
+.payment-form {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+}
+
+.form-group label {
+  width: 150px;
+  font-weight: 500;
+}
+
+.numeric-input {
+  padding: 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  width: 120px;
+}
+
+.calculate-btn, .print-btn {
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: none;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.calculate-btn {
+  background-color: #4285f4;
+  color: white;
+}
+
+.print-btn {
+  background-color: #f8f9fa;
+  border: 1px solid #ced4da;
 }
 `;

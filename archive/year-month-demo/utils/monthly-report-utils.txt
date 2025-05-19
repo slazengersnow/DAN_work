@@ -1,0 +1,3517 @@
+// 月次報告ページ修正スクリプト（コンソール実行用）
+(function() {
+  console.clear();
+  console.log('%c月次報告ページ修正を開始します', 'font-size:14px; font-weight:bold; color:blue;');
+  
+  // アプローチ 1: CSSインジェクション
+  function injectCSS() {
+    console.log('方法1: CSSインジェクション');
+    try {
+      const style = document.createElement('style');
+      style.textContent = `
+        /* 年度・月の選択行を非表示 */
+        #root > div > div:nth-child(2) > main > div > div:first-child,
+        div:has(> select[id*="year"], > select[id*="month"]),
+        div:has(label:contains("年度"), label:contains("月")),
+        div.year-month-selector,
+        div.filter-row,
+        div.date-filter {
+          display: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+      console.log('- CSS追加完了');
+      return true;
+    } catch (e) {
+      console.error('- CSSインジェクションエラー:', e.message);
+      return false;
+    }
+  }
+  
+  // アプローチ 2: DOM操作（複数の検出方法）
+  function manipulateDOM() {
+    console.log('方法2: DOM操作');
+    
+    // 2.1: XPath
+    try {
+      const xpath = '//*[@id="root"]/div/div[2]/main/div/div[1]';
+      const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+      const element = result.singleNodeValue;
+      if (element) {
+        element.style.display = 'none';
+        console.log('- XPathで要素を非表示化しました');
+        return true;
+      }
+    } catch (e) {
+      console.error('- XPath操作エラー:', e.message);
+    }
+    
+    // 2.2: セレクタ検索
+    try {
+      const selectors = [
+        '#root div main div div:first-child',
+        'div.year-month-selector',
+        'div.filter-row',
+        'div.date-filter',
+        'div:has(select[name*="year"], select[name*="month"])'
+      ];
+      
+      for (const selector of selectors) {
+        try {
+          const elements = document.querySelectorAll(selector);
+          if (elements && elements.length > 0) {
+            elements.forEach(el => {
+              el.style.display = 'none';
+              console.log(`- セレクタ "${selector}" で要素を非表示化しました`);
+            });
+            return true;
+          }
+        } catch (e) {
+          // セレクタが無効な場合はスキップ
+        }
+      }
+    } catch (e) {
+      console.error('- セレクタ検索エラー:', e.message);
+    }
+    
+    // 2.3: テキスト内容検索
+    try {
+      const yearMonthTexts = ['年度:', '月:', '2024', '5月'];
+      
+      for (const text of yearMonthTexts) {
+        const elements = Array.from(document.querySelectorAll('div, span, label'))
+          .filter(el => el.textContent.includes(text));
+        
+        if (elements.length > 0) {
+          elements.forEach(el => {
+            // 親要素を遡って非表示化
+            let parent = el;
+            for (let i = 0; i < 3; i++) {
+              parent = parent.parentElement;
+              if (parent && parent.tagName.toLowerCase() === 'div') {
+                parent.style.display = 'none';
+                console.log(`- "${text}" を含む要素の親要素を非表示化しました`);
+                break;
+              }
+            }
+          });
+          return true;
+        }
+      }
+    } catch (e) {
+      console.error('- テキスト検索エラー:', e.message);
+    }
+    
+    return false;
+  }
+  
+  // アプローチ 3: JavaScriptメインループ介入
+  function interceptMainLoop() {
+    console.log('方法3: JavaScriptメインループ介入');
+    try {
+      // UIフレームワークのレンダリングループ後に実行するため、setTimeout 0を使用
+      setTimeout(() => {
+        const elements = document.querySelectorAll('div');
+        
+        elements.forEach(el => {
+          // 年度・月の選択肢を含む要素を特定
+          if (
+            (el.textContent.includes('年度') && el.textContent.includes('月')) ||
+            (el.innerHTML.includes('select') && 
+             (el.innerHTML.includes('2024') || el.innerHTML.includes('5月')))
+          ) {
+            el.style.display = 'none';
+            console.log('- メインループ介入による要素の非表示化に成功しました');
+          }
+        });
+      }, 0);
+      
+      return true;
+    } catch (e) {
+      console.error('- メインループ介入エラー:', e.message);
+      return false;
+    }
+  }
+  
+  // アプローチ 4: MutationObserver（動的変更監視）
+  function setupMutationObserver() {
+    console.log('方法4: MutationObserver設定');
+    try {
+      const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+          if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+            // 新しく追加された要素をチェック
+            mutation.addedNodes.forEach(node => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                // 年度・月の選択肢を含む要素を特定
+                if (
+                  (node.textContent && node.textContent.includes('年度') && node.textContent.includes('月')) ||
+                  (node.innerHTML && node.innerHTML.includes('select') && 
+                   (node.innerHTML.includes('2024') || node.innerHTML.includes('5月')))
+                ) {
+                  node.style.display = 'none';
+                  console.log('- MutationObserverによる要素の非表示化に成功しました');
+                }
+              }
+            });
+          }
+        });
+      });
+      
+      // 監視を開始
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      console.log('- MutationObserver監視を開始しました');
+      
+      // 10秒後に自動停止（パフォーマンス対策）
+      setTimeout(() => {
+        observer.disconnect();
+        console.log('- MutationObserver監視を終了しました');
+      }, 10000);
+      
+      return true;
+    } catch (e) {
+      console.error('- MutationObserver設定エラー:', e.message);
+      return false;
+    }
+  }
+  
+  // アプローチ 5: React/Vueアプリケーション検出と対応
+  function handleJSFrameworks() {
+    console.log('方法5: JSフレームワーク対応');
+    
+    // React検出
+    if (window.React || document.querySelector('[data-reactroot], [data-reactid]')) {
+      console.log('- Reactアプリケーションを検出しました');
+      
+      try {
+        // Reactデバッガーが利用可能な場合
+        if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+          console.log('- React Devtools hookを検出しました');
+          
+          // Reactコンポーネントツリーへのアクセスを試みる
+          const reactInstances = [];
+          const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+          
+          if (hook.renderers && hook.renderers.size > 0) {
+            const renderer = Array.from(hook.renderers.values())[0];
+            
+            if (renderer && renderer.findFiberByHostInstance) {
+              document.querySelectorAll('div').forEach(node => {
+                try {
+                  const fiber = renderer.findFiberByHostInstance(node);
+                  if (fiber) {
+                    reactInstances.push({ node, fiber });
+                  }
+                } catch (e) {}
+              });
+            }
+          }
+          
+          console.log(`- ${reactInstances.length}のReactインスタンスを検出`);
+          
+          // 年度・月の選択肢を含むコンポーネントを探す
+          reactInstances.forEach(({ node, fiber }) => {
+            if (
+              node.textContent.includes('年度') && 
+              node.textContent.includes('月')
+            ) {
+              node.style.display = 'none';
+              console.log('- Reactコンポーネントを非表示化しました');
+            }
+          });
+        }
+      } catch (e) {
+        console.error('- React操作エラー:', e.message);
+      }
+    }
+    
+    // Vue検出
+    if (window.Vue || document.querySelector('[v-app], [v-model], [v-if]')) {
+      console.log('- Vueアプリケーションを検出しました');
+      
+      try {
+        // Vue DevtoolsのAPIを使用
+        if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__) {
+          console.log('- Vue Devtools hookを検出しました');
+          
+          // Vueアプリケーションインスタンスへのアクセスを試みる
+          const hook = window.__VUE_DEVTOOLS_GLOBAL_HOOK__;
+          
+          if (hook.Vue) {
+            // Vue 2
+            const vm = hook.Vue.prototype.$root;
+            console.log('- Vueルートインスタンスにアクセスしました', vm);
+          }
+        }
+        
+        // Vueコンポーネントに影響を与える一般的なアプローチ
+        document.querySelectorAll('[v-app], [data-v-app]').forEach(el => {
+          const yearMonthEl = el.querySelector('div:has(select)');
+          if (yearMonthEl) {
+            yearMonthEl.style.display = 'none';
+            console.log('- Vueコンポーネントを非表示化しました');
+          }
+        });
+      } catch (e) {
+        console.error('- Vue操作エラー:', e.message);
+      }
+    }
+    
+    return false;
+  }
+  
+  // 全てのアプローチを順番に実行
+  let success = false;
+  
+  // 1. CSSインジェクション
+  success = injectCSS() || success;
+  
+  // 2. DOM操作
+  success = manipulateDOM() || success;
+  
+  // 3. メインループ介入
+  success = interceptMainLoop() || success;
+  
+  // 4. MutationObserver
+  success = setupMutationObserver() || success;
+  
+  // 5. JSフレームワーク対応
+  success = handleJSFrameworks() || success;
+  
+  // 結果報告
+  if (success) {
+    console.log('%c月次報告ページの修正に成功しました！', 'color:green; font-weight:bold;');
+  } else {
+    console.error('%c月次報告ページの修正に失敗しました。', 'color:red; font-weight:bold;');
+    console.log('開発者ツール (F12) を開き、詳細なエラーメッセージを確認してください。');
+  }
+})();/**
+ * 代替案: DOM Observerを使用した方法
+ * ページの動的な変更に対応する場合はこちらを使用
+ */
+javascript:(function() {
+  // ターゲット要素がDOMに追加されるのを監視
+  const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+        // 年度・月の行を特定して非表示に
+        const yearMonthRow = document.querySelector(
+          '#root div main div div:first-child, ' +
+          'div:has(select[name*="year"], select[name*="month"])'
+        );
+        
+        if (yearMonthRow) {
+          yearMonthRow.style.display = 'none';
+          console.log('年度・月の行を非表示にしました');
+          observer.disconnect(); // 監視を停止
+        }
+      }
+    });
+  });
+  
+  // DOM全体を監視
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  console.log('DOM監視を開始しました');
+  
+  // 5秒後にObserverを自動停止
+  setTimeout(() => {
+    observer.disconnect();
+    console.log('DOM監視を終了しました');
+  }, 5000);
+})();// 月次報告ページの年度・月の行を削除するためのコード分析と改善版
+
+/**
+ * 前回の反省点:
+ * 1. DOM構造が想定と異なっていた可能性がある
+ * 2. XPathだけでは要素の特定が不十分だった
+ * 3. ブックマークレット形式になっていなかった
+ * 4. 実行タイミングが適切でなかった可能性がある
+ * 5. CSSセレクタと組み合わせた複数のアプローチを用意していなかった
+ */
+
+/**
+ * ブックマークレット形式のコード
+ * 複数の手法を組み合わせて要素を特定・削除する
+ */
+javascript:(function() {
+  // 実行開始のログ
+  console.log('月次報告ページの年度・月行削除スクリプトを実行します...');
+  
+  // 方法1: XPathで指定された要素を取得
+  function removeByXPath() {
+    const xpath = '//*[@id="root"]/div/div[2]/main/div/div[1]';
+    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+    const element = result.singleNodeValue;
+    
+    if (element) {
+      console.log('XPathで要素を特定しました');
+      element.style.display = 'none'; // 要素を非表示
+      return true;
+    }
+    return false;
+  }
+  
+  // 方法2: CSSセレクタで年度・月の行を特定
+  function removeByCssSelector() {
+    // 年度・月の選択肢がある行を特定するための複数のセレクタを試す
+    const selectors = [
+      '#root div main div div:first-child',
+      'div[class*="year"], div[class*="month"]',
+      'div:has(select[name*="year"], select[name*="month"])',
+      'div:has(select option[value="2024"])',
+      'div:contains("年度:")',
+      'div.year-month-selector',
+      'div.filter-row'
+    ];
+    
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        if (elements && elements.length > 0) {
+          console.log(`CSSセレクタ "${selector}" で要素を特定しました`);
+          elements.forEach(el => el.style.display = 'none');
+          return true;
+        }
+      } catch (e) {
+        console.log(`セレクタ "${selector}" は無効または要素が見つかりませんでした`);
+      }
+    }
+    return false;
+  }
+  
+  // 方法3: 年度と月の文字列を含む要素を特定
+  function removeByContent() {
+    // 年度と月の文字列を含む要素や選択肢を持つ要素を探す
+    const yearMonthTexts = ['年度:', '月:', '2024', '5月'];
+    
+    for (const text of yearMonthTexts) {
+      const elements = Array.from(document.querySelectorAll('div, span, label'))
+        .filter(el => el.textContent.includes(text));
+      
+      if (elements.length > 0) {
+        console.log(`"${text}" を含む要素を特定しました`);
+        
+        // 親要素まで遡って隠す (最大3階層)
+        elements.forEach(el => {
+          let parent = el;
+          for (let i = 0; i < 3; i++) {
+            parent = parent.parentElement;
+            if (parent && parent.tagName.toLowerCase() === 'div') {
+              parent.style.display = 'none';
+              console.log('親要素を非表示にしました');
+              break;
+            }
+          }
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  // 方法4: 年度・月選択が含まれるフォーム要素全体を特定
+  function removeFormSection() {
+    // フォーム要素やフィルター部分を探す
+    const forms = document.querySelectorAll('form, div[class*="filter"], div[class*="search"]');
+    
+    if (forms.length > 0) {
+      console.log('フォーム要素を特定しました');
+      forms.forEach(form => {
+        // 年度・月の選択肢を含むか確認
+        if (form.textContent.includes('年度') || form.textContent.includes('月') ||
+            form.innerHTML.includes('select') || form.innerHTML.includes('option')) {
+          form.style.display = 'none';
+          return true;
+        }
+      });
+    }
+    return false;
+  }
+  
+  // 実行順序付きの関数呼び出し
+  let success = false;
+  
+  // 1. XPathによる削除を試みる
+  success = removeByXPath();
+  if (success) {
+    console.log('XPathによる削除に成功しました');
+  } else {
+    // 2. CSSセレクタによる削除を試みる
+    success = removeByCssSelector();
+    if (success) {
+      console.log('CSSセレクタによる削除に成功しました');
+    } else {
+      // 3. コンテンツによる削除を試みる
+      success = removeByContent();
+      if (success) {
+        console.log('コンテンツによる削除に成功しました');
+      } else {
+        // 4. フォーム要素による削除を試みる
+        success = removeFormSection();
+        if (success) {
+          console.log('フォーム要素による削除に成功しました');
+        } else {
+          // すべての方法が失敗した場合
+          console.error('すべての方法で要素の特定に失敗しました。');
+          alert('月次報告の年度・月の行を削除できませんでした。ページ構造が想定と異なる可能性があります。');
+        }
+      }
+    }
+  }
+  
+  if (success) {
+    console.log('処理が完了しました！');
+  }
+})();// ==UserScript==
+// @name         月次報告ページ修正
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  月次報告ページの年度・月の選択行を非表示
+// @author       Your Name
+// @match        *://your-company-domain.com/*/月次報告*
+// @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    
+    // ページ読み込み完了時に実行
+    window.addEventListener('load', function() {
+        // CSSを追加して年度・月の行を非表示
+        const style = document.createElement('style');
+        style.textContent = `
+            /* 月次報告ページの年度・月の行を非表示 */
+            #root > div > div:nth-child(2) > main > div > div:first-child,
+            div:has(> label:contains("年度"), > label:contains("月")),
+            div:has(> select[name*="year"], > select[name*="month"]),
+            div.year-month-selector,
+            div.filter-row {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        console.log('月次報告ページの年度・月の行を非表示にしました');
+    });
+})();// 月次報告ページの年度・月の行を削除するブックマークレット
+//
+// 使用方法:
+// 1. 以下のコードをコピーします（javascript:で始まる部分すべて）
+// 2. ブラウザのブックマークに新規ブックマークを作成します
+// 3. 名前を「月次報告年度月削除」などにし、URLの代わりに下記コードを貼り付けます
+// 4. 月次報告画面を開いたら、このブックマークをクリックして実行します
+//
+javascript:(function(){function removeYearMonthRow(){const xpath='//*[@id="root"]/div/div[2]/main/div/div[1]';const result=document.evaluate(xpath,document,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);const targetElement=result.singleNodeValue;if(targetElement){console.log('年度と月の行を削除します...');targetElement.remove();console.log('完了: 年度と月の行を削除しました');return true}else{console.error('指定されたXPathの要素が見つかりませんでした: '+xpath);return false}}function main(){console.log('月次報告ページの修正を開始します...');if(window.location.href.includes('月次報告')||document.title.includes('月次報告')){const success=removeYearMonthRow();if(success){console.log('月次報告ページの修正が完了しました')}else{console.error('月次報告ページの修正に失敗しました')}}else{console.log('現在のページは月次報告ページではありません。処理をスキップします。')}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',main)}else{main()}})();// 月次報告ページの年度・月の選択部分を非表示にするシンプルなスクリプト
+
+/**
+ * 月次報告ページの年度・月の選択部分を非表示にするスクリプト
+ * 
+ * 目的: 「月次報告」というタイトルの下にある年度と月を選択する行を非表示にします
+ * 画像から確認できる要素: 年度: 2024 と 月: 5月 がある行
+ */
+
+// シンプルなブックマークレット形式（ブラウザのブックマークに保存して実行可能）
+javascript:(function() {
+  // 1. 画面に表示されている「年度: 2024」「月: 5月」部分を非表示にする
+  const yearMonthRow = document.querySelector('.react-grid-Container .react-grid-Header .header-row');
+  if (yearMonthRow) {
+    yearMonthRow.style.display = 'none';
+    console.log('年度・月の行を非表示にしました（方法1）');
+    return;
+  }
+  
+  // 2. 「年度:」と「月:」のラベルを含む要素を探して非表示にする
+  const elements = Array.from(document.querySelectorAll('div, span, label'));
+  const targetElements = elements.filter(el => 
+    (el.textContent.includes('年度:') && el.textContent.includes('月:')) ||
+    (el.textContent.includes('年度:') && el.parentElement && el.parentElement.textContent.includes('月:'))
+  );
+  
+  if (targetElements.length > 0) {
+    // 見つかった要素の親要素（行全体）を非表示に
+    targetElements.forEach(el => {
+      // 親要素のどれかが行全体を表す
+      let parent = el;
+      for (let i = 0; i < 3; i++) {
+        if (parent.parentElement) {
+          parent = parent.parentElement;
+          // 行っぽい要素（横幅が大きい）を見つけたら非表示に
+          if (parent.offsetWidth > window.innerWidth * 0.7) {
+            parent.style.display = 'none';
+            console.log('年度・月の行を非表示にしました（方法2）');
+            return;
+          }
+        }
+      }
+    });
+    
+    // 親要素が見つからなければ、要素自体を非表示に
+    if (targetElements[0].parentElement) {
+      targetElements[0].parentElement.style.display = 'none';
+      console.log('年度・月の行を非表示にしました（方法3）');
+      return;
+    }
+  }
+  
+  // 3. 年度と月を含むセレクトボックスを探す
+  const selects = document.querySelectorAll('select');
+  const yearMonthSelects = Array.from(selects).filter(select => 
+    select.id.includes('year') || 
+    select.id.includes('month') ||
+    select.name.includes('year') ||
+    select.name.includes('month') ||
+    Array.from(select.options).some(option => option.textContent.includes('2024') || option.textContent.includes('5月'))
+  );
+  
+  if (yearMonthSelects.length > 0) {
+    // セレクトボックスの親要素（行）を非表示に
+    const selectRow = yearMonthSelects[0].closest('div[class*="row"], div[class*="filter"], div.form-group, div.form-row');
+    if (selectRow) {
+      selectRow.style.display = 'none';
+      console.log('年度・月の行を非表示にしました（方法4）');
+      return;
+    }
+  }
+  
+  // 4. 画像から見た要素の配置を考慮した直接的なセレクタ
+  const directSelectors = [
+    '#root > div > div:nth-child(2) > main > div > div:first-child',
+    'div.container > div.row:first-of-type',
+    'div.year-month-selector',
+    'div.filter-row',
+    'form > div:first-child',
+    'div:has(select[name*="year"], select[name*="month"])'
+  ];
+  
+  for (const selector of directSelectors) {
+    try {
+      const element = document.querySelector(selector);
+      if (element) {
+        element.style.display = 'none';
+        console.log(`セレクタ "${selector}" で年度・月の行を非表示にしました（方法5）`);
+        return;
+      }
+    } catch (e) {
+      // 一部のセレクタは古いブラウザで対応していないため、エラー処理
+    }
+  }
+  
+  // 5. 「年度: 2024, 月: 5月」と表示されている部分を特定
+  const yearMonthText = Array.from(document.querySelectorAll('div, span, p'))
+    .find(el => el.textContent.match(/年度\s*[:：]\s*2024/) && el.textContent.match(/月\s*[:：]\s*5月/));
+  
+  if (yearMonthText) {
+    // 見つかった要素またはその親要素を非表示に
+    if (yearMonthText.parentElement) {
+      yearMonthText.parentElement.style.display = 'none';
+    } else {
+      yearMonthText.style.display = 'none';
+    }
+    console.log('年度・月のテキストを非表示にしました（方法6）');
+    return;
+  }
+  
+  // 成功または失敗の通知
+  alert('年度・月の行を非表示にする処理を実行しました。うまくいかない場合は、違う方法を試してください。');
+})();// 年度・月表示の非表示化ブックマークレット
+// 
+// 使用方法:
+// 1. 以下のコードをコピーします（javascript:で始まる部分すべて）
+// 2. ブラウザのブックマークに新規ブックマークを作成します
+// 3. 名前を「年度・月表示を非表示」などにし、URLの代わりに下記コードを貼り付けます
+// 4. 月次報告画面を開いたら、このブックマークをクリックして実行します
+//
+javascript:(function(){(function(){const style=document.createElement('style');style.textContent=`.yearMonthDisplay,.yearMonthSection,.filterSection,.year-month-selector,.year-selector,.month-selector,[class*="yearMonth"],[class*="YearMonth"],[class*="Year-Month"],[class*="year-month"],[class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"]),#yearSelector,#monthSelector,#dateFilter,[id*="filter"]:not([id*="tab"]),[id*="selector"]:not([id*="tab"]),[id*="year"]:not([id*="tab"]),[id*="month"]:not([id*="tab"]){display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;opacity:0!important}h1.title+div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),h2.title+div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),.page-title+div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]){display:none!important;visibility:hidden!important;height:0!important}.monthly-tabs-area,.monthly-tab,.tabsContainer,.tabs-container,.nav.nav-tabs,.ant-tabs,.ant-tabs-content,.ant-tabs-nav,.ant-tabs-tab,.ant-tabs-tabpane,[data-tab-container="true"],[data-role="monthly-tabs"],[data-tab-content],[role="tablist"],[role="tab"],[role="tabpanel"],.tab-content,.tab-pane,#monthly-report-tabs,#secure-tabs-area{display:block!important;visibility:visible!important;opacity:1!important;height:auto!important;overflow:visible!important;margin:initial!important;padding:initial!important}.nav.nav-tabs,[role="tablist"]{display:flex!important}[role="tab"],.ant-tabs-tab{display:inline-block!important}.tab-pane.active,.ant-tabs-tabpane-active,[role="tabpanel"][aria-hidden="false"]{display:block!important}`;document.head.appendChild(style);window._yearMonthObservers=window._yearMonthObservers||[];function stopExistingObservers(){if(Array.isArray(window._yearMonthObservers)){window._yearMonthObservers.forEach(observer=>{try{if(observer&&typeof observer.disconnect==='function'){observer.disconnect()}}catch(e){}});window._yearMonthObservers=[]}}stopExistingObservers();if(typeof window.hideYearMonthElements==='function'){window._originalHideFunction=window.hideYearMonthElements;window.hideYearMonthElements=function(){return forceHideYearMonth()}}let executionCount=0;function forceHideYearMonth(){try{executionCount++;let isMonthlyReport=false;try{isMonthlyReport=window.location.pathname.includes('monthly-report')||Array.from(document.querySelectorAll('h1, h2')).some(el=>el.textContent&&(el.textContent.includes('月次報告')||el.textContent.includes('月次詳細')))}catch(e){isMonthlyReport=true}if(!isMonthlyReport){return false}let elementsHidden=0;const classSelectors=['.yearMonthDisplay','.yearMonthSection','.filterSection','.year-month-selector','.year-selector','.month-selector','[class*="yearMonth"]','[class*="YearMonth"]','[class*="Year-Month"]','[class*="year-month"]','[class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"])'];function containsYearMonthText(element){try{const text=element.textContent||'';return(text.includes('年度')||text.includes('年'))&&(text.includes('月')||text.match(/\d+月/))}catch(e){return false}}try{const headingElements=document.querySelectorAll('h1, h2');headingElements.forEach(headingEl=>{if(headingEl.textContent&&(headingEl.textContent.includes('月次報告')||headingEl.textContent.includes('月次詳細'))){const nextElements=[];let nextElement=headingEl.nextElementSibling;for(let i=0;i<3&&nextElement;i++){nextElements.push(nextElement);nextElement=nextElement.nextElementSibling}nextElements.forEach(el=>{if(el&&(containsYearMonthText(el)||el.querySelector('select'))){try{if(el.style&&el.style.display!=='none'){el.style.display='none';el.style.visibility='hidden';el.style.height='0';el.style.overflow='hidden';el.style.margin='0';el.style.padding='0';el.setAttribute('data-hidden-by-script','true');elementsHidden++}}catch(e){}}})}})}catch(e){}classSelectors.forEach(selector=>{try{document.querySelectorAll(selector).forEach(el=>{try{if(el.style&&el.style.display!=='none'){el.style.display='none';el.style.visibility='hidden';el.style.height='0';el.style.overflow='hidden';el.setAttribute('data-hidden-by-script','true');elementsHidden++}}catch(e){}})}catch(e){}});try{document.querySelectorAll('select, .ant-select').forEach(select=>{try{let parent=select.parentElement;for(let i=0;i<4&&parent;i++){if(containsYearMonthText(parent)||(parent.querySelector('label')&&containsYearMonthText(parent.querySelector('label')))){if(parent.style&&parent.style.display!=='none'){parent.style.display='none';parent.style.visibility='hidden';parent.style.height='0';parent.style.overflow='hidden';parent.setAttribute('data-hidden-by-script','true');elementsHidden++;if(parent.parentElement){try{if(parent.parentElement.querySelector('button')||Array.from(parent.parentElement.children).length<=3){parent.parentElement.style.display='none';parent.parentElement.style.visibility='hidden';parent.parentElement.style.height='0';parent.parentElement.style.overflow='hidden';parent.parentElement.setAttribute('data-hidden-by-script','true');elementsHidden++}}catch(e){}}}break}parent=parent.parentElement}}catch(e){}})}catch(e){}try{document.querySelectorAll('label').forEach(label=>{try{if(label.textContent&&(label.textContent.includes('年度')||label.textContent.includes('月'))){let parent=label.parentElement;for(let i=0;i<3&&parent;i++){if(parent.style&&parent.style.display!=='none'){parent.style.display='none';parent.style.visibility='hidden';parent.style.height='0';parent.style.overflow='hidden';parent.setAttribute('data-hidden-by-script','true');elementsHidden++;if(parent.classList&&(parent.classList.contains('container')||parent.classList.contains('section')||parent.classList.contains('filterSection'))){break}}parent=parent.parentElement}}}catch(e){}})}catch(e){}try{document.querySelectorAll('div').forEach(div=>{try{if(div.style&&div.style.display!=='none'&&containsYearMonthText(div)&&!(div.querySelector&&div.querySelector('.ant-tabs'))&&!(div.classList&&div.classList.contains('ant-tabs-content'))&&!(div.classList&&div.classList.contains('tabsContainer'))&&!(div.classList&&div.classList.contains('monthly-tab'))){div.style.display='none';div.style.visibility='hidden';div.style.height='0';div.style.overflow='hidden';div.setAttribute('data-hidden-by-script','true');elementsHidden++}}catch(e){}})}catch(e){}const tabSelectors=['.monthly-tabs-area','.monthly-tab','.tabsContainer','.tabs-container','.nav.nav-tabs','.ant-tabs','.ant-tabs-content','.ant-tabs-nav','.ant-tabs-tab','.ant-tabs-tabpane','[data-tab-container="true"]','[data-role="monthly-tabs"]','[data-tab-content]','[role="tablist"]','[role="tab"]','[role="tabpanel"]','.tab-content','.tab-pane','#monthly-report-tabs','#secure-tabs-area'];try{tabSelectors.forEach(selector=>{try{document.querySelectorAll(selector).forEach(el=>{if(el instanceof HTMLElement){el.style.display='';el.style.visibility='visible';el.style.opacity='1';el.style.height='auto';el.style.overflow='visible';el.removeAttribute('data-hidden-by-script');if(selector.includes('ant-tabs')||selector.includes('tabs-container')||selector.includes('tabsContainer')){el.style.display='block'}else if(selector==='.nav.nav-tabs'||selector==='[role="tablist"]'){el.style.display='flex'}else if(selector.includes('[role="tab"]')||selector.includes('ant-tabs-tab')){el.style.display='inline-block'}if((selector.includes('tabpane')||selector.includes('tab-pane')||selector==='[role="tabpanel"]')&&el.classList.contains('active')){el.style.display='block'}}})}catch(e){}})}catch(e){}return elementsHidden>0}catch(e){return false}}try{if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',forceHideYearMonth)}else{forceHideYearMonth()}setTimeout(forceHideYearMonth,500);setTimeout(forceHideYearMonth,1000);setTimeout(forceHideYearMonth,2000)}catch(e){}try{const observer=new MutationObserver((mutations)=>{try{let shouldCheck=false;for(const mutation of mutations){if(mutation.type==='childList'||(mutation.type==='attributes'&&mutation.attributeName&&['class','style'].includes(mutation.attributeName))){shouldCheck=true;break}}if(shouldCheck){forceHideYearMonth()}}catch(e){}});if(document.body){observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','data-hidden-by-script']});window._yearMonthObservers.push(observer)}else{const bodyObserver=new MutationObserver(()=>{if(document.body){try{observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','data-hidden-by-script']});window._yearMonthObservers.push(observer);bodyObserver.disconnect()}catch(e){}}});bodyObserver.observe(document.documentElement,{childList:true});window._yearMonthObservers.push(bodyObserver)}}catch(e){}try{let lastUrl=location.href;const urlObserver=new MutationObserver(()=>{try{const url=location.href;if(url!==lastUrl){lastUrl=url;setTimeout(forceHideYearMonth,100)}}catch(e){}});urlObserver.observe(document,{subtree:true,childList:true});window._yearMonthObservers.push(urlObserver)}catch(e){}const intervalId=setInterval(()=>{try{forceHideYearMonth()}catch(e){}},1000);window._cleanupYearMonthHider=function(){try{clearInterval(intervalId);stopExistingObservers()}catch(e){}};window.forceHideYearMonth=forceHideYearMonth})()})();/**
+ * 年度月非表示スクリプト（即時使用版）
+ * ブラウザのコンソールに貼り付けて実行できます
+ */
+(function() {
+  console.log('年度・月表示非表示化スクリプト実行開始');
+  
+  // スタイルシートを追加
+  const style = document.createElement('style');
+  style.id = 'year-month-hider-styles';
+  style.textContent = `
+    /* コンテナを非表示 */
+    div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"],
+    div[style*="display:flex"][style*="gap:20px"][style*="background-color:rgb(248, 249, 250)"],
+    div[style*="background-color: rgb(248, 249, 250)"][style*="padding: 10px"] {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      overflow: hidden !important;
+    }
+    
+    /* 年度月を含むラベル */
+    label:has(+select option[value^="20"]),
+    label:has(+select option[value^="1"]):has(+select option[value^="2"]),
+    label:contains("年度"),
+    label:contains("月:") {
+      display: none !important;
+    }
+    
+    /* スクリプトで非表示マークされた要素 */
+    [data-hidden-by-script="true"] {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      overflow: hidden !important;
+    }
+    
+    /* タブは確実に表示 */
+    .ant-tabs, .ant-tabs-nav, .ant-tabs-content,
+    [role="tablist"], [role="tab"], [role="tabpanel"],
+    .tab, .tabs, .tabContent, .tab-content {
+      display: initial !important;
+      visibility: visible !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // 方法1: スタイル属性で検出
+  const containers = document.querySelectorAll([
+    'div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]',
+    'div[style*="display:flex"][style*="gap:20px"][style*="background-color:rgb(248, 249, 250)"]',
+    'div[style*="background-color: rgb(248, 249, 250)"][style*="padding: 10px"]'
+  ].join(','));
+  
+  let count = 0;
+  containers.forEach(container => {
+    container.style.display = 'none';
+    container.setAttribute('data-hidden-by-script', 'true');
+    count++;
+  });
+  
+  if (count > 0) {
+    console.log(`スタイル属性で${count}個のコンテナを非表示にしました`);
+  }
+  
+  // 方法2: 年度・月を含むテキストで検出
+  const allDivs = document.querySelectorAll('div');
+  
+  allDivs.forEach(div => {
+    try {
+      // 年度と月を含むdivを探す
+      const text = div.textContent || '';
+      if ((text.includes('年度') || text.includes('年')) && 
+          (text.includes('月') || text.match(/[0-9１-９]+月/))) {
+        
+        // タブや主要コンテンツではないことを確認
+        if (!div.classList.contains('tab') && 
+            !div.classList.contains('tabContent') && 
+            !div.classList.contains('ant-tabs') &&
+            !div.getAttribute('role') === 'tabpanel') {
+          
+          // 年度・月セレクタの特徴: 小さなコンテナで、selectを含む可能性がある
+          if (div.querySelector('select') || div.querySelectorAll('div').length <= 5) {
+            div.style.display = 'none';
+            div.setAttribute('data-hidden-by-script', 'true');
+            count++;
+          }
+        }
+      }
+    } catch (e) {}
+  });
+  
+  // 年度・月のラベルを探す
+  const yearLabels = Array.from(document.querySelectorAll('label')).filter(
+    label => (label.textContent || '').includes('年度') || (label.textContent || '').includes('年')
+  );
+  
+  const monthLabels = Array.from(document.querySelectorAll('label')).filter(
+    label => (label.textContent || '').includes('月') && !(label.textContent || '').includes('営業月')
+  );
+  
+  // ラベルの親要素を非表示にする
+  function hideParentContainer(element, depth = 3) {
+    // 最大depthレベルまで親をたどる
+    let parent = element.parentElement;
+    for (let i = 0; i < depth && parent; i++) {
+      parent.style.display = 'none';
+      parent.setAttribute('data-hidden-by-script', 'true');
+      count++;
+      return true;
+    }
+    return false;
+  }
+  
+  // 年度ラベルを処理
+  yearLabels.forEach(label => {
+    hideParentContainer(label);
+  });
+  
+  // 月ラベルを処理
+  monthLabels.forEach(label => {
+    hideParentContainer(label);
+  });
+  
+  console.log(`合計${count}個の要素を非表示にしました`);
+  
+  // トグルボタンを追加（必要に応じて有効化）
+  /* 
+  function addToggleButton() {
+    const button = document.createElement('button');
+    button.textContent = '年度・月表示切替';
+    button.style.position = 'fixed';
+    button.style.bottom = '20px';
+    button.style.right = '20px';
+    button.style.zIndex = '9999';
+    button.style.padding = '8px 12px';
+    button.style.backgroundColor = '#007bff';
+    button.style.color = 'white';
+    button.style.border = 'none';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
+    
+    let hidden = true;
+    
+    button.addEventListener('click', () => {
+      document.querySelectorAll('[data-hidden-by-script="true"]').forEach(el => {
+        if (hidden) {
+          el.style.display = 'block';
+        } else {
+          el.style.display = 'none';
+        }
+      });
+      
+      button.textContent = hidden ? '年度・月を非表示' : '年度・月を表示';
+      hidden = !hidden;
+    });
+    
+    document.body.appendChild(button);
+  }
+  
+  // トグルボタンを有効にする場合はコメントを解除
+  // addToggleButton();
+  */
+  
+  // 遅延実行も追加（非同期読み込み対応）
+  setTimeout(function() {
+    const delayedContainers = document.querySelectorAll([
+      'div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]',
+      'div[style*="display:flex"][style*="gap:20px"][style*="background-color:rgb(248, 249, 250)"]'
+    ].join(','));
+    
+    if (delayedContainers.length > 0) {
+      delayedContainers.forEach(container => {
+        container.style.display = 'none';
+        container.setAttribute('data-hidden-by-script', 'true');
+      });
+      console.log(`遅延実行で${delayedContainers.length}個のコンテナを非表示にしました`);
+    }
+  }, 1000);
+})();#!/usr/bin/env node
+/**
+ * Claude Code用 シンプル年度月非表示生成器（強化版）
+ * 複数の検出方法を用いた堅牢なスクリプトを生成します
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// 出力ディレクトリを作成
+const outputDir = 'year-month-hider';
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir);
+  console.log(`出力ディレクトリを作成しました: ${outputDir}`);
+}
+
+// 強化版スクリプト - 複数の検出方法を使用
+const enhancedScript = `/**
+ * 年度月非表示スクリプト（強化版）
+ * 複数の検出方法で年度・月表示を隠します
+ */
+(function() {
+  console.log('年度・月表示非表示化スクリプト（強化版）を実行開始');
+  
+  // すでに実行済みなら終了
+  if (window._yearMonthHiderActive) {
+    console.log('年度・月表示非表示化スクリプトはすでに実行中です');
+    return;
+  }
+  
+  // フラグを設定
+  window._yearMonthHiderActive = true;
+  
+  // 方法1: スタイル属性で検出
+  function hideByStyleAttribute() {
+    const containers = document.querySelectorAll([
+      'div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]',
+      'div[style*="display:flex"][style*="gap:20px"][style*="background-color:rgb(248, 249, 250)"]',
+      'div[style*="display: flex"][style*="gap: 20px"][style*="background-color: #f8f9fa"]',
+      'div[style*="background-color: rgb(248, 249, 250)"][style*="padding: 10px"]'
+    ].join(','));
+    
+    let count = 0;
+    containers.forEach(container => {
+      container.style.display = 'none';
+      container.setAttribute('data-hidden-by-script', 'true');
+      count++;
+    });
+    
+    if (count > 0) {
+      console.log(\`スタイル属性で\${count}個のコンテナを非表示にしました\`);
+      return true;
+    }
+    return false;
+  }
+  
+  // 方法2: 年度・月を含むテキストで検出
+  function hideByYearMonthText() {
+    const allDivs = document.querySelectorAll('div');
+    let count = 0;
+    
+    allDivs.forEach(div => {
+      try {
+        // 年度と月を含むdivを探す
+        const text = div.textContent || '';
+        if ((text.includes('年度') || text.includes('年')) && 
+            (text.includes('月') || text.match(/[0-9１-９]+月/))) {
+          
+          // タブや主要コンテンツではないことを確認
+          if (!div.classList.contains('tab') && 
+              !div.classList.contains('tabContent') && 
+              !div.classList.contains('ant-tabs') &&
+              !div.getAttribute('role') === 'tabpanel') {
+            
+            // 年度・月セレクタの特徴: 小さなコンテナで、selectを含む可能性がある
+            if (div.clientHeight < 100 && 
+                (div.querySelector('select') || div.querySelectorAll('div').length <= 5)) {
+              div.style.display = 'none';
+              div.setAttribute('data-hidden-by-script', 'true');
+              count++;
+            }
+          }
+        }
+      } catch (e) {}
+    });
+    
+    if (count > 0) {
+      console.log(\`テキスト内容で\${count}個の要素を非表示にしました\`);
+      return true;
+    }
+    return false;
+  }
+  
+  // 方法3: セレクト要素とラベルで検出
+  function hideBySelectAndLabel() {
+    // 年度・月のラベルを探す
+    const yearLabels = Array.from(document.querySelectorAll('label')).filter(
+      label => (label.textContent || '').includes('年度') || (label.textContent || '').includes('年')
+    );
+    
+    const monthLabels = Array.from(document.querySelectorAll('label')).filter(
+      label => (label.textContent || '').includes('月') && !(label.textContent || '').includes('営業月')
+    );
+    
+    let count = 0;
+    
+    // ラベルの親要素を非表示にする
+    function hideParentContainer(element, depth = 3) {
+      // 最大depthレベルまで親をたどる
+      let parent = element.parentElement;
+      for (let i = 0; i < depth && parent; i++) {
+        // 適切なコンテナサイズを確認
+        if (parent.clientHeight < 80 && parent.clientWidth > 100) {
+          parent.style.display = 'none';
+          parent.setAttribute('data-hidden-by-script', 'true');
+          count++;
+          return true;
+        }
+        parent = parent.parentElement;
+      }
+      return false;
+    }
+    
+    // 年度ラベルを処理
+    yearLabels.forEach(label => {
+      hideParentContainer(label);
+    });
+    
+    // 月ラベルを処理
+    monthLabels.forEach(label => {
+      hideParentContainer(label);
+    });
+    
+    // 特定の値を持つセレクトを探す
+    const yearSelects = Array.from(document.querySelectorAll('select')).filter(select => {
+      try {
+        return Array.from(select.options).some(option => 
+          option.text.includes('年度') || option.text.includes('年') || 
+          option.value.match(/^20[0-9][0-9]$/)
+        );
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    const monthSelects = Array.from(document.querySelectorAll('select')).filter(select => {
+      try {
+        return Array.from(select.options).some(option => 
+          option.text.includes('月') || option.value.match(/^[0-9]$|^1[0-2]$/)
+        );
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    // セレクトの親要素を非表示
+    yearSelects.forEach(select => {
+      hideParentContainer(select);
+    });
+    
+    monthSelects.forEach(select => {
+      hideParentContainer(select);
+    });
+    
+    if (count > 0) {
+      console.log(\`ラベルとセレクトで\${count}個の要素を非表示にしました\`);
+      return true;
+    }
+    return false;
+  }
+  
+  // 方法4: CSSによる強制非表示
+  function addForcedHidingStyles() {
+    // すでに追加済みなら何もしない
+    if (document.getElementById('year-month-hider-styles')) {
+      return;
+    }
+    
+    const style = document.createElement('style');
+    style.id = 'year-month-hider-styles';
+    style.textContent = \`
+      /* スタイル属性によるコンテナ非表示 */
+      div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"],
+      div[style*="display:flex"][style*="gap:20px"][style*="background-color:rgb(248, 249, 250)"],
+      div[style*="background-color: rgb(248, 249, 250)"][style*="padding: 10px"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+      }
+      
+      /* 年度月を含むラベル */
+      label:has(+select option[value^="20"]),
+      label:has(+select option[value^="1"]):has(+select option[value^="2"]),
+      label:contains("年度"),
+      label:contains("月:") {
+        display: none !important;
+      }
+      
+      /* スクリプトで非表示マークされた要素 */
+      [data-hidden-by-script="true"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+      }
+      
+      /* タブは確実に表示 */
+      .ant-tabs, .ant-tabs-nav, .ant-tabs-content,
+      [role="tablist"], [role="tab"], [role="tabpanel"],
+      .tab, .tabs, .tabContent, .tab-content {
+        display: initial !important;
+        visibility: visible !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+    \`;
+    
+    document.head.appendChild(style);
+    console.log('非表示用CSSスタイルを追加しました');
+  }
+  
+  // 実行関数
+  function execute() {
+    let success = false;
+    
+    // 各方法を順番に試す
+    success = hideByStyleAttribute() || success;
+    success = hideByYearMonthText() || success;
+    success = hideBySelectAndLabel() || success;
+    
+    // CSSも追加
+    addForcedHidingStyles();
+    
+    if (!success) {
+      console.log('年度・月表示要素が見つかりませんでした');
+    }
+    
+    return success;
+  }
+  
+  // DOM変更監視
+  function setupMutationObserver() {
+    if (window._yearMonthHiderObserver) {
+      return;
+    }
+    
+    const observer = new MutationObserver(function(mutations) {
+      let shouldExecute = false;
+      
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+          shouldExecute = true;
+        }
+      });
+      
+      if (shouldExecute) {
+        setTimeout(execute, 100);
+      }
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    window._yearMonthHiderObserver = observer;
+    console.log('DOM変更の監視を設定しました');
+  }
+  
+  // 初期実行
+  function init() {
+    // まず直接実行
+    execute();
+    
+    // DOM読み込み完了時に実行
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', execute);
+    }
+    
+    // 少し遅延して再実行（非同期コンテンツ用）
+    setTimeout(execute, 500);
+    setTimeout(execute, 1000);
+    
+    // 定期チェック設定
+    setInterval(execute, 2000);
+    
+    // DOM変更監視も設定
+    setupMutationObserver();
+  }
+  
+  // 実行開始
+  init();
+  
+  // グローバル関数として公開（手動実行用）
+  window.hideYearMonth = execute;
+  
+  console.log('年度・月表示非表示化スクリプト（強化版）の初期化が完了しました');
+})();`;
+
+// コンパクトスクリプト - 最小限の機能に絞った軽量版
+const compactScript = `/**
+ * 年度月非表示スクリプト（コンパクト版）
+ * 軽量な実装で年度・月表示を隠します
+ */
+(function() {
+  // コンテナを直接非表示
+  const container = document.querySelector('div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]');
+  if (container) {
+    container.style.display = 'none';
+  }
+  
+  // CSSを追加
+  const style = document.createElement('style');
+  style.textContent = \`
+    /* コンテナを非表示 */
+    div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"] { 
+      display: none !important; 
+    }
+    
+    /* 年度・月ラベルを非表示 */
+    label:contains("年度"), label:contains("月:") { 
+      display: none !important; 
+    }
+    
+    /* 年度・月が入ったdivを非表示 */
+    div:has(label:contains("年度")), div:has(label:contains("月:")) {
+      display: none !important;
+    }
+  \`;
+  document.head.appendChild(style);
+  
+  // 遅延実行も追加
+  setTimeout(function() {
+    const delayed = document.querySelector('div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]');
+    if (delayed) {
+      delayed.style.display = 'none';
+    }
+  }, 1000);
+})();`;
+
+// ブックマークレット版を作成する関数
+function createBookmarklet(script) {
+  // コメントを削除
+  let code = script.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+  
+  // 空白・改行を削除
+  code = code.replace(/\s+/g, ' ');
+  
+  // console.logを削除
+  code = code.replace(/console\.log\([^)]*\);/g, '');
+  
+  // ブックマークレット形式に変換
+  return `javascript:(function(){${code}})();`;
+}
+
+// 強化版ブックマークレット
+const enhancedBookmarklet = createBookmarklet(enhancedScript);
+
+// コンパクト版ブックマークレット
+const compactBookmarklet = createBookmarklet(compactScript);
+
+// インジェクション用スクリプト
+const injectionScript = `/*
+ * このスクリプトをindex.htmlに追加するか、直接読み込んでください
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  ${enhancedScript}
+});`;
+
+// HTMLデモファイル
+const demoHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>年度月非表示 デモ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .demo-container {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .target-container {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      background-color: rgb(248, 249, 250);
+      padding: 10px 15px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    button {
+      padding: 8px 16px;
+      background: #0275d8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin: 20px 0;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .tab.active {
+      border: 1px solid #ddd;
+      border-bottom-color: white;
+      margin-bottom: -1px;
+      background: white;
+    }
+    .tab-content {
+      display: none;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-top: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow: auto;
+    }
+      margin: 20px 0;
+    }
+      display: inline-block;
+      padding: 8px 16px;
+      background: #5cb85c;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>年度月非表示 デモページ</h1>
+  
+  <div class="demo-container">
+    <h2>月次報告画面のサンプル</h2>
+    
+    <!-- 年度月コンテナ (これを非表示にしたい) -->
+    <div class="target-container">
+      <div>
+        <label for="year">年度:</label>
+        <select id="year">
+          <option value="2020">2020年度</option>
+          <option value="2021">2021年度</option>
+          <option value="2022">2022年度</option>
+          <option value="2023">2023年度</option>
+          <option value="2024">2024年度</option>
+          <option value="2025" selected>2025年度</option>
+        </select>
+      </div>
+      <div>
+        <label for="month">月:</label>
+        <select id="month">
+          <option value="1">1月</option>
+          <option value="2">2月</option>
+          <option value="3">3月</option>
+          <option value="4">4月</option>
+          <option value="5" selected>5月</option>
+          <option value="6">6月</option>
+          <option value="7">7月</option>
+          <option value="8">8月</option>
+          <option value="9">9月</option>
+          <option value="10">10月</option>
+          <option value="11">11月</option>
+          <option value="12">12月</option>
+        </select>
+      </div>
+      <button>更新</button>
+    </div>
+    
+    <!-- タブ (これは表示したまま) -->
+    <div class="tabs" role="tablist">
+      <div class="tab active" role="tab" aria-selected="true">社員一覧</div>
+      <div class="tab" role="tab" aria-selected="false">月次サマリー</div>
+      <div class="tab" role="tab" aria-selected="false">詳細情報</div>
+    </div>
+    
+    <div class="tab-content active" role="tabpanel">
+      <p>社員一覧の内容がここに表示されます</p>
+      <p>この部分は非表示にならず、タブの内容が表示されます</p>
+    </div>
+    <div class="tab-content" role="tabpanel">
+      <p>月次サマリーの内容がここに表示されます</p>
+    </div>
+    <div class="tab-content" role="tabpanel">
+      <p>詳細情報の内容がここに表示されます</p>
+    </div>
+  </div>
+  
+  <div class="controls">
+    <button id="apply-enhanced">強化版スクリプトを適用</button>
+    <button id="apply-compact">コンパクト版を適用</button>
+    <button id="reset">リセット</button>
+  </div>
+  
+    <h3>ブックマークレット</h3>
+    <p>以下のリンクをブックマークバーにドラッグして、月次報告画面で使用できます:</p>
+    <p>より強力な版:</p>
+  </div>
+  
+  <h3>実装サンプル</h3>
+  <pre>${enhancedScript}</pre>
+  
+  <script>
+    // タブ機能
+    document.querySelectorAll('.tab').forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        document.querySelector('.tab.active').classList.remove('active');
+        document.querySelector('.tab-content.active').classList.remove('active');
+        
+        tab.classList.add('active');
+        document.querySelectorAll('.tab-content')[index].classList.add('active');
+      });
+    });
+    
+    // スクリプト適用ボタン
+    const targetContainer = document.querySelector('.target-container');
+    const originalDisplay = targetContainer.style.display;
+    
+    document.getElementById('apply-enhanced').addEventListener('click', function() {
+      // スクリプトを実行
+      ${enhancedScript}
+    });
+    
+    document.getElementById('apply-compact').addEventListener('click', function() {
+      // スクリプトを実行
+      ${compactScript}
+    });
+    
+    document.getElementById('reset').addEventListener('click', function() {
+      // 元に戻す
+      targetContainer.style.display = originalDisplay;
+      
+      // スタイルタグを削除
+      const styleTag = document.getElementById('year-month-hider-styles');
+      if (styleTag) {
+        styleTag.remove();
+      }
+      
+      // data属性をリセット
+      document.querySelectorAll('[data-hidden-by-script]').forEach(el => {
+        el.removeAttribute('data-hidden-by-script');
+        el.style.display = '';
+      });
+      
+      console.log('表示状態をリセットしました');
+    });
+  </script>
+</body>
+</html>`;
+
+// ファイルに保存
+fs.writeFileSync(path.join(outputDir, 'year-month-hider-enhanced.js'), enhancedScript);
+fs.writeFileSync(path.join(outputDir, 'year-month-hider-compact.js'), compactScript);
+fs.writeFileSync(path.join(outputDir, 'year-month-hider-injection.js'), injectionScript);
+fs.writeFileSync(path.join(outputDir, 'demo.html'), demoHtml);
+
+// README.mdを作成
+const readmeContent = `# 年度月非表示ソリューション
+
+複数の方法で月次報告画面の年度・月表示部分を非表示にし、タブ機能は維持するツールです。
+
+## ファイル構成
+
+- \`year-month-hider-enhanced.js\`: 複数の検出方法を使った強化版スクリプト
+- \`year-month-hider-compact.js\`: コンパクトな軽量版スクリプト
+- \`year-month-hider-injection.js\`: HTML/JSに組み込むためのスクリプト
+- \`demo.html\`: デモページ
+
+## 使用方法
+
+### 方法1: ブックマークレットとして使用
+
+2. 月次報告画面を開いたらブックマークをクリック
+
+### 方法2: HTMLに組み込む
+
+\`\`\`html
+<head>
+  <!-- 既存のheadの内容 -->
+  <script src="year-month-hider-injection.js"></script>
+</head>
+\`\`\`
+
+### 方法3: 開発者コンソールで実行
+
+1. ブラウザの開発者ツール(F12)を開く
+2. コンソールタブで\`year-month-hider-compact.js\`の内容をコピー＆ペースト
+3. エンターキーを押して実行
+
+## デモの使い方
+
+\`demo.html\`をブラウザで開き、各ボタンを押して動作を確認できます。
+
+- 「強化版スクリプトを適用」: 複数の検出方法で年度・月表示を非表示
+- 「コンパクト版を適用」: 軽量な実装で年度・月表示を非表示
+- 「リセット」: 表示状態を元に戻す
+
+## 特徴
+
+### 強化版
+
+- 複数の検出方法による堅牢な非表示機能
+  - スタイル属性による検出
+  - テキスト内容による検出
+  - セレクト要素とラベルによる検出
+- CSSとJavaScriptの両方を使用
+- MutationObserverによるDOM変更の監視
+- 定期的な再実行で確実に非表示化
+- エラー処理の強化
+
+### コンパクト版
+
+- 最小限のコードで基本機能を実現
+- ページ読み込み速度への影響を最小化
+- 主要なCSSセレクタでのみ非表示化
+
+## カスタマイズ方法
+
+スクリプトのセレクタが合わない場合は、以下の部分を修正してください：
+
+1. スタイル属性を使ったセレクタ
+   - \`div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]\`
+
+2. 年度・月を含むテキスト検出
+   - \`text.includes('年度')\`や\`text.includes('月')\`
+
+## トラブルシューティング
+
+- 非表示にならない場合:
+  1. ブラウザの開発者ツールで要素を検査
+  2. スタイル属性やクラス名を確認
+  3. CSSのセレクタを更新
+  4. コンソールでエラーがないか確認
+`;
+
+fs.writeFileSync(path.join(outputDir, 'README.md'), readmeContent);
+
+// 統合ガイド
+const integrationGuide = `# 年度月非表示ソリューション 統合ガイド
+
+## 概要
+
+このガイドでは、年度月非表示ソリューションをウェブアプリケーションに統合する方法を説明します。
+
+## サイト全体に適用する場合
+
+### 1. index.htmlに直接組み込む
+
+\`public/index.html\`または同等のHTMLファイルに追加:
+
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- 既存のヘッド内容 -->
+  <script>
+    // 年度月非表示スクリプト
+    document.addEventListener('DOMContentLoaded', function() {
+      ${compactScript}
+    });
+  </script>
+</head>
+<body>
+  <!-- 既存のボディ内容 -->
+</body>
+</html>
+\`\`\`
+
+### 2. 外部ファイルとして読み込む
+
+a) スクリプトを\`public/js/year-month-hider.js\`として保存
+
+b) \`public/index.html\`に追加:
+
+\`\`\`html
+<head>
+  <!-- 既存のヘッド内容 -->
+  <script src="%PUBLIC_URL%/js/year-month-hider.js"></script>
+</head>
+\`\`\`
+
+## 特定のページのみに適用する場合
+
+### Reactコンポーネント内で使用
+
+\`\`\`jsx
+import React, { useEffect } from 'react';
+
+function MonthlyReportPage() {
+  useEffect(() => {
+    // 年度月非表示スクリプト
+    ${compactScript}
+    
+    // クリーンアップ関数
+    return () => {
+      // スタイル要素を削除
+      const style = document.getElementById('year-month-hider-styles');
+      if (style) style.remove();
+      
+      // 非表示にした要素を元に戻す
+      document.querySelectorAll('[data-hidden-by-script="true"]').forEach(el => {
+        el.style.display = '';
+        el.removeAttribute('data-hidden-by-script');
+      });
+    };
+  }, []);
+  
+  return (
+    <div className="monthly-report-page">
+      {/* ページコンテンツ */}
+    </div>
+  );
+}
+\`\`\`
+
+## 条件付きで適用する場合
+
+\`\`\`javascript
+// URLに基づいて適用するかを判断
+if (window.location.pathname.includes('/monthly-report')) {
+  // 年度月非表示スクリプトを実行
+  ${compactScript}
+}
+\`\`\`
+
+## 応用: トグルボタンを追加する
+
+\`\`\`javascript
+// 表示/非表示を切り替えるボタンを追加
+function addToggleButton() {
+  const button = document.createElement('button');
+  button.textContent = '年度・月表示切替';
+  button.style.position = 'fixed';
+  button.style.bottom = '20px';
+  button.style.right = '20px';
+  button.style.zIndex = '9999';
+  button.style.padding = '8px 12px';
+  button.style.backgroundColor = '#007bff';
+  button.style.color = 'white';
+  button.style.border = 'none';
+  button.style.borderRadius = '4px';
+  button.style.cursor = 'pointer';
+  
+  let hidden = true;
+  
+  button.addEventListener('click', () => {
+    const container = document.querySelector('div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]');
+    if (container) {
+      if (hidden) {
+        container.style.display = '';
+        button.textContent = '年度・月を非表示';
+      } else {
+        container.style.display = 'none';
+        button.textContent = '年度・月を表示';
+      }
+      hidden = !hidden;
+    }
+  });
+  
+  document.body.appendChild(button);
+}
+
+// ボタンを追加
+addToggleButton();
+\`\`\`
+
+## 注意点
+
+- スクリプトは\`DOMContentLoaded\`イベント後に実行するのが理想的です
+- CSSセレクタがサイト固有の要素構造と一致するか確認してください
+- パフォーマンスのため、コンパクト版を使用し、必要な場合のみ強化版を使用してください
+- モバイル版でもテストし、レスポンシブデザインに影響がないか確認してください
+`;
+
+fs.writeFileSync(path.join(outputDir, 'INTEGRATION-GUIDE.md'), integrationGuide);
+
+// 結果を表示
+console.log(`年度月非表示ソリューションの強化版を生成しました: ${path.resolve(outputDir)}`);
+console.log('\n以下のファイルが利用可能です:');
+console.log('- year-month-hider-enhanced.js: 強化版スクリプト');
+console.log('- year-month-hider-compact.js: コンパクト版スクリプト');
+console.log('- demo.html: デモページ');
+console.log('- README.md: 使用方法の説明');
+console.log('- INTEGRATION-GUIDE.md: 統合ガイド');
+console.log('\nブックマークレットを使用するには:');
+console.log('1. ブラウザでブックマークを作成');
+console.log('2. URLとしてブックマークレットファイルの内容をコピー＆ペースト');
+console.log('3. 月次報告画面でブックマークをクリック');
+console.log('\nデモページで機能を確認するには:');
+console.log(`1. ${path.resolve(outputDir, 'demo.html')} をブラウザで開く`);
+console.log('2. 各ボタンをクリックして動作を確認');/**
+ * 年度・月表示非表示化ソリューション生成スクリプト
+ * 
+ * このNode.jsスクリプトは、月次報告画面の年度・月表示を非表示にするための
+ * 複数の展開オプションを自動生成します。
+ * 
+ * 生成される成果物:
+ * 1. スタンドアロンスクリプト (year-month-hider-standalone.js)
+ * 2. ブラウザコンソール用注入スクリプト (inject-year-month-hider.js)
+ * 4. Chrome拡張機能 (year-month-hider-extension/)
+ * 5. デモページ (year-month-hider-demo.html)
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// 出力ディレクトリを作成
+const outputDir = path.join(__dirname, 'year-month-hider-output');
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir);
+  console.log(`出力ディレクトリを作成しました: ${outputDir}`);
+}
+
+// Chrome拡張機能ディレクトリの作成
+const extensionDir = path.join(outputDir, 'year-month-hider-extension');
+if (!fs.existsSync(extensionDir)) {
+  fs.mkdirSync(extensionDir);
+  console.log(`拡張機能ディレクトリを作成しました: ${extensionDir}`);
+}
+
+// メインスクリプト - 年度・月表示を非表示にするコア機能
+const yearMonthHiderScript = `// 月次報告画面の年度・月表示を強制的に非表示にするスクリプト（最適化版）
+(function() {
+  console.log('年度・月表示の非表示化スクリプトを実行開始');
+  
+  // グローバル変数を初期化（エラー回避）
+  window._yearMonthObservers = window._yearMonthObservers || [];
+  
+  // 古いオブザーバーを停止（メモリリークと重複実行の防止）
+  function stopExistingObservers() {
+    if (Array.isArray(window._yearMonthObservers)) {
+      window._yearMonthObservers.forEach(observer => {
+        try {
+          if (observer && typeof observer.disconnect === 'function') {
+            observer.disconnect();
+            console.log('既存のオブザーバーを停止しました');
+          }
+        } catch (e) {
+          console.warn('オブザーバー停止中にエラーが発生しました', e);
+        }
+      });
+      window._yearMonthObservers = [];
+    }
+  }
+
+  // 既存のオブザーバーを停止
+  stopExistingObservers();
+  
+  // 以前の実装を無効化
+  if (typeof window.hideYearMonthElements === 'function') {
+    window._originalHideFunction = window.hideYearMonthElements;
+    window.hideYearMonthElements = function() {
+      return forceHideYearMonth();
+    };
+  }
+
+  // デバッグカウンター
+  let executionCount = 0;
+  
+  // 直接非表示にする関数
+  function forceHideYearMonth() {
+    try {
+      executionCount++;
+      
+      // 1. 月次報告画面かどうかを確認
+      let isMonthlyReport = false;
+      try {
+        isMonthlyReport = 
+          window.location.pathname.includes('monthly-report') || 
+          Array.from(document.querySelectorAll('h1, h2')).some(el => 
+            el.textContent && (el.textContent.includes('月次報告') || el.textContent.includes('月次詳細'))
+          );
+      } catch (e) {
+        console.warn('画面検出エラー:', e);
+        // エラーが発生した場合は安全策としてtrueを返す
+        isMonthlyReport = true;
+      }
+
+      if (!isMonthlyReport) {
+        if (executionCount % 20 === 0) {
+          console.log('月次報告画面が検出されないため、非表示処理をスキップします');
+        }
+        return false;
+      }
+
+      if (executionCount % 10 === 0) {
+        console.log(\`月次報告画面を検出しました - 年度・月表示の非表示化を実行 (\${executionCount}回目)\`);
+      }
+      
+      // 2. 複数の方法で年度・月表示を特定して非表示にする
+      let elementsHidden = 0;
+      
+      // 方法A: 特定のクラス名で検索 - より包括的なセレクタを使用
+      const classSelectors = [
+        '.yearMonthDisplay',
+        '.yearMonthSection',
+        '.filterSection',
+        '.year-month-selector',
+        '.year-selector',
+        '.month-selector',
+        '[class*="yearMonth"]',
+        '[class*="YearMonth"]',
+        '[class*="Year-Month"]',
+        '[class*="year-month"]',
+        '[class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"])'
+      ];
+      
+      // 方法B: 特定の文字列を含む要素を検索
+      function containsYearMonthText(element) {
+        try {
+          const text = element.textContent || '';
+          return (
+            (text.includes('年度') || text.includes('年')) && 
+            (text.includes('月') || text.match(/\\d+月/))
+          );
+        } catch (e) {
+          console.warn('テキスト検出エラー:', e);
+          return false;
+        }
+      }
+      
+      // 方法C: h1/h2要素の直後の要素を検索
+      try {
+        const headingElements = document.querySelectorAll('h1, h2');
+        headingElements.forEach(headingEl => {
+          if (headingEl.textContent && (headingEl.textContent.includes('月次報告') || headingEl.textContent.includes('月次詳細'))) {
+            const nextElements = [];
+            let nextElement = headingEl.nextElementSibling;
+            
+            // 見出しの次の3つの要素を候補に追加
+            for (let i = 0; i < 3 && nextElement; i++) {
+              nextElements.push(nextElement);
+              nextElement = nextElement.nextElementSibling;
+            }
+            
+            // 年度・月を含む要素を非表示
+            nextElements.forEach(el => {
+              if (el && (containsYearMonthText(el) || el.querySelector('select'))) {
+                try {
+                  if (el.style && el.style.display !== 'none') {
+                    el.style.display = 'none';
+                    el.style.visibility = 'hidden';
+                    el.style.height = '0';
+                    el.style.overflow = 'hidden';
+                    el.style.margin = '0';
+                    el.style.padding = '0';
+                    el.setAttribute('data-hidden-by-script', 'true');
+                    elementsHidden++;
+                  }
+                } catch (e) {
+                  console.warn('要素スタイル変更エラー:', e);
+                }
+              }
+            });
+          }
+        });
+      } catch (e) {
+        console.warn('見出し後要素処理エラー:', e);
+      }
+      
+      // クラスセレクタによる非表示化
+      classSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => {
+            try {
+              if (el.style && el.style.display !== 'none') {
+                el.style.display = 'none';
+                el.style.visibility = 'hidden';
+                el.style.height = '0';
+                el.style.overflow = 'hidden';
+                el.setAttribute('data-hidden-by-script', 'true');
+                elementsHidden++;
+              }
+            } catch (e) {
+              console.warn(\`要素スタイル変更エラー (\${selector}):\`, e);
+            }
+          });
+        } catch (e) {
+          // セレクタが無効な場合はスキップ
+          console.warn(\`セレクタエラー (\${selector}):\`, e);
+        }
+      });
+      
+      // 方法D: セレクタを含む要素を検索
+      try {
+        document.querySelectorAll('select, .ant-select').forEach(select => {
+          try {
+            // セレクタの親要素をたどる
+            let parent = select.parentElement;
+            for (let i = 0; i < 4 && parent; i++) { // 最大4階層まで遡る
+              if (
+                containsYearMonthText(parent) || 
+                (parent.querySelector('label') && containsYearMonthText(parent.querySelector('label')))
+              ) {
+                // 年度・月を含む親要素を見つけた場合、その要素を非表示
+                if (parent.style && parent.style.display !== 'none') {
+                  parent.style.display = 'none';
+                  parent.style.visibility = 'hidden';
+                  parent.style.height = '0';
+                  parent.style.overflow = 'hidden';
+                  parent.setAttribute('data-hidden-by-script', 'true');
+                  elementsHidden++;
+                  
+                  // もう一段階上の親も確認（コンテナの可能性）
+                  if (parent.parentElement) {
+                    try {
+                      // 兄弟要素に「更新」ボタンなどがあれば、親全体を非表示
+                      if (
+                        parent.parentElement.querySelector('button') || 
+                        Array.from(parent.parentElement.children).length <= 3
+                      ) {
+                        parent.parentElement.style.display = 'none';
+                        parent.parentElement.style.visibility = 'hidden';
+                        parent.parentElement.style.height = '0';
+                        parent.parentElement.style.overflow = 'hidden';
+                        parent.parentElement.setAttribute('data-hidden-by-script', 'true');
+                        elementsHidden++;
+                      }
+                    } catch (e) {
+                      console.warn('親要素処理エラー:', e);
+                    }
+                  }
+                }
+                break;
+              }
+              parent = parent.parentElement;
+            }
+          } catch (e) {
+            console.warn('セレクタ処理エラー:', e);
+          }
+        });
+      } catch (e) {
+        console.warn('セレクタ検索エラー:', e);
+      }
+      
+      // 方法E: 「年度」「月」ラベルを持つ要素を検索
+      try {
+        document.querySelectorAll('label').forEach(label => {
+          try {
+            if (
+              label.textContent && (
+                label.textContent.includes('年度') || 
+                label.textContent.includes('月')
+              )
+            ) {
+              // ラベルの親要素を最大3階層まで遡り、適切なコンテナを非表示
+              let parent = label.parentElement;
+              for (let i = 0; i < 3 && parent; i++) {
+                if (parent.style && parent.style.display !== 'none') {
+                  parent.style.display = 'none';
+                  parent.style.visibility = 'hidden';
+                  parent.style.height = '0';
+                  parent.style.overflow = 'hidden';
+                  parent.setAttribute('data-hidden-by-script', 'true');
+                  elementsHidden++;
+                  
+                  // コンテナが見つかった場合は終了
+                  if (
+                    parent.classList && (
+                      parent.classList.contains('container') || 
+                      parent.classList.contains('section') || 
+                      parent.classList.contains('filterSection')
+                    )
+                  ) {
+                    break;
+                  }
+                }
+                parent = parent.parentElement;
+              }
+            }
+          } catch (e) {
+            console.warn('ラベル処理エラー:', e);
+          }
+        });
+      } catch (e) {
+        console.warn('ラベル検索エラー:', e);
+      }
+
+      // 方法F: div要素で年度・月の単語を含むものを検索
+      try {
+        document.querySelectorAll('div').forEach(div => {
+          try {
+            if (
+              div.style && 
+              div.style.display !== 'none' && 
+              containsYearMonthText(div) && 
+              // タブ関連要素は除外
+              !(div.querySelector && div.querySelector('.ant-tabs')) && 
+              !(div.classList && div.classList.contains('ant-tabs-content')) && 
+              !(div.classList && div.classList.contains('tabsContainer')) && 
+              !(div.classList && div.classList.contains('monthly-tab'))
+            ) {
+              div.style.display = 'none';
+              div.style.visibility = 'hidden';
+              div.style.height = '0';
+              div.style.overflow = 'hidden';
+              div.setAttribute('data-hidden-by-script', 'true');
+              elementsHidden++;
+            }
+          } catch (e) {
+            // 個別の要素処理中のエラーは無視（すべてのdiv要素に対して処理するため）
+          }
+        });
+      } catch (e) {
+        console.warn('div検索エラー:', e);
+      }
+      
+      // 3. タブエリアは確実に表示
+      const tabSelectors = [
+        '.monthly-tabs-area',
+        '.monthly-tab',
+        '.tabsContainer',
+        '.tabs-container',
+        '.nav.nav-tabs',
+        '.ant-tabs',
+        '.ant-tabs-content',
+        '.ant-tabs-nav',
+        '.ant-tabs-tab',
+        '.ant-tabs-tabpane',
+        '[data-tab-container="true"]',
+        '[data-role="monthly-tabs"]',
+        '[data-tab-content]',
+        '[role="tablist"]',
+        '[role="tab"]',
+        '[role="tabpanel"]',
+        '.tab-content',
+        '.tab-pane',
+        '#monthly-report-tabs',
+        '#secure-tabs-area'
+      ];
+      
+      try {
+        tabSelectors.forEach(selector => {
+          try {
+            document.querySelectorAll(selector).forEach(el => {
+              if (el instanceof HTMLElement) {
+                el.style.display = '';
+                el.style.visibility = 'visible';
+                el.style.opacity = '1';
+                el.style.height = 'auto';
+                el.style.overflow = 'visible';
+                el.removeAttribute('data-hidden-by-script');
+                
+                // タブの表示モードを適切に設定
+                if (selector.includes('ant-tabs') || 
+                    selector.includes('tabs-container') || 
+                    selector.includes('tabsContainer')) {
+                  el.style.display = 'block';
+                } else if (selector === '.nav.nav-tabs' || 
+                           selector === '[role="tablist"]') {
+                  el.style.display = 'flex';
+                } else if (selector.includes('[role="tab"]') || 
+                           selector.includes('ant-tabs-tab')) {
+                  el.style.display = 'inline-block';
+                }
+                
+                // アクティブなタブパネルを表示
+                if ((selector.includes('tabpane') || 
+                     selector.includes('tab-pane') || 
+                     selector === '[role="tabpanel"]') && 
+                    el.classList.contains('active')) {
+                  el.style.display = 'block';
+                }
+              }
+            });
+          } catch (e) {
+            console.warn(\`タブセレクタエラー (\${selector}):\`, e);
+          }
+        });
+      } catch (e) {
+        console.warn('タブ表示処理エラー:', e);
+      }
+
+      // 4. 非表示にした要素があるか確認
+      if (executionCount % 10 === 0) {
+        if (elementsHidden > 0) {
+          console.log(\`年度・月表示の非表示化完了: \${elementsHidden}個の要素を非表示にしました\`);
+        } else {
+          console.log('年度・月表示が見つかりませんでした');
+        }
+      }
+      
+      return elementsHidden > 0;
+    } catch (e) {
+      console.error('非表示処理中に重大なエラーが発生しました:', e);
+      return false;
+    }
+  }
+  
+  // ページロード時に実行
+  try {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', forceHideYearMonth);
+    } else {
+      forceHideYearMonth();
+    }
+    
+    // 少し遅延して複数回実行（非同期読み込みのための対策）
+    setTimeout(forceHideYearMonth, 500);
+    setTimeout(forceHideYearMonth, 1000);
+    setTimeout(forceHideYearMonth, 2000);
+  } catch (e) {
+    console.error('初期実行中にエラーが発生しました:', e);
+  }
+  
+  // MutationObserverで継続的に監視（エラーハンドリング強化）
+  try {
+    const observer = new MutationObserver((mutations) => {
+      try {
+        let shouldCheck = false;
+        
+        // DOM変更を確認
+        for (const mutation of mutations) {
+          if (
+            mutation.type === 'childList' || 
+            (mutation.type === 'attributes' && 
+             mutation.attributeName && 
+             ['class', 'style'].includes(mutation.attributeName))
+          ) {
+            shouldCheck = true;
+            break;
+          }
+        }
+        
+        if (shouldCheck) {
+          forceHideYearMonth();
+        }
+      } catch (e) {
+        console.warn('MutationObserverコールバックエラー:', e);
+      }
+    });
+    
+    // bodyが存在することを確認してから監視
+    if (document.body) {
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-hidden-by-script']
+      });
+      window._yearMonthObservers.push(observer);
+      console.log('DOM監視を開始しました');
+    } else {
+      console.warn('body要素が見つからないため、監視を開始できません');
+      
+      // bodyが後から読み込まれる場合に対応
+      const bodyObserver = new MutationObserver(() => {
+        if (document.body) {
+          try {
+            observer.observe(document.body, { 
+              childList: true, 
+              subtree: true,
+              attributes: true,
+              attributeFilter: ['class', 'style', 'data-hidden-by-script']
+            });
+            window._yearMonthObservers.push(observer);
+            console.log('遅延DOM監視を開始しました');
+            bodyObserver.disconnect();
+          } catch (e) {
+            console.warn('遅延DOM監視開始エラー:', e);
+          }
+        }
+      });
+      
+      // documentを監視してbodyの追加を検出
+      bodyObserver.observe(document.documentElement, { childList: true });
+      window._yearMonthObservers.push(bodyObserver);
+    }
+  } catch (e) {
+    console.error('MutationObserver初期化エラー:', e);
+  }
+  
+  // ページ遷移の検出（SPAの場合）
+  try {
+    let lastUrl = location.href;
+    const urlObserver = new MutationObserver(() => {
+      try {
+        const url = location.href;
+        if (url !== lastUrl) {
+          lastUrl = url;
+          console.log('ページ遷移を検出しました - 年度・月表示の非表示化を再実行');
+          setTimeout(forceHideYearMonth, 100);
+        }
+      } catch (e) {
+        console.warn('URL変更検出エラー:', e);
+      }
+    });
+    
+    urlObserver.observe(document, { subtree: true, childList: true });
+    window._yearMonthObservers.push(urlObserver);
+  } catch (e) {
+    console.error('URL監視エラー:', e);
+  }
+
+  // 定期的に実行（非同期読み込みや動的更新に対応）
+  const intervalId = setInterval(() => {
+    try {
+      forceHideYearMonth();
+    } catch (e) {
+      console.warn('定期実行エラー:', e);
+    }
+  }, 1000);
+  
+  // クリーンアップ関数を定義
+  window._cleanupYearMonthHider = function() {
+    try {
+      clearInterval(intervalId);
+      stopExistingObservers();
+      console.log('年度・月表示の非表示化スクリプトを停止しました');
+    } catch (e) {
+      console.error('クリーンアップエラー:', e);
+    }
+  };
+
+  // グローバル関数として公開
+  window.forceHideYearMonth = forceHideYearMonth;
+  
+  console.log('年度・月表示の継続的な監視を開始しました（最適化版）');
+})();`;
+
+// CSS for hiding year/month elements
+const yearMonthHiderCSS = `/* 月次報告の年度/月選択部分を非表示にするCSS（最適化版） */
+
+/* セレクタ指定による非表示 */
+.yearMonthDisplay,
+.yearMonthSection,
+.filterSection,
+.year-month-selector,
+.year-selector,
+.month-selector,
+[class*="yearMonth"],
+[class*="YearMonth"],
+[class*="Year-Month"],
+[class*="year-month"],
+[class*="filter"]:not(.tabsContainer):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"]),
+#yearSelector,
+#monthSelector,
+#dateFilter,
+[id*="filter"]:not([id*="tab"]),
+[id*="selector"]:not([id*="tab"]),
+[id*="year"]:not([id*="tab"]),
+[id*="month"]:not([id*="tab"]) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+}
+
+/* 見出しの直後の要素を非表示（年度/月選択部分である可能性が高い） */
+h1.title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),
+h2.title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]),
+.page-title + div:not(.tabsContainer):not(.ant-tabs):not([class*="tab"]) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+/* タブは確実に表示するためのCSS */
+.monthly-tabs-area,
+.monthly-tab,
+.tabsContainer,
+.tabs-container,
+.nav.nav-tabs,
+.ant-tabs,
+.ant-tabs-content,
+.ant-tabs-nav,
+.ant-tabs-tab,
+.ant-tabs-tabpane,
+[data-tab-container="true"],
+[data-role="monthly-tabs"],
+[data-tab-content],
+[role="tablist"],
+[role="tab"],
+[role="tabpanel"],
+.tab-content,
+.tab-pane,
+#monthly-report-tabs,
+#secure-tabs-area {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  overflow: visible !important;
+  margin: initial !important;
+  padding: initial !important;
+}
+
+/* 特定のタブスタイルを修正 */
+.nav.nav-tabs,
+[role="tablist"] {
+  display: flex !important;
+}
+
+[role="tab"],
+.ant-tabs-tab {
+  display: inline-block !important;
+}
+
+/* アクティブなタブパネルの表示 */
+.tab-pane.active,
+.ant-tabs-tabpane-active,
+[role="tabpanel"][aria-hidden="false"] {
+  display: block !important;
+}`;
+
+// 1. スタンドアロンスクリプトの生成
+function createStandaloneScript() {
+  const filePath = path.join(outputDir, 'year-month-hider-standalone.js');
+  fs.writeFileSync(filePath, yearMonthHiderScript);
+  console.log(`スタンドアロンスクリプトを生成しました: ${filePath}`);
+}
+
+// 2. ブラウザコンソール用注入スクリプトの生成
+function createInjectionScript() {
+  const injectionScript = `// 年度・月表示の非表示化スクリプト（ブラウザコンソール用）
+// ブラウザのコンソールに下記をコピー＆ペーストして実行してください
+(function() {
+  // CSSを挿入
+  const style = document.createElement('style');
+  style.textContent = \`${yearMonthHiderCSS}\`;
+  document.head.appendChild(style);
+  console.log('年度・月非表示用のCSSを挿入しました');
+  
+  // メインスクリプトを実行
+  ${yearMonthHiderScript}
+})();`;
+
+  const filePath = path.join(outputDir, 'inject-year-month-hider.js');
+  fs.writeFileSync(filePath, injectionScript);
+  console.log(`ブラウザコンソール用注入スクリプトを生成しました: ${filePath}`);
+}
+
+// 3. ブックマークレットの生成
+function createBookmarklet() {
+  // ブックマークレット用に最適化（CSSとJSを統合）
+// 以下をブックマークのURLとして保存してください
+javascript:(function(){
+  // CSSを挿入
+  const style = document.createElement('style');
+  style.textContent = \`${yearMonthHiderCSS}\`;
+  document.head.appendChild(style);
+  
+  // メインスクリプトを実行
+  ${yearMonthHiderScript.replace(/console\.log\([^)]+\);/g, '').replace(/\s+/g, ' ')}
+})();`;
+
+  // ブックマークレット形式に変換
+  function convertToBookmarklet(script) {
+    return `javascript:(function(){${script
+      .replace(/\/\/ .*?\\n/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\\s*\\n\\s*/g, ' ')
+      .replace(/\\s+/g, ' ')
+      .replace(/console\.log\([^)]+\);/g, '')
+      .replace(/console\.warn\([^)]+\);/g, '')
+      .replace(/console\.error\([^)]+\);/g, '')
+    }})()`;
+  }
+
+  
+  // ブックマークレットとその使用方法を記述
+// 
+// 使用方法:
+// 1. 以下のコードをコピーします（javascript:で始まる部分すべて）
+// 2. ブラウザのブックマークに新規ブックマークを作成します
+// 3. 名前を「年度・月表示を非表示」などにし、URLの代わりに下記コードを貼り付けます
+// 4. 月次報告画面を開いたら、このブックマークをクリックして実行します
+//
+${rawBookmarklet}`;
+
+  console.log(`ブックマークレットを生成しました: ${filePath}`);
+}
+
+// 4. Chrome拡張機能の生成
+function createChromeExtension() {
+  // manifest.json
+  const manifest = {
+    "manifest_version": 3,
+    "name": "年度・月表示非表示化",
+    "version": "1.0",
+    "description": "月次報告画面の年度・月表示を非表示にする拡張機能",
+    "icons": {
+      "48": "icon48.png",
+      "128": "icon128.png"
+    },
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"],
+        "css": ["styles.css"],
+        "run_at": "document_end"
+      }
+    ],
+    "permissions": ["activeTab"]
+  };
+
+  // content.js - 拡張機能用のコンテンツスクリプト
+  const contentScript = `// 年度・月表示の非表示化（Chrome拡張機能用）
+${yearMonthHiderScript.replace(/console\.log/g, '// console.log').replace(/console\.warn/g, '// console.warn').replace(/console\.error/g, '// console.error')}`;
+
+  // icon48.png（単純な色付きの正方形アイコンをBase64で表現）
+  const icon48Base64 = `
+  iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAAB3RJTUUH5gULDAkv9ZdD/AAAAB9JREFUaN7t08ENACAMwDD0H52/8AMJW5RuwzpJZwEAAIkXG0QAjDr0BbEAAAAASUVORK5CYII=`;
+
+  // icon128.png（単純な色付きの正方形アイコンをBase64で表現）
+  const icon128Base64 = `
+  iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAAB3RJTUUH5gULDAkv9ZdD/AAAACNJREFUWNM9wQENAAAAwKD3T20ON6AAAAAAAAAAAAAAAAAAAACAfwMxUAABOip3iQAAAABJRU5ErkJggg==`;
+
+  // Base64デコード関数
+  function base64ToBuffer(base64) {
+    const base64String = base64.replace(/\s/g, '');
+    const buffer = Buffer.from(base64String, 'base64');
+    return buffer;
+  }
+
+  // 拡張機能ファイルの書き込み
+  fs.writeFileSync(path.join(extensionDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  fs.writeFileSync(path.join(extensionDir, 'content.js'), contentScript);
+  fs.writeFileSync(path.join(extensionDir, 'styles.css'), yearMonthHiderCSS);
+  fs.writeFileSync(path.join(extensionDir, 'icon48.png'), base64ToBuffer(icon48Base64));
+  fs.writeFileSync(path.join(extensionDir, 'icon128.png'), base64ToBuffer(icon128Base64));
+
+  // README.md
+  const readme = `# 年度・月表示非表示化拡張機能
+
+この Chrome 拡張機能は、月次報告画面の年度・月表示を非表示にする機能を提供します。
+
+## インストール方法
+
+1. Chromeで「chrome://extensions/」を開きます
+2. 右上の「デベロッパーモード」をオンにします
+3. 「パッケージ化されていない拡張機能を読み込む」をクリックします
+4. この拡張機能のフォルダを選択します
+
+## 特徴
+
+- 月次報告画面を自動検出
+- 年度・月表示部分を完全に非表示
+- タブ機能は維持
+- エラーハンドリング機能搭載
+- SPAにも対応
+
+## トラブルシューティング
+
+問題が発生した場合は、拡張機能を無効化して再度有効化してみてください。
+`;
+
+  fs.writeFileSync(path.join(extensionDir, 'README.md'), readme);
+  console.log(`Chrome拡張機能を生成しました: ${extensionDir}`);
+}
+
+// 5. デモページの生成
+function createHtmlSample() {
+  const demoHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>年度・月表示非表示化デモ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .demo-section {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin-bottom: 20px;
+      background-color: #f9f9f9;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .tab.active {
+      border: 1px solid #ccc;
+      border-bottom-color: white;
+      background-color: white;
+      margin-bottom: -1px;
+    }
+    .tab-content {
+      display: none;
+      padding: 15px;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-top: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .yearMonthSection {
+      padding: 10px;
+      margin: 15px 0;
+      background-color: #eaeaea;
+      border: 1px solid #ddd;
+    }
+    button {
+      padding: 6px 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    select {
+      padding: 5px;
+      margin: 5px;
+    }
+    .code-block {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 15px;
+      overflow-x: auto;
+      margin: 15px 0;
+    }
+    .install-section {
+      margin: 30px 0;
+    }
+      display: inline-block;
+      padding: 8px 15px;
+      background-color: #2196F3;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+  </style>
+  <!-- 年度・月表示非表示化用のCSS -->
+  <style id="year-month-hider-css">
+${yearMonthHiderCSS}
+  </style>
+</head>
+<body>
+  <h1>年度・月表示非表示化デモ</h1>
+  
+  <div class="demo-section">
+    <h2 class="title">月次報告</h2>
+    
+    <!-- 年度・月表示部分 (これが非表示になる) -->
+    <div class="yearMonthSection">
+      <label for="year">年度:</label>
+      <select id="year">
+        <option>2023年度</option>
+        <option>2024年度</option>
+        <option>2025年度</option>
+      </select>
+      
+      <label for="month">月:</label>
+      <select id="month">
+        <option>1月</option>
+        <option>2月</option>
+        <option>3月</option>
+        <option>4月</option>
+        <option>5月</option>
+        <option>6月</option>
+      </select>
+      
+      <button>表示更新</button>
+    </div>
+    
+    <!-- タブ部分 (これは表示されたまま) -->
+    <div class="tabsContainer">
+      <div class="tabs" role="tablist">
+        <div class="tab active" role="tab" aria-selected="true">社員一覧</div>
+        <div class="tab" role="tab" aria-selected="false">月次サマリー</div>
+        <div class="tab" role="tab" aria-selected="false">詳細情報</div>
+      </div>
+      
+      <div class="tab-content active" role="tabpanel">
+        <p>社員一覧タブの内容がここに表示されます。</p>
+      </div>
+      <div class="tab-content" role="tabpanel">
+        <p>月次サマリータブの内容がここに表示されます。</p>
+      </div>
+      <div class="tab-content" role="tabpanel">
+        <p>詳細情報タブの内容がここに表示されます。</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="install-section">
+    <h2>年度・月表示非表示化の使用方法</h2>
+    
+    <h3>1. スクリプトの有効化/無効化</h3>
+    <button id="toggle-script">スクリプトを無効化</button>
+    <p id="script-status">スクリプトは現在有効です</p>
+    
+    <h3>2. ブックマークレットのテスト</h3>
+    <p>このリンクをブックマークしてテストできます。</p>
+    
+    <h3>3. スクリプトのコード</h3>
+    <div class="code-block">
+      <pre><code id="script-code">// スクリプトをここにコピー＆ペーストする
+${yearMonthHiderScript.slice(0, 500)}...</code></pre>
+    </div>
+  </div>
+  
+  <script>
+    // タブ機能の実装
+    document.querySelectorAll('.tab').forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        // 現在のアクティブタブを非アクティブに
+        document.querySelector('.tab.active').classList.remove('active');
+        document.querySelector('.tab-content.active').classList.remove('active');
+        
+        // クリックされたタブをアクティブに
+        tab.classList.add('active');
+        document.querySelectorAll('.tab-content')[index].classList.add('active');
+      });
+    });
+    
+    // スクリプト有効/無効切り替え
+    let scriptEnabled = true;
+    const toggleButton = document.getElementById('toggle-script');
+    const scriptStatus = document.getElementById('script-status');
+    const yearMonthHiderCSS = document.getElementById('year-month-hider-css');
+    
+    toggleButton.addEventListener('click', () => {
+      scriptEnabled = !scriptEnabled;
+      
+      if (scriptEnabled) {
+        yearMonthHiderCSS.removeAttribute('disabled');
+        toggleButton.textContent = 'スクリプトを無効化';
+        scriptStatus.textContent = 'スクリプトは現在有効です';
+      } else {
+        yearMonthHiderCSS.setAttribute('disabled', 'disabled');
+        toggleButton.textContent = 'スクリプトを有効化';
+        scriptStatus.textContent = 'スクリプトは現在無効です';
+      }
+    });
+  </script>
+  
+  <!-- 年度・月表示非表示化スクリプト -->
+  <script>
+${yearMonthHiderScript}
+  </script>
+</body>
+</html>`;
+
+  const filePath = path.join(outputDir, 'year-month-hider-demo.html');
+  fs.writeFileSync(filePath, demoHtml);
+  console.log(`デモページを生成しました: ${filePath}`);
+}
+
+// 6. READMEファイルの生成
+function createReadme() {
+  const readme = `# 年度・月表示非表示化ソリューション
+
+このディレクトリには、月次報告画面の年度・月表示を非表示にするためのさまざまな実装が含まれています。
+
+## 概要
+
+このソリューションは月次報告画面で年度・月選択部分を完全に非表示にし、タブ機能のみを表示させるものです。
+複数の展開方法に対応し、ウェブシステムの改修なしでも使用できます。
+
+## 同梱ファイル
+
+1. \`year-month-hider-standalone.js\` - スタンドアロンスクリプト
+   - HTMLに直接埋め込むか、外部スクリプトとして読み込むことができます
+
+2. \`inject-year-month-hider.js\` - ブラウザコンソール用注入スクリプト
+   - ブラウザのデベロッパーツールのコンソールに貼り付けて実行します
+
+   - ブラウザのブックマークとして保存し、クリックで実行できます
+
+4. \`year-month-hider-extension/\` - Chrome拡張機能
+   - Chromeブラウザに拡張機能としてインストールできます
+
+5. \`year-month-hider-demo.html\` - デモページ
+   - スクリプトの動作確認用のHTMLサンプルです
+
+## 使用方法
+
+### 1. スタンドアロンスクリプト
+
+\`\`\`html
+<script src="path/to/year-month-hider-standalone.js"></script>
+\`\`\`
+
+### 2. ブラウザコンソール用
+
+デベロッパーツールを開き（F12キー）、コンソールタブで\`inject-year-month-hider.js\`の内容を貼り付けて実行します。
+
+### 3. ブックマークレット
+
+月次報告画面を開いたら、保存したブックマークをクリックします。
+
+### 4. Chrome拡張機能
+
+1. Chromeで「chrome://extensions/」を開きます
+2. 「デベロッパーモード」をオンにします
+3. 「パッケージ化されていない拡張機能を読み込む」をクリックします
+4. \`year-month-hider-extension\`フォルダを選択します
+
+### 5. デモ
+
+\`year-month-hider-demo.html\`をブラウザで開き、スクリプトの動作を確認できます。
+
+## 特徴
+
+- 月次報告画面の自動検出
+- 複数の検出方法による堅牢な要素の非表示化
+- タブ機能の維持
+- 柔軟な展開オプション
+- SPAとの互換性
+- 包括的なエラーハンドリング
+
+## 生成方法
+
+これらのファイルは \`year-month-hider-generator.js\` スクリプトにより自動生成されています。
+生成スクリプトを実行するには:
+
+\`\`\`
+node year-month-hider-generator.js
+\`\`\`
+
+## カスタマイズ
+
+スクリプトの動作をカスタマイズする場合は、生成スクリプトの \`yearMonthHiderScript\` 変数と \`yearMonthHiderCSS\` 変数を編集し、再生成してください。
+`;
+
+  const filePath = path.join(outputDir, 'README.md');
+  fs.writeFileSync(filePath, readme);
+  console.log(`READMEファイルを生成しました: ${filePath}`);
+}
+
+// 各成果物を生成
+createStandaloneScript();
+createInjectionScript();
+createBookmarklet();
+createChromeExtension();
+createHtmlSample();
+createReadme();
+
+console.log('\n年度・月表示非表示化ソリューションの生成が完了しました！');
+console.log(`出力ディレクトリ: ${outputDir}`);
+console.log('\n使用方法については、生成されたREADME.mdファイルを参照してください。');#!/usr/bin/env node
+
+/**
+ * 年度・月非表示スクリプト生成ツール
+ * 
+ * 使用方法:
+ * 1. このスクリプトをyear-month-hider.jsとして保存
+ * 2. 実行権限付与: `chmod +x year-month-hider.js`
+ * 3. 実行: `./year-month-hider.js`
+ */
+
+// 必要なモジュール
+const fs = require('fs');
+const path = require('path');
+
+// スクリプト本体
+const yearMonthHiderScript = `
+/**
+ * 年度と月の選択項目を非表示にし、タブは表示するスクリプト
+ * 複数のアプローチを組み合わせた堅牢な実装
+ */
+(function() {
+  // デバッグ出力設定
+  const DEBUG = false;
+  
+  // デバッグログ用関数
+  function log(message) {
+    if (DEBUG) {
+      console.log(\`[年度・月非表示] \${message}\`);
+    }
+  }
+  
+  log('スクリプト実行開始');
+  
+  // 年度・月表示を非表示にする関数
+  function hideYearMonthElements() {
+    // 非表示にした要素のカウント
+    let elementsHidden = 0;
+    
+    // 方法A: クラスセレクタによる検索
+    const classSelectors = [
+      '.yearMonthDisplay',
+      '.yearMonthSection',
+      '.filterSection',
+      '.year-month-selector',
+      '.year-selector',
+      '.month-selector',
+      '[class*="yearMonth"]',
+      '[class*="YearMonth"]',
+      '[class*="Year-Month"]',
+      '[class*="year-month"]',
+      '[class*="filter"]:not(.tabsContainer):not(.tabs-container):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"]):not([class*="tab-content"])'
+    ];
+    
+    classSelectors.forEach(selector => {
+      try {
+        document.querySelectorAll(selector).forEach(el => {
+          try {
+            if (el.style.display !== 'none') {
+              el.style.display = 'none';
+              el.style.visibility = 'hidden';
+              el.style.height = '0';
+              el.style.overflow = 'hidden';
+              el.setAttribute('data-hidden-by-script', 'true');
+              elementsHidden++;
+            }
+          } catch (e) {
+            // 要素操作エラーを無視
+          }
+        });
+      } catch (e) {
+        // セレクタエラーを無視
+      }
+    });
+    
+    // 方法B: 特定のコンテナを対象
+    // 提示されたHTMLに一致するセレクタ
+    try {
+      const container = document.querySelector('div[style*="display: flex"][style*="gap: 20px"][style*="background-color: rgb(248, 249, 250)"]');
+      
+      if (container) {
+        container.style.display = 'none';
+        container.style.visibility = 'hidden';
+        container.style.height = '0';
+        container.style.overflow = 'hidden';
+        container.setAttribute('data-hidden-by-script', 'true');
+        elementsHidden++;
+        log('フレックスコンテナを非表示にしました');
+      }
+    } catch (e) {
+      log('コンテナ非表示エラー: ' + e);
+    }
+    
+    // 方法C: 見出しの直後の要素
+    try {
+      const headingElements = document.querySelectorAll('h1, h2');
+      headingElements.forEach(headingEl => {
+        if ((headingEl.textContent || '').includes('月次報告') || (headingEl.textContent || '').includes('月次詳細')) {
+          const nextElements = [];
+          let nextElement = headingEl.nextElementSibling;
+          
+          // 見出しの次の2つの要素を候補に追加
+          for (let i = 0; i < 2 && nextElement; i++) {
+            nextElements.push(nextElement);
+            nextElement = nextElement.nextElementSibling;
+          }
+          
+          // 年度・月を含む要素を非表示
+          nextElements.forEach(el => {
+            if (el && 
+                !el.classList.contains('tabs-container') && 
+                !el.classList.contains('tabsContainer') && 
+                !el.classList.contains('ant-tabs') && 
+                !el.querySelector('[role="tablist"]')) {
+              el.style.display = 'none';
+              el.style.visibility = 'hidden';
+              el.style.height = '0';
+              el.style.overflow = 'hidden';
+              el.setAttribute('data-hidden-by-script', 'true');
+              elementsHidden++;
+            }
+          });
+        }
+      });
+    } catch (e) {
+      log('見出し後要素処理エラー: ' + e);
+    }
+    
+    // 方法D: 年度・月のテキストを含む要素
+    try {
+      function containsYearMonthText(element) {
+        const text = element.textContent || '';
+        return (
+          (text.includes('年度') || text.includes('年')) && 
+          (text.includes('月') || text.match(/\\d+月/))
+        );
+      }
+      
+      document.querySelectorAll('div').forEach(div => {
+        if (containsYearMonthText(div) && 
+            !div.classList.contains('monthly-tab') &&
+            !div.classList.contains('tab-content') &&
+            !div.querySelector('.ant-tabs') &&
+            !div.querySelector('[role="tablist"]')) {
+          div.style.display = 'none';
+          div.style.visibility = 'hidden';
+          div.style.height = '0';
+          div.style.overflow = 'hidden';
+          div.setAttribute('data-hidden-by-script', 'true');
+          elementsHidden++;
+        }
+      });
+    } catch (e) {
+      log('テキスト検索エラー: ' + e);
+    }
+    
+    // 方法E: 特定のラベルとセレクト要素
+    try {
+      // 年度と月のラベルを非表示
+      document.querySelectorAll('label').forEach(label => {
+        if ((label.textContent || '').includes('年度') || (label.textContent || '').includes('月')) {
+          label.style.display = 'none';
+          label.style.visibility = 'hidden';
+          label.setAttribute('data-hidden-by-script', 'true');
+          elementsHidden++;
+          
+          // ラベルに関連するセレクトも非表示
+          const forAttr = label.getAttribute('for');
+          if (forAttr) {
+            const relatedSelect = document.getElementById(forAttr);
+            if (relatedSelect) {
+              relatedSelect.style.display = 'none';
+              relatedSelect.style.visibility = 'hidden';
+              relatedSelect.setAttribute('data-hidden-by-script', 'true');
+              elementsHidden++;
+            }
+          }
+          
+          // 親要素も非表示
+          let parent = label.parentElement;
+          if (parent && !parent.querySelector('[role="tablist"]') && !parent.querySelector('.ant-tabs')) {
+            parent.style.display = 'none';
+            parent.style.visibility = 'hidden';
+            parent.setAttribute('data-hidden-by-script', 'true');
+            elementsHidden++;
+          }
+        }
+      });
+      
+      // 年度と月のセレクトボックスを非表示
+      document.querySelectorAll('select').forEach(select => {
+        if (select.name === 'fiscalYear' || select.name === 'year' || select.name === 'month' ||
+            Array.from(select.options || []).some(opt => (opt.text || '').includes('月') || (opt.text || '').includes('年'))) {
+          select.style.display = 'none';
+          select.style.visibility = 'hidden';
+          select.setAttribute('data-hidden-by-script', 'true');
+          elementsHidden++;
+          
+          // 親要素も非表示
+          let parent = select.parentElement;
+          if (parent && !parent.querySelector('[role="tablist"]') && !parent.querySelector('.ant-tabs')) {
+            parent.style.display = 'none';
+            parent.style.visibility = 'hidden';
+            parent.setAttribute('data-hidden-by-script', 'true');
+            elementsHidden++;
+          }
+        }
+      });
+    } catch (e) {
+      log('ラベル/セレクト処理エラー: ' + e);
+    }
+    
+    log(\`\${elementsHidden}個の要素を非表示にしました\`);
+    return elementsHidden > 0;
+  }
+  
+  // タブを表示するための関数
+  function showTabs() {
+    const tabSelectors = [
+      '.monthly-tabs-area',
+      '.monthly-tab',
+      '.tabsContainer',
+      '.tabs-container',
+      '.nav.nav-tabs',
+      '.nav-item',
+      '.nav-link',
+      '.ant-tabs',
+      '.ant-tabs-content',
+      '.ant-tabs-nav',
+      '.ant-tabs-tab',
+      '.ant-tabs-tabpane',
+      '[data-tab-container="true"]',
+      '[data-role="monthly-tabs"]',
+      '[data-tab-content]',
+      '[role="tablist"]',
+      '[role="tab"]',
+      '[role="tabpanel"]',
+      '.tab-content',
+      '.tab-pane',
+      '#monthly-report-tabs',
+      '#secure-tabs-area'
+    ];
+    
+    tabSelectors.forEach(selector => {
+      try {
+        document.querySelectorAll(selector).forEach(el => {
+          if (el instanceof HTMLElement) {
+            el.style.display = '';
+            el.style.visibility = 'visible';
+            el.style.opacity = '1';
+            el.style.height = 'auto';
+            el.style.overflow = 'visible';
+            el.removeAttribute('data-hidden-by-script');
+            
+            // タブの表示モードを適切に設定
+            if (selector.includes('ant-tabs') || 
+                selector.includes('tabs-container') || 
+                selector.includes('tabsContainer')) {
+              el.style.display = 'block';
+            } else if (selector === '.nav.nav-tabs' || 
+                        selector === '[role="tablist"]') {
+              el.style.display = 'flex';
+            } else if (selector.includes('[role="tab"]') || 
+                        selector.includes('ant-tabs-tab')) {
+              el.style.display = 'inline-block';
+            }
+            
+            // アクティブなタブパネルを表示
+            if ((selector.includes('tabpane') || 
+                 selector.includes('tab-pane') || 
+                 selector === '[role="tabpanel"]') && 
+                el.classList.contains('active')) {
+              el.style.display = 'block';
+            }
+          }
+        });
+      } catch (e) {
+        // タブセレクタエラーは無視
+      }
+    });
+    
+    log('タブの表示を確保しました');
+  }
+  
+  // 非表示状態を維持するための監視を設定
+  function setupVisibilityMaintenance() {
+    // 既にwindow._yearMonthObserversが設定されていれば停止
+    if (window._yearMonthObservers && Array.isArray(window._yearMonthObservers)) {
+      window._yearMonthObservers.forEach(observer => {
+        try {
+          if (observer && typeof observer.disconnect === 'function') {
+            observer.disconnect();
+          }
+        } catch (e) {
+          // エラーを無視
+        }
+      });
+    }
+    
+    // 監視対象の配列を初期化
+    window._yearMonthObservers = [];
+    
+    // MutationObserverでDOMの変更を監視
+    try {
+      const observer = new MutationObserver((mutations) => {
+        let shouldCheck = false;
+        
+        for (const mutation of mutations) {
+          if (mutation.type === 'childList' || 
+              (mutation.type === 'attributes' && 
+               mutation.attributeName && 
+               ['class', 'style'].includes(mutation.attributeName))) {
+            shouldCheck = true;
+            break;
+          }
+        }
+        
+        if (shouldCheck) {
+          hideYearMonthElements();
+          showTabs();
+        }
+      });
+      
+      // body要素の監視を開始
+      if (document.body) {
+        observer.observe(document.body, { 
+          childList: true, 
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'style', 'data-hidden-by-script']
+        });
+        window._yearMonthObservers.push(observer);
+        log('DOM変更の監視を開始しました');
+      }
+    } catch (e) {
+      log('監視設定エラー: ' + e);
+    }
+    
+    // 定期的な実行のためのインターバル
+    const intervalId = setInterval(() => {
+      hideYearMonthElements();
+      showTabs();
+    }, 1000);
+    
+    // グローバル変数に保存
+    window._yearMonthHiderInterval = intervalId;
+    
+    // クリーンアップ関数
+    window._cleanupYearMonthHider = function() {
+      // インターバルを停止
+      if (window._yearMonthHiderInterval) {
+        clearInterval(window._yearMonthHiderInterval);
+      }
+      
+      // 監視を停止
+      if (window._yearMonthObservers && Array.isArray(window._yearMonthObservers)) {
+        window._yearMonthObservers.forEach(observer => {
+          try {
+            if (observer && typeof observer.disconnect === 'function') {
+              observer.disconnect();
+            }
+          } catch (e) {
+            // エラーを無視
+          }
+        });
+        window._yearMonthObservers = [];
+      }
+      
+      log('年度・月非表示処理を停止しました');
+    };
+  }
+  
+  // 非表示用のCSSを追加
+  function addHidingStyles() {
+    // すでに追加済みかチェック
+    if (document.getElementById('year-month-hider-styles')) {
+      return;
+    }
+    
+    const style = document.createElement('style');
+    style.id = 'year-month-hider-styles';
+    style.textContent = \`
+      /* 年度・月セレクタ関連の要素を強制的に非表示 */
+      .yearMonthDisplay,
+      .yearMonthSection,
+      .filterSection,
+      .year-month-selector,
+      .year-selector,
+      .month-selector,
+      [class*="yearMonth"],
+      [class*="YearMonth"],
+      [class*="Year-Month"],
+      [class*="year-month"],
+      [class*="filter"]:not(.tabsContainer):not(.tabs-container):not(.ant-tabs):not(.ant-tabs-content):not(.ant-tabs-nav):not([class*="tabContent"]):not([class*="tab-content"]) {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+      }
+      
+      /* 月次報告コンテナのフィルタ部分を強制的に非表示 */
+      .monthly-report-container > div:nth-child(2):not(.tabs-container):not(.ant-tabs):not(.tabsContainer):not(.tab-content):not([role="tablist"]) {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+      }
+      
+      /* 年月セレクタとそのコンテナを非表示 */
+      select[name="year"],
+      select[name="month"],
+      select[name="fiscalYear"],
+      select[id*="year"],
+      select[id*="month"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      
+      /* タブ部分は確実に表示 */
+      .monthly-tabs-area,
+      .monthly-tab,
+      .tabsContainer,
+      .tabs-container,
+      .nav.nav-tabs,
+      .ant-tabs,
+      .ant-tabs-content,
+      .ant-tabs-nav,
+      .ant-tabs-tab,
+      .ant-tabs-tabpane,
+      [data-tab-container="true"],
+      [data-role="monthly-tabs"],
+      [data-tab-content],
+      [role="tablist"],
+      [role="tab"],
+      [role="tabpanel"],
+      .tab-content,
+      .tab-pane,
+      #monthly-report-tabs,
+      #secure-tabs-area {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      
+      /* タブリスト特有の表示スタイル */
+      .nav.nav-tabs,
+      [role="tablist"] {
+        display: flex !important;
+      }
+      
+      /* タブ要素特有の表示スタイル */
+      .nav-item,
+      .nav-link,
+      [role="tab"],
+      .ant-tabs-tab {
+        display: inline-block !important;
+      }
+      
+      /* アクティブなタブパネルは必ず表示 */
+      .tab-pane.active,
+      .ant-tabs-tabpane-active,
+      [role="tabpanel"][aria-selected="true"],
+      [role="tabpanel"].active {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+    \`;
+    
+    document.head.appendChild(style);
+    log('非表示用スタイルを追加しました');
+  }
+  
+  // メイン実行関数
+  function execute() {
+    log('年度・月非表示スクリプト実行中...');
+    
+    // CSSによる非表示
+    addHidingStyles();
+    
+    // JSによる非表示
+    hideYearMonthElements();
+    
+    // タブ表示の確保
+    showTabs();
+    
+    // 継続的な監視を設定
+    setupVisibilityMaintenance();
+    
+    log('年度・月非表示処理が完了しました');
+  }
+  
+  // DOMの準備ができたら実行
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', execute);
+  } else {
+    execute();
+  }
+  
+  // ページロード完了時にも実行
+  window.addEventListener('load', execute);
+  
+  // グローバル関数として公開
+  window.hideYearMonthDisplay = execute;
+  
+  // すぐに実行
+  execute();
+})();
+`;
+
+// ブックマークレット形式に変換
+function convertToBookmarklet(script) {
+  // コメントやログ出力を削除してコンパクトに
+  return `javascript:(function(){${script
+    .replace(/\s+/g, ' ')
+    .replace(/\/\*.*?\*\//g, '')
+    .replace(/\/\/.*/g, '')
+    .replace(/console\.log\([^)]*\);/g, '')
+    .replace(/log\([^)]*\);/g, '')
+    .replace(/\bDEBUG\s*=\s*true\b/, 'DEBUG=false')
+  }}())`;
+}
+
+// インジェクション用のJavaScriptファイルを作成
+function createInjectionScript() {
+  const injectionScript = `
+// 年度・月非表示スクリプトインジェクタ
+const script = document.createElement('script');
+script.textContent = \`${yearMonthHiderScript}\`;
+document.head.appendChild(script);
+console.log('年度・月非表示スクリプトを注入しました');
+  `;
+  
+  // ファイルを保存
+  fs.writeFileSync('inject-year-month-hider.js', injectionScript);
+  console.log('インジェクションスクリプトを生成しました: inject-year-month-hider.js');
+}
+
+// ブックマークレットファイルを作成
+function createBookmarklet() {
+}
+
+// Chrome拡張機能の作成
+function createChromeExtension() {
+  // ディレクトリ作成
+  const extDir = 'year-month-hider-extension';
+  if (!fs.existsSync(extDir)) {
+    fs.mkdirSync(extDir);
+  }
+  
+  // マニフェストファイル
+  const manifest = {
+    "manifest_version": 3,
+    "name": "年度・月非表示ツール",
+    "version": "1.0",
+    "description": "月次報告画面の年度・月セレクタを非表示にし、タブは表示します",
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"],
+        "run_at": "document_end"
+      }
+    ]
+  };
+  
+  fs.writeFileSync(
+    path.join(extDir, 'manifest.json'), 
+    JSON.stringify(manifest, null, 2)
+  );
+  
+  // コンテンツスクリプト
+  const contentScript = `
+// 年度・月非表示スクリプトを注入
+const script = document.createElement('script');
+script.textContent = \`${yearMonthHiderScript}\`;
+document.head.appendChild(script);
+console.log('年度・月非表示スクリプトを注入しました');
+  `;
+  
+  fs.writeFileSync(
+    path.join(extDir, 'content.js'),
+    contentScript
+  );
+  
+  console.log('Chrome拡張機能を生成しました: ' + extDir);
+}
+
+// 独立して実行可能なJSファイルを作成
+function createStandaloneScript() {
+  fs.writeFileSync('year-month-hider-standalone.js', yearMonthHiderScript);
+  console.log('単体実行用スクリプトを生成しました: year-month-hider-standalone.js');
+}
+
+// HTML用のテスト実装サンプル
+function createHtmlSample() {
+  const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>年度・月非表示デモ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .demo-section {
+      margin-bottom: 30px;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    
+    h1 {
+      color: #333;
+    }
+    
+    .monthly-report-container {
+      margin-top: 20px;
+    }
+    
+    .tabs-container {
+      margin-top: 20px;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    .tabs-container button {
+      padding: 10px 15px;
+      margin-right: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .tabs-container button.active {
+      border-bottom: 2px solid blue;
+      font-weight: bold;
+    }
+    
+    .tab-content {
+      padding: 20px 0;
+    }
+    
+    .year-month-display {
+      display: flex;
+      gap: 20px;
+      background-color: rgb(248, 249, 250);
+      padding: 10px 15px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>年度・月非表示デモページ</h1>
+  
+  <div class="demo-section">
+    <h2>このデモについて</h2>
+    <p>このページは年度・月表示の非表示スクリプトのデモです。年度・月セレクタが非表示になり、タブは表示されるはずです。</p>
+    <button id="toggle-script">スクリプトを無効化</button>
+  </div>
+  
+  <div class="monthly-report-container">
+    <h1>月次報告</h1>
+    
+    <div class="year-month-display">
+      <div>
+        <label for="fiscalYear">年度:</label>
+        <select id="fiscalYear" name="fiscalYear">
+          <option value="2023">2023年度</option>
+          <option value="2024">2024年度</option>
+          <option value="2025" selected>2025年度</option>
+        </select>
+      </div>
+      
+      <div>
+        <label for="month">月:</label>
+        <select id="month" name="month">
+          <option value="1">1月</option>
+          <option value="2">2月</option>
+          <option value="3">3月</option>
+          <option value="4">4月</option>
+          <option value="5" selected>5月</option>
+          <option value="6">6月</option>
+          <option value="7">7月</option>
+          <option value="8">8月</option>
+          <option value="9">9月</option>
+          <option value="10">10月</option>
+          <option value="11">11月</option>
+          <option value="12">12月</option>
+        </select>
+      </div>
+      
+      <button>更新</button>
+    </div>
+    
+    <div class="tabs-container" id="monthly-report-tabs">
+      <button class="active" data-tab="summary">サマリー</button>
+      <button data-tab="employees">従業員詳細</button>
+      <button data-tab="monthly">月次詳細</button>
+    </div>
+    
+    <div class="tab-content">
+      <div id="summary" style="display:block;">
+        <h3>サマリータブの内容</h3>
+        <p>ここにサマリー情報が表示されます。</p>
+      </div>
+      <div id="employees" style="display:none;">
+        <h3>従業員詳細タブの内容</h3>
+        <p>ここに従業員詳細が表示されます。</p>
+      </div>
+      <div id="monthly" style="display:none;">
+        <h3>月次詳細タブの内容</h3>
+        <p>ここに月次詳細が表示されます。</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // タブ切り替え機能
+    document.querySelectorAll('.tabs-container button').forEach(button => {
+      button.addEventListener('click', () => {
+        // タブボタンの状態を更新
+        document.querySelectorAll('.tabs-container button').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        button.classList.add('active');
+        
+        // タブコンテンツを更新
+        const tabId = button.dataset.tab;
+        document.querySelectorAll('.tab-content > div').forEach(content => {
+          content.style.display = 'none';
+        });
+        document.getElementById(tabId).style.display = 'block';
+      });
+    });
+    
+    // スクリプト切り替えボタン
+    document.getElementById('toggle-script').addEventListener('click', () => {
+      const button = document.getElementById('toggle-script');
+      
+      if (button.textContent === 'スクリプトを無効化') {
+        if (window._cleanupYearMonthHider) {
+          window._cleanupYearMonthHider();
+        }
+        
+        // 非表示になっていた要素を表示
+        document.querySelectorAll('[data-hidden-by-script="true"]').forEach(el => {
+          el.style.display = '';
+          el.style.visibility = '';
+          el.style.height = '';
+          el.style.overflow = '';
+          el.removeAttribute('data-hidden-by-script');
+        });
+        
+        // スタイルを削除
+        const styleEl = document.getElementById('year-month-hider-styles');
+        if (styleEl) {
+          styleEl.remove();
+        }
+        
+        button.textContent = 'スクリプトを有効化';
+      } else {
+        // スクリプトを再実行
+        if (window.hideYearMonthDisplay) {
+          window.hideYearMonthDisplay();
+        }
+        button.textContent = 'スクリプトを無効化';
+      }
+    });
+  </script>
+
+  <!-- 年度・月非表示スクリプト -->
+  <script>
+    ${yearMonthHiderScript}
+  </script>
+</body>
+</html>
+  `;
+  
+  fs.writeFileSync('year-month-hider-demo.html', html);
+  console.log('デモHTML文書を生成しました: year-month-hider-demo.html');
+}
+
+// メイン処理
+function main() {
+  console.log('年度・月非表示スクリプトツールの生成を開始します...');
+  
+  // 各種ファイルを生成
+  createStandaloneScript();
+  createInjectionScript();
+  createBookmarklet();
+  createChromeExtension();
+  createHtmlSample();
+  
+  console.log('\n以下のファイルが生成されました:');
+  console.log('1. year-month-hider-standalone.js - 単体実行用スクリプト');
+  console.log('2. inject-year-month-hider.js - ブラウザコンソールで実行する用');
+  console.log('4. year-month-hider-extension/ - Chrome拡張機能用');
+  console.log('5. year-month-hider-demo.html - デモHTML');
+  
+  console.log('\n使い方:');
+  console.log('◆ ブラウザコンソール:');
+  console.log('  開発者ツール(F12)のコンソールタブで inject-year-month-hider.js の内容をコピペして実行');
+  
+  console.log('\n◆ ブックマークレット:');
+  console.log('  2. ブラウザのブックマークに新規ブックマークを作成');
+  console.log('  3. 名前を「年度・月非表示」などに設定');
+  console.log('  4. URLの代わりにコピーしたコードを貼り付け');
+  console.log('  5. 月次報告画面でブックマークをクリックすると実行されます');
+  
+  console.log('\n◆ Chrome拡張機能:');
+  console.log('  1. Chromeの拡張機能管理ページ(chrome://extensions/)を開く');
+  console.log('  2. 「デベロッパーモード」をONにする');
+  console.log('  3. 「パッケージ化されていない拡張機能を読み込む」をクリック');
+  console.log('  4. year-month-hider-extension フォルダを選択');
+  
+  console.log('\n◆ デモ:');
+  console.log('  year-month-hider-demo.html をブラウザで開くと動作確認ができます');
+}
+
+// 実行
+main();

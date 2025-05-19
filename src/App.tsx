@@ -1,4 +1,3 @@
-// src/App.tsx - 完全版メインコンポーネント
 import React, { useState } from 'react';
 import EmployeeList from './components/EmployeeList';
 import EmployeeDetail from './components/EmployeeDetail';
